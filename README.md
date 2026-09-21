@@ -22,6 +22,14 @@ The same time tools are also available from the wrist via a companion Apple
 Watch app, and a home-screen widget surfaces a glanceable clock without
 opening the app.
 
+## Screen design — Meetings
+
+Timeshifter-style horizontal timeline, not a static overlap table: one row
+per timezone, each row a scrollable strip of hour blocks shaded by time of
+day (night vs. waking hours), all rows sharing one vertical "now" line so
+overlap is read at a glance. A date strip (day-of-week + date, scrollable)
+sits above the rows; the home timezone's row is pinned at top.
+
 ## Setup
 
 Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen).
