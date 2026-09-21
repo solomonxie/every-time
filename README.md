@@ -12,6 +12,11 @@ calculator suggests bedtimes for a target wake-up time based on ~90-minute
 REM sleep cycles instead of a flat "8 hours" rule, in the spirit of apps like
 Timeshifter. A waiting/queue-time lookup rounds things out with a place to
 check public wait-time data — theme parks, DMV-style offices, and similar.
+A calendar tab covers lunar-calendar alerts (birthdays and holidays kept on
+the Chinese lunar calendar), an "on this day" lookup for past years' events
+on the same date, and a "how long since…" elapsed-time tracker. A tools tab
+covers everyday dev/time utilities: a live Unix timestamp, a timestamp
+converter, and a cron expression parser.
 
 The same time tools are also available from the wrist via a companion Apple
 Watch app, and a home-screen widget surfaces a glanceable clock without

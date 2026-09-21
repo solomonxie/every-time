@@ -13,6 +13,10 @@ struct ContentView: View {
                 .tabItem { Label("Sleep", systemImage: "moon.stars") }
             WaitingView()
                 .tabItem { Label("Waiting", systemImage: "hourglass") }
+            CalendarView()
+                .tabItem { Label("Calendar", systemImage: "calendar") }
+            ToolsView()
+                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
         }
     }
 }
