@@ -1,10 +1,10 @@
 import Foundation
 
 enum TimerKind: String, CaseIterable, Identifiable {
-    case general = "General"
     case leetcode = "LeetCode"
     case interview = "Interview"
     case reversal = "Reversal"
+    case stopwatch = "Stopwatch"
 
     var id: String { rawValue }
 }

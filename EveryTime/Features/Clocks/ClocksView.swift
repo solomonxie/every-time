@@ -1,27 +1,35 @@
 import SwiftUI
 
 struct ClocksView: View {
-    private let zones = [
-        TimeZoneEntry(label: "San Francisco", identifier: "America/Los_Angeles"),
-        TimeZoneEntry(label: "New York", identifier: "America/New_York"),
-        TimeZoneEntry(label: "London", identifier: "Europe/London"),
-        TimeZoneEntry(label: "Singapore", identifier: "Asia/Singapore"),
-        TimeZoneEntry(label: "Sydney", identifier: "Australia/Sydney"),
+    private let clocks = [
+        WorldClock(city: "San Francisco", timeZoneIdentifier: "America/Los_Angeles", placeholderTime: "9:41 AM"),
+        WorldClock(city: "New York", timeZoneIdentifier: "America/New_York", placeholderTime: "12:41 PM"),
+        WorldClock(city: "London", timeZoneIdentifier: "Europe/London", placeholderTime: "5:41 PM"),
+        WorldClock(city: "Singapore", timeZoneIdentifier: "Asia/Singapore", placeholderTime: "1:41 AM"),
+        WorldClock(city: "Sydney", timeZoneIdentifier: "Australia/Sydney", placeholderTime: "3:41 AM"),
     ]
 
     var body: some View {
         NavigationStack {
             List {
                 Section("World Clock") {
-                    ForEach(zones) { zone in
-                        NavigationLink(zone.label) {
-                            Text(zone.identifier)
+                    ForEach(clocks) { clock in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(clock.city)
+                                Text(clock.timeZoneIdentifier)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(clock.placeholderTime)
+                                .font(.system(.body, design: .monospaced))
                         }
                     }
                 }
                 Section {
-                    NavigationLink("Global meeting time lookup") {
-                        MeetingLookupView()
+                    NavigationLink("Add City") {
+                        AddCityView()
                     }
                 }
             }
@@ -30,11 +38,11 @@ struct ClocksView: View {
     }
 }
 
-struct MeetingLookupView: View {
+struct AddCityView: View {
     var body: some View {
-        Text("Find overlapping meeting hours across time zones")
+        Text("Search and add a city to your world clock")
             .foregroundStyle(.secondary)
-            .navigationTitle("Meeting Lookup")
+            .navigationTitle("Add City")
     }
 }
 

@@ -7,10 +7,12 @@ struct ContentView: View {
                 .tabItem { Label("Clocks", systemImage: "globe") }
             TimersView()
                 .tabItem { Label("Timers", systemImage: "timer") }
+            MeetingsView()
+                .tabItem { Label("Meetings", systemImage: "person.2") }
             SleepView()
                 .tabItem { Label("Sleep", systemImage: "moon.stars") }
-            MoreView()
-                .tabItem { Label("More", systemImage: "ellipsis.circle") }
+            WaitingView()
+                .tabItem { Label("Waiting", systemImage: "hourglass") }
         }
     }
 }
