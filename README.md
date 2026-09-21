@@ -2,23 +2,20 @@
 
 > 🚧 Work in progress — skeleton only, not yet functional.
 
-Everything about time, in one free iPhone app: world clock across multiple
-zones, a global meeting-time overlap lookup, a set of purpose-built timers
-(general, LeetCode with persistent history, interview, reversal), and
-sleep tools based on actual sleep science rather than a flat "8 hours" —
-an ideal wake-up time calculator, a REM-cycle-based sleep alarm, and
-Timeshifter-style jet lag adjustment. Also folds in smaller utilities like
-movement/stand-up reminders and looking up real-world waiting/queue times
-from public data.
+Everything about time, in one free iPhone app. A world clock keeps a list of
+cities across timezones side by side. A set of purpose-built timers covers a
+LeetCode timer that keeps a persistent history of past practice sessions, an
+interview timer, a "reversal timer", and a plain stopwatch. A meeting-time
+lookup shows overlapping working hours across several timezones at once, so
+scheduling across a distributed team doesn't need a separate tool. A sleep
+calculator suggests bedtimes for a target wake-up time based on ~90-minute
+REM sleep cycles instead of a flat "8 hours" rule, in the spirit of apps like
+Timeshifter. A waiting/queue-time lookup rounds things out with a place to
+check public wait-time data — theme parks, DMV-style offices, and similar.
 
-## Features
-
-- **Clocks** — multi-timezone world clock, global meeting time lookup
-- **Timers** — general purpose, LeetCode (persistent history), interview,
-  reversal
-- **Sleep** — ideal wake-up calculator, REM-cycle sleep alarm, jet lag
-  adjustment
-- **More** — movement reminders, waiting/queue time lookup, about
+The same time tools are also available from the wrist via a companion Apple
+Watch app, and a home-screen widget surfaces a glanceable clock without
+opening the app.
 
 ## Setup
 
@@ -28,8 +25,14 @@ Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 xcodegen generate && open EveryTime.xcodeproj
 ```
 
-## Roadmap
+## Watch target note
 
-- Apple Watch companion app (time-at-a-glance, timers)
-- Home-screen widget (current time across saved zones)
-- Real timer/clock logic and local persistence
+The watch app is built as a modern single-target app (`type: application`,
+`platform: watchOS`, `WKApplication = YES`) embedded in the iOS app, rather
+than XcodeGen's `application.watchapp2` product type. On Xcode 26+,
+`application.watchapp2` emits a stale "Embed Watch Content" copy phase that
+collides with Xcode's own product install step and fails the build with
+"Multiple commands produce ...EveryTimeWatch.app/EveryTimeWatch" — a known
+XcodeGen/Xcode incompatibility (yonaskolb/XcodeGen#1613). The plain
+`application` product type sidesteps it and is itself how modern Xcode
+project templates set up single-target watch apps.
