@@ -16,7 +16,7 @@ struct CityPickerView: View {
 
     var body: some View {
         NavigationStack {
-            List(results) { city in
+            List(results, id: \.self) { city in
                 let added = excluded.contains(city.id)
                 Button {
                     onPick(city)
