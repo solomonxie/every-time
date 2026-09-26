@@ -5,6 +5,24 @@ enum NapKey {
     static let naps = "sleep.naps"
     static let active = "sleep.nap.active"
     static let length = "sleep.nap.length"
+    static let night = "sleep.nap.night"
+}
+
+/// Tonight's bedtime and tomorrow's wake, when they differ from usual; only counts on `day`.
+struct NightPlan: Codable, Equatable {
+    var day: Date
+    /// Minutes after midnight; before noon means after midnight.
+    var bed: Int
+    var wake: Int
+
+    func bedDate(calendar: Calendar = .current) -> Date {
+        let date = day.addingTimeInterval(Double(bed) * 60)
+        return bed < 12 * 60 ? date.addingTimeInterval(86_400) : date
+    }
+
+    func wakeDate(calendar: Calendar = .current) -> Date {
+        day.addingTimeInterval(86_400 + Double(wake) * 60)
+    }
 }
 
 struct Nap: Identifiable, Codable, Hashable {
@@ -18,6 +36,8 @@ struct Nap: Identifiable, Codable, Hashable {
     var start: Date
     var end: Date
     var night: Night?
+    /// That night's planned bedtime, if it wasn't the usual one.
+    var bed: Date?
 
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
 }
@@ -38,8 +58,10 @@ struct NapAdvice {
 
     static let lengths = [10, 20, 30, 90]
     static let suggestedMinutes = 20
+    static let longMinutes = 90
 
     var profile: JetLagProfile
+    var plan: NightPlan?
     var calendar = Calendar.current
 
     private var isOlder: Bool { profile.age >= 60 }
@@ -49,29 +71,73 @@ struct NapAdvice {
     private var calmHours: Double { isOlder ? 8 : isYoung ? 6 : 7 }
     private var riskyHours: Double { isOlder ? 5 : isYoung ? 3 : 4 }
 
-    func usualDay(of date: Date) -> (wake: Date, bed: Date) {
-        let day = calendar.startOfDay(for: date)
-        let wake = day.addingTimeInterval(Double(profile.usualWake) * 60)
-        var bed = day.addingTimeInterval(Double(profile.usualBedtime) * 60)
-        if bed <= wake { bed.addTimeInterval(86_400) }
-        return (wake, bed)
+    struct Day {
+        var wake: Date
+        var usualBed: Date
+        var bed: Date
+        var nextWake: Date
+
+        var lateHours: Double { bed.timeIntervalSince(usualBed) / 3600 }
+        var nightHours: Double { nextWake.timeIntervalSince(bed) / 3600 }
     }
 
-    /// The post-lunch dip, about 6–8½ h after waking, cut off so a 20-minute nap still ends well before bed.
+    /// This morning's usual wake, then tonight's bed and tomorrow's wake (planned or usual).
+    func day(of date: Date) -> Day {
+        let start = calendar.startOfDay(for: date)
+        let wake = start.addingTimeInterval(Double(profile.usualWake) * 60)
+        var usualBed = start.addingTimeInterval(Double(profile.usualBedtime) * 60)
+        if usualBed <= wake { usualBed.addTimeInterval(86_400) }
+        let nextWake = wake.addingTimeInterval(86_400)
+        guard let plan, calendar.isDate(plan.day, inSameDayAs: start) else {
+            return Day(wake: wake, usualBed: usualBed, bed: usualBed, nextWake: nextWake)
+        }
+        return Day(wake: wake, usualBed: usualBed, bed: plan.bedDate(), nextWake: plan.wakeDate())
+    }
+
+    /// A full cycle before a night that runs 2+ h late banks sleep; otherwise a short refresher.
+    func suggestedMinutes(on date: Date) -> Int {
+        day(of: date).lateHours >= 2 ? Self.longMinutes : Self.suggestedMinutes
+    }
+
+    /// The post-lunch dip, from about 6 h after waking, cut off so the suggested nap still ends well before bed.
     func window(on date: Date) -> DateInterval {
-        let (wake, bed) = usualDay(of: date)
-        let start = wake.addingTimeInterval(6 * 3600)
-        let latest = bed.addingTimeInterval(-calmHours * 3600 - Double(Self.suggestedMinutes) * 60)
-        let end = max(start.addingTimeInterval(3600), min(wake.addingTimeInterval(8.5 * 3600), latest))
+        let day = day(of: date)
+        let start = day.wake.addingTimeInterval(6 * 3600)
+        let cap = day.wake.addingTimeInterval((8.5 + max(0, day.lateHours)) * 3600)
+        let latest = day.bed.addingTimeInterval(-calmHours * 3600 - Double(suggestedMinutes(on: date)) * 60)
+        let end = max(start.addingTimeInterval(3600), min(cap, latest))
         return DateInterval(start: start, end: end)
     }
 
-    func tonight(start: Date, minutes: Int) -> Level {
+    /// Later and longer naps weigh more; a long nap is fine with plenty of waking time left before bed.
+    func tonight(start: Date, minutes: Int, bed: Date? = nil) -> Level {
         let end = start.addingTimeInterval(Double(minutes) * 60)
-        let hoursLeft = usualDay(of: start).bed.timeIntervalSince(end) / 3600
+        let hoursLeft = (bed ?? day(of: start).bed).timeIntervalSince(end) / 3600
         let timing = hoursLeft >= calmHours ? 0 : hoursLeft >= riskyHours ? 1 : 2
-        let length = minutes <= (isOlder ? 20 : 30) ? 0 : minutes <= (isOlder ? 60 : 90) ? 1 : 2
+        let length = hoursLeft >= calmHours + 3 || minutes <= (isOlder ? 20 : 30) ? 0
+            : minutes <= (isOlder ? 60 : 90) ? 1 : 2
         return Level(rawValue: min(2, timing + length)) ?? .high
+    }
+
+    /// One line on how tonight's plan changes the advice, if it does.
+    func nightNote(on date: Date) -> String? {
+        let day = day(of: date)
+        if day.lateHours >= 2 {
+            return "Late night (\(Self.hours(day.nightHours)) of sleep) — a \(Self.longMinutes)-minute nap in the window banks sleep ahead of it."
+        }
+        if profile.sleepHours - day.nightHours >= 0.5 {
+            let bedBy = day.nextWake.addingTimeInterval(-profile.sleepHours * 3600)
+            return "Short night (\(Self.hours(day.nightHours))) — for your usual \(Self.hours(profile.sleepHours)), be in bed by \(bedBy.formatted(date: .omitted, time: .shortened)). Keep any nap short and early."
+        }
+        if day.lateHours <= -1 {
+            return "Early night — keep naps short and early."
+        }
+        return nil
+    }
+
+    static func hours(_ value: Double) -> String {
+        let minutes = Int((value * 60).rounded())
+        return minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m"
     }
 
     /// Past ~30 minutes you reach deep sleep and wake groggy, until a full ~90-minute cycle ends.
