@@ -16,6 +16,8 @@ struct WorldView: View {
     @State private var showingWall = false
     @Stored("world.targetHours") private var target = TargetHours.work
     @State private var editingTarget = false
+    /// Every city ever added, newest first.
+    @Stored("world.recentCities") private var recent: [WorldCity] = []
 
     private let hours = 24 * 8
 
@@ -34,7 +36,7 @@ struct WorldView: View {
                                  isEditing: isEditing, snaps: !followsNow,
                                  onScroll: { if !followsNow { cursor = date(atOffset: $0) } },
                                  onDragStart: { followsNow = false },
-                                 onRemove: { city in withAnimation(.snappy) { cities.removeAll { $0 == city } } },
+                                 onRemove: remove,
                                  onMove: move)
                     if cities.isEmpty {
                         Text("Tap + to add a city to compare")
@@ -42,6 +44,7 @@ struct WorldView: View {
                     }
                 }
                 overlapSection.screen()
+                recentSection.screen()
             }
             .padding(.vertical, 8)
         }
@@ -55,7 +58,7 @@ struct WorldView: View {
         }
         .bottomBar { bottomBar }
         .sheet(isPresented: $showingPicker) {
-            CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { cities.append($0) }
+            CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { add($0) }
         }
         .environment(\.targetHours, target)
         .sensoryFeedback(.selection, trigger: target)
@@ -208,6 +211,54 @@ struct WorldView: View {
         return ranges
     }
 
+    // MARK: Recent
+
+    private var hiddenRecent: [WorldCity] {
+        recent.filter { city in city.id != WorldCity.local.id && !cities.contains { $0.id == city.id } }
+    }
+
+    @ViewBuilder
+    private var recentSection: some View {
+        let list = hiddenRecent
+        if !list.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel(title: "Recent") {
+                    Spacer()
+                    Button("Clear") { withAnimation(.snappy) { recent.removeAll { list.contains($0) } } }
+                        .font(.label)
+                }
+                Card(padding: 0) {
+                    VStack(spacing: 0) {
+                        ForEach(list) { city in
+                            recentRow(city)
+                            if city != list.last { Divider().overlay(Theme.hairline).padding(.leading, 16) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func recentRow(_ city: WorldCity) -> some View {
+        Button { add(city) } label: {
+            HStack(spacing: Theme.spacing) {
+                Text(city.name).foregroundStyle(.primary)
+                Spacer()
+                Text(cursor.formatted(Date.FormatStyle(timeZone: city.timeZone).hour().minute()))
+                    .font(.clock(17, weight: .regular))
+                Text(city.offsetLabel(at: cursor))
+                    .font(.label).foregroundStyle(.secondary)
+                    .frame(minWidth: 44, alignment: .trailing)
+                Image(systemName: "plus.circle.fill").foregroundStyle(Color.accentColor)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add \(city.name)")
+    }
+
     // MARK: Bottom bar
 
     private var bottomBar: some View {
@@ -225,6 +276,23 @@ struct WorldView: View {
     }
 
     // MARK: Actions
+
+    private func add(_ city: WorldCity) {
+        withAnimation(.snappy) {
+            if !cities.contains(city) { cities.append(city) }
+            recent.removeAll { $0.id == city.id }
+            recent.insert(city, at: 0)
+            recent = Array(recent.prefix(20))
+        }
+    }
+
+    /// Cities that predate the history (defaults) join it when removed, so they can be re-added.
+    private func remove(_ city: WorldCity) {
+        withAnimation(.snappy) {
+            cities.removeAll { $0 == city }
+            if !recent.contains(where: { $0.id == city.id }) { recent.insert(city, at: 0) }
+        }
+    }
 
     private func move(_ id: String, onto targetID: String) {
         var ids = rows.map(\.id)
