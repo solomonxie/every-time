@@ -3,7 +3,7 @@ import SwiftUI
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
     case world, sleep, jetLag, lunar
-    case stopwatch, interview, rehearsal, leetcode, countdown
+    case stopwatch, interview, rehearsal, leetcode, work, countdown
     case since, waitTimes, unixTime, converter, cron
 
     static let defaultPins: [AppTool] = [.world, .sleep, .lunar]
@@ -23,7 +23,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     var group: Group {
         switch self {
         case .world, .sleep, .jetLag, .lunar: .main
-        case .stopwatch, .interview, .rehearsal, .leetcode, .countdown: .timers
+        case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
         case .since, .waitTimes: .dates
         case .unixTime, .converter, .cron: .developer
         }
@@ -39,6 +39,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .interview: "Interview"
         case .rehearsal: "Rehearsal"
         case .leetcode: "LeetCode"
+        case .work: "Work timer"
         case .countdown: "Countdown"
         case .since: "Important events"
         case .waitTimes: "Wait times"
@@ -52,6 +53,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     var tabTitle: String {
         switch self {
         case .jetLag: "Jet lag"
+        case .work: "Work"
         case .since: "Events"
         case .waitTimes: "Waits"
         case .unixTime: "Unix"
@@ -71,6 +73,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .interview: "mic"
         case .rehearsal: "arrow.counterclockwise"
         case .leetcode: "chevron.left.forwardslash.chevron.right"
+        case .work: "briefcase"
         case .countdown: "hourglass.bottomhalf.filled"
         case .since: "star.circle"
         case .waitTimes: "hourglass"
@@ -89,6 +92,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .jetLag: JetLagTripsView()
         case .lunar: LunarCalendarView()
         case .stopwatch, .interview, .rehearsal, .leetcode: TimerToolView(tool: self)
+        case .work: WorkTimerView()
         case .countdown: CountdownListView()
         case .since: ImportantEventsView()
         case .waitTimes: WaitingView()

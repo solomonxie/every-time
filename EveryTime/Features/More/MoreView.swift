@@ -7,6 +7,7 @@ struct MoreView: View {
     @Stored(TimerStore.interviewMinutesKey) private var interviewMinutes = TimerStore.defaultInterviewMinutes
     @Stored(TimerStore.rehearsalMinutesKey) private var rehearsalMinutes = TimerStore.defaultRehearsalMinutes
     @Stored(TimerStore.leetcodeHistoryKey) private var history: [TimerSession] = []
+    @Stored(WorkLog.key) private var workSpans: [WorkSpan] = []
 
     private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
@@ -80,6 +81,13 @@ struct MoreView: View {
             countdown(timers.rehearsal, minutes: rehearsalMinutes, allowsOvertime: true)
         case .leetcode:
             Text("^[\(history.count) session](inflect: true)").font(.subheadline)
+        case .work:
+            let log = WorkLog(spans: workSpans)
+            if !workSpans.isEmpty {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(TimeText.clock(Int(log.today(at: context.date)?.worked ?? 0)))
+                }
+            }
         default:
             EmptyView()
         }

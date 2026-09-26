@@ -38,7 +38,7 @@ struct TimerControls: View {
     }
 }
 
-private struct RoundButtonStyle: ButtonStyle {
+struct RoundButtonStyle: ButtonStyle {
     let size: CGFloat
     var tint: Color?
 
