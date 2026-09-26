@@ -14,6 +14,8 @@ struct WorldView: View {
     @State private var showingPicker = false
     @State private var isEditing = false
     @State private var showingWall = false
+    @Stored("world.targetHours") private var target = TargetHours.work
+    @State private var editingTarget = false
 
     private let hours = 24 * 8
 
@@ -49,11 +51,14 @@ struct WorldView: View {
         }
         .fullScreenCover(isPresented: $showingWall) {
             WorldWallView(rows: rows, start: start, hours: hours, cursor: cursor, followsNow: followsNow)
+                .environment(\.targetHours, target)
         }
         .bottomBar { bottomBar }
         .sheet(isPresented: $showingPicker) {
             CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { cities.append($0) }
         }
+        .environment(\.targetHours, target)
+        .sensoryFeedback(.selection, trigger: target)
         .onAppear { jumpToNow(animated: false) }
         .task { await tickWhileFollowingNow() }
     }
@@ -95,7 +100,7 @@ struct WorldView: View {
             Card {
                 let ranges = overlapRanges
                 if ranges.isEmpty {
-                    Label("No shared work hours this day", systemImage: "moon.zzz")
+                    Label("No shared target hours this day", systemImage: "moon.zzz")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
@@ -104,11 +109,71 @@ struct WorldView: View {
                             ForEach(ranges, id: \.lowerBound) { range in chip(range) }
                         }
                     }
-                    Text("All cities within 8 AM – 6 PM · tap to jump")
-                        .font(.caption).foregroundStyle(.tertiary)
                 }
+                Divider().overlay(Theme.hairline)
+                targetRow
+                if editingTarget { targetEditor }
             }
         }
+    }
+
+    private var targetRow: some View {
+        Button {
+            withAnimation(.snappy) { editingTarget.toggle() }
+        } label: {
+            HStack {
+                Text("Target hours").foregroundStyle(.primary)
+                Spacer()
+                Text(Self.rangeText(target))
+                    .monospacedDigit()
+                    .foregroundStyle(editingTarget ? Color.accentColor : .secondary)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(editingTarget ? 90 : 0))
+            }
+            .font(.subheadline)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Each city's local hours to find an overlap in")
+    }
+
+    private var targetEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach([("Work", TargetHours.work), ("Awake", TargetHours.awake)], id: \.0) { name, preset in
+                    Button("\(name) \(Self.rangeText(preset))") { withAnimation(.snappy) { target = preset } }
+                        .buttonStyle(.soft)
+                        .foregroundStyle(target == preset ? Color.accentColor : .primary)
+                }
+            }
+            HStack(spacing: 0) {
+                hourWheel("From", selection: $target.start)
+                Text("–").foregroundStyle(.secondary)
+                hourWheel("To", selection: $target.end)
+            }
+            Text("In each city's local time").font(.caption).foregroundStyle(.tertiary)
+        }
+    }
+
+    private func hourWheel(_ title: String, selection: Binding<Int>) -> some View {
+        Picker(title, selection: selection) {
+            ForEach(0..<24, id: \.self) { Text(Self.hourText($0)).tag($0) }
+        }
+        .pickerStyle(.wheel)
+        .frame(maxWidth: .infinity, maxHeight: 130)
+        .clipped()
+        .accessibilityLabel(title)
+    }
+
+    private static func hourText(_ hour: Int) -> String {
+        let date = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: .now) ?? .now
+        return date.formatted(.dateTime.hour())
+    }
+
+    private static func rangeText(_ target: TargetHours) -> String {
+        target.start == target.end ? "All day" : "\(hourText(target.start)) – \(hourText(target.end))"
     }
 
     private func chip(_ range: Range<Date>) -> some View {
@@ -127,12 +192,12 @@ struct WorldView: View {
         .buttonStyle(.plain)
     }
 
-    /// Hour blocks of the cursor's local day where every row is inside work hours.
+    /// Hour blocks of the cursor's local day where every row is inside the target hours.
     private var overlapRanges: [Range<Date>] {
         let dayStart = Calendar.current.startOfDay(for: cursor)
         let instants = (0..<24).map { dayStart.addingTimeInterval(Double($0) * 3600) }
         var ranges: [Range<Date>] = []
-        for instant in instants where rows.allSatisfy({ HourShade(hour: $0.calendar.component(.hour, from: instant)) == .work }) {
+        for instant in instants where rows.allSatisfy({ target.contains($0.calendar.component(.hour, from: instant)) }) {
             let end = instant.addingTimeInterval(3600)
             if let last = ranges.last, last.upperBound == instant {
                 ranges[ranges.count - 1] = last.lowerBound..<end
