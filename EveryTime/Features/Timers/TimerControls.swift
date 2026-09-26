@@ -1,43 +1,93 @@
 import SwiftUI
 
-/// Reset/Lap + Start/Stop pair shared by every timer.
+/// Round Reset/Lap (soft, left) + Start/Pause/Stop (tinted, right) pair shared by every timer.
 struct TimerControls: View {
     let clock: ElapsedClock
     var stopTitle = "Pause"
     var canStart = true
     var onLap: (() -> Void)?
     var onReset: (() -> Void)?
+    var size: CGFloat = 84
+    var spread = true
 
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 20) {
             if clock.isRunning, let onLap {
-                button("Lap", tint: .gray, action: onLap)
+                Button("Lap", action: onLap)
+                    .buttonStyle(RoundButtonStyle(size: size))
             } else {
-                button("Reset", tint: .gray) {
+                Button("Reset") {
                     clock.reset()
                     onReset?()
                 }
+                .buttonStyle(RoundButtonStyle(size: size))
                 .disabled(!clock.hasTime)
             }
+            if spread { Spacer() }
             if clock.isRunning {
-                button(stopTitle, tint: stopTitle == "Stop" ? .red : .orange, action: clock.pause)
+                Button(stopTitle, action: clock.pause)
+                    .buttonStyle(RoundButtonStyle(size: size, tint: stopTitle == "Stop" ? Theme.Tone.bad : Theme.Tone.warn))
             } else {
-                button("Start", tint: .green, action: clock.start)
+                Button(clock.hasTime ? "Resume" : "Start", action: clock.start)
+                    .buttonStyle(RoundButtonStyle(size: size, tint: .accentColor))
                     .disabled(!canStart)
             }
         }
-        .sensoryFeedback(.impact, trigger: clock.isRunning)
+        .animation(.snappy, value: clock.isRunning)
+        .sensoryFeedback(.impact(weight: .medium), trigger: clock.isRunning)
     }
+}
 
-    private func button(_ title: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(width: 88, height: 36)
+private struct RoundButtonStyle: ButtonStyle {
+    let size: CGFloat
+    var tint: Color?
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: size * 0.19, weight: .semibold, design: .rounded))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .foregroundStyle(tint == nil ? Color.primary : .white)
+            .frame(width: size, height: size)
+            .background(tint ?? Color.primary.opacity(0.08), in: Circle())
+            .contentShape(Circle())
+            .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.35)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+/// Thin progress ring; `progress` 1 = full.
+struct ProgressRing: View {
+    let progress: Double
+    var tint: Color = .accentColor
+    var lineWidth: CGFloat = 6
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Theme.hairline, lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: min(max(progress, 0), 1))
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
         }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
-        .tint(tint)
+        .padding(lineWidth / 2)
+    }
+}
+
+/// Small caption under the digits (Ready, Paused, Overtime…).
+struct TimerCaption: View {
+    let text: String
+    var tint: Color?
+
+    var body: some View {
+        Text(text)
+            .font(.label)
+            .foregroundStyle(tint ?? .secondary)
+            .contentTransition(.opacity)
+            .animation(.snappy, value: text)
     }
 }
 
@@ -55,8 +105,10 @@ struct ClockTimeline<Content: View>: View {
 }
 
 extension View {
-    func timerDigits(size: CGFloat = 64) -> some View {
-        font(.system(size: size, weight: .light, design: .rounded))
-            .monospacedDigit()
+    /// Hero readout: thin rounded tabular digits that shrink rather than wrap.
+    func timerDigits(size: CGFloat = 88) -> some View {
+        font(.clock(size, weight: .thin))
+            .lineLimit(1)
+            .minimumScaleFactor(0.4)
     }
 }
