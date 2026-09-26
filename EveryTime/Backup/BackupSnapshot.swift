@@ -17,7 +17,7 @@ enum BackupError: LocalizedError {
 /// Every user-data key in UserDefaults, as embedded JSON. Keys are picked by prefix so new `@Stored` keys travel automatically.
 struct BackupSnapshot {
     static let currentVersion = 1
-    static let keyPrefixes = ["world.", "calendar.", "timers.", "sleep.", "tools."]
+    static let keyPrefixes = ["world.", "calendar.", "timers.", "sleep.", "tools.", "app."]
     static let fileName = "snapshot.json"
 
     var version = currentVersion
@@ -88,7 +88,7 @@ struct BackupSnapshot {
     private static let countedKeys = [
         ("world.cities", "city", "cities"),
         ("calendar.lunar", "lunar event", "lunar events"),
-        ("calendar.since", "“since” date", "“since” dates"),
+        ("calendar.since", "important event", "important events"),
         ("timers.leetcodeHistory", "LeetCode session", "LeetCode sessions"),
     ]
 
