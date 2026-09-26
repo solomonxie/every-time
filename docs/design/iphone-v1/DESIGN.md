@@ -26,11 +26,12 @@ or paid. One free app should cover them all.
 
 | Tab | v1 scope |
 |---|---|
-| Timers (More) | Stopwatch (laps), Interview countdown, Reversal (count down, then count up overtime), LeetCode timer + persisted history |
+| Timers (More) | Stopwatch (laps), Interview countdown, Rehearsal (count down a talk slot, then count up overtime), LeetCode timer + persisted history |
+| Countdown (More) | countdowns to a date/time: focus unit biggest (days → hours → minutes → seconds), sideways full screen, fireworks/confetti + sound + vibration at zero, optional notification |
 | World (tab 1) | World Time Buddy–style (merged world clock + meeting planner): pinned cities, shared horizontal hour scroll across a week, center cursor, now marker, tappable overlap |
 | Sleep | bedtimes for a wake time, and wake times for "sleep now" — 90-min cycles + 15-min fall-asleep |
 | Wait times (More) | sample data only |
-| Lunar (tab) + How long since (More) | "How long since…" tracker; lunar date converter + lunar anniversaries' next Gregorian date |
+| Lunar (tab) + Important events (More) | important events (manual or picked from iPhone Calendar, typed: birthday, anniversary, memorial…) with time since, next anniversary and a yearly 9:00 reminder; lunar date converter + lunar anniversaries' next Gregorian date |
 | Dev tools (More) | live Unix timestamp, timestamp ⇄ date converter, cron expression parser (next runs) |
 
 ## Options considered
@@ -44,5 +45,5 @@ or paid. One free app should cover them all.
 ## Risks / open questions
 
 - Minimum iOS 18 (needed for `ScrollPosition` / `onScrollGeometryChange` in Meetings).
-- Reversal timer semantics assumed (countdown that keeps running as overtime). Confirm.
+- Rehearsal timer semantics assumed (countdown that keeps running as overtime). Confirm.
 - Timers keep running while backgrounded by storing start date, not ticking; no background alert yet.
