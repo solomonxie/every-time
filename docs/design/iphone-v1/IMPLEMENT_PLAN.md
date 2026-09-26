@@ -13,10 +13,10 @@ Disjoint feature folders, one agent each.
 
 - [x] T2.1 Clocks list (superseded by T2.2 World) — see `uiux/clocks.md` — depends: T1.1, T1.2
 - [x] T2.2 World (Clocks + Meetings merged): World Time Buddy grid, center cursor, overlap jump — see `uiux/world.md` — depends: T1.1, T1.2
-- [x] T2.3 Timers: stopwatch, interview, reversal, LeetCode + history — see `uiux/timers.md` — depends: T1.1
+- [x] T2.3 Timers: stopwatch, interview, rehearsal, LeetCode + history — see `uiux/timers.md` — depends: T1.1
 - [x] T2.4 Sleep: cycle math both modes — see `uiux/sleep.md` — depends: none
 - [x] T2.5 Tools: unix clock, converter, cron parser — see `uiux/tools.md` — depends: none
-- [x] T2.6 Calendar: how long since, lunar converter + lunar dates — see `uiux/calendar.md` — depends: T1.1
+- [x] T2.6 Calendar: important events, lunar converter + lunar dates — see `uiux/calendar.md` — depends: T1.1
 
 ## Phase 3: Layout and v1 extras
 Driven by first on-device use: fewer tabs, planner first, lunar events and backups.
@@ -28,8 +28,17 @@ Driven by first on-device use: fewer tabs, planner first, lunar events and backu
 - [x] T3.5 Timers full-screen sideways clock — see `uiux/timers.md` — depends: none
 - [x] T3.6 App icon — see `scripts/make_icon.swift` — depends: none
 
-## Phase 4: Polish
-- [ ] T4.1 Unit test target for pure logic (sleep math, cron, lunar occurrences, backup snapshot/zip) — depends: T3.*
+## Phase 4: Redesign and personalisation
+Driven by device use: one visual language, user-chosen tab bar, richer dates.
+
+- [x] T4.1 Visual language + shared components — see `uiux/visual.md`, `EveryTime/Shared/Theme.swift` — depends: none
+- [x] T4.2 Custom tab bar (1–4 pins + More), inline Settings, shared TimerStore — see `uiux/more.md` — depends: T4.1
+- [x] T4.3 Redesign World, Timers (Rehearsal rename), Tools, Lunar, Wait times — see `uiux/*.md` — depends: T4.1
+- [x] T4.4 Jet lag planner in Sleep — see `docs/design/jet-lag/` — depends: T4.1
+- [x] T4.5 Important events (calendar search, types, yearly reminders) — see `uiux/calendar.md` — depends: T4.1
+
+## Phase 5: Polish
+- [ ] T5.1 Unit test target for pure logic (sleep math, cron, lunar occurrences, backup snapshot/zip) — depends: T3.*
 
 ## Later (v2)
 - [ ] Waiting data source · On this day · lunar notifications · widget · watch · App Group sharing
