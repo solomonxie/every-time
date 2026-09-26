@@ -11,6 +11,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     enum Group: String, CaseIterable, Identifiable {
         case main = "Main"
+        case sleep = "Sleep"
         case timers = "Timers"
         case dates = "Dates"
         case developer = "Developer"
@@ -22,7 +23,8 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     var group: Group {
         switch self {
-        case .world, .sleep, .nap, .jetLag, .lunar: .main
+        case .world, .lunar: .main
+        case .sleep, .nap, .jetLag: .sleep
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
         case .since, .waitTimes: .dates
         case .unixTime, .converter, .cron: .developer
