@@ -15,13 +15,8 @@ struct JetLagTripsView: View {
         TimelineView(.everyMinute) { context in
             list(now: context.date)
         }
+        .navigationTitle("Jet lag")
         .navigationDestination(for: TripRoute.self) { JetLagPlanView(tripID: $0.id) }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { sheet = .profile } label: { Image(systemName: "gearshape") }
-                    .accessibilityLabel("Your profile")
-            }
-        }
         .bottomBar {
             Button(action: planTrip) { Label("Plan a trip", systemImage: "airplane") }
                 .buttonStyle(.primary)
@@ -46,15 +41,19 @@ struct JetLagTripsView: View {
         let past = rows.filter(\.status.isPast).reversed()
 
         return List {
-            SleepSectionPicker()
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
+            Section {
+                Button { sheet = .profile } label: { ProfileSummary(profile: profile) }
+                    .tint(.primary)
+                    .listRowBackground(Theme.cardFill)
+            } header: {
+                SectionLabel("Your sleep")
+            }
 
             if trips.isEmpty {
                 ContentUnavailableView {
                     Label("No trips yet", systemImage: "airplane")
                 } description: {
-                    Text("Get a plan to beat jet lag — light, sleep and caffeine timing.")
+                    Text("Light, sleep and caffeine timing to beat jet lag.")
                 }
                 .listRowBackground(Color.clear)
             }
@@ -99,6 +98,46 @@ struct JetLagTripsView: View {
 
 private struct TripRoute: Hashable {
     let id: Trip.ID
+}
+
+private struct ProfileSummary: View {
+    let profile: JetLagProfile?
+
+    var body: some View {
+        HStack(spacing: Theme.spacing) {
+            Image(systemName: "bed.double").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                if let profile {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("\(profile.usualBedtime.timeOfDayText) → \(profile.usualWake.timeOfDayText)")
+                            .font(.clock(20, weight: .regular))
+                        Spacer(minLength: 0)
+                        Text("\(profile.sleepHours.formatted(.number.precision(.fractionLength(0...1))))h")
+                            .font(.label).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                    Text(details(profile)).font(.subheadline).foregroundStyle(.secondary)
+                } else {
+                    Text("Set up your sleep").font(.cardTitle)
+                    Text("Your usual hours shape every plan").font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Edits your sleep profile")
+    }
+
+    private func details(_ profile: JetLagProfile) -> String {
+        [
+            profile.chronotype.title,
+            profile.caffeine ? "Caffeine" : nil,
+            profile.melatonin ? "Melatonin" : nil,
+            profile.notifications ? "Reminders" : nil,
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+    }
 }
 
 private struct TripRow: View {

@@ -10,6 +10,9 @@ struct NewTripSheet: View {
     @State private var arrival = NewTripSheet.defaultDeparture.addingTimeInterval(10 * 3600)
     @State private var preAdjustDays = 2
     @State private var picking: End?
+    @State private var open: Field?
+
+    private enum Field { case departure, arrival }
 
     private enum End: Identifiable {
         case from, to
@@ -41,25 +44,51 @@ struct NewTripSheet: View {
                 Section {
                     cityRow("From", city: origin) { picking = .from }
                     cityRow("To", city: destination) { picking = .to }
+                    if let destination {
+                        Button {
+                            withAnimation(.snappy) {
+                                (origin, self.destination) = (destination, origin)
+                            }
+                        } label: {
+                            Label("Swap", systemImage: "arrow.up.arrow.down").font(.subheadline)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
                 .listRowBackground(Theme.cardFill)
 
                 Section {
-                    DatePicker(selection: $departure) { timeLabel("Departs", city: origin) }
-                        .environment(\.timeZone, origin.timeZone)
-                    DatePicker(selection: $arrival) { timeLabel("Arrives", city: destination ?? origin) }
-                        .environment(\.timeZone, (destination ?? origin).timeZone)
-                    Stepper(value: $preAdjustDays, in: 0...3) {
-                        LabeledContent("Adjust before departure") {
-                            Text(preAdjustDays == 1 ? "1 day" : "\(preAdjustDays) days").monospacedDigit()
-                        }
+                    flightRow("Departs", .departure, date: $departure, city: origin)
+                    flightRow("Arrives", .arrival, date: $arrival, city: destination ?? origin)
+                    if arrival > departure {
+                        LabeledContent("In the air", value: flightDuration)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    SectionLabel("Flight")
+                }
+                .listRowBackground(Theme.cardFill)
+
+                Section {
+                    Picker("Start adjusting", selection: $preAdjustDays) {
+                        Text("Day of").tag(0)
+                        ForEach(1...3, id: \.self) { Text($0 == 1 ? "1 day" : "\($0) days").tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12))
+                } header: {
+                    SectionLabel(title: "Start adjusting") {
+                        InfoButton(label: "About adjusting early", text: """
+                            Shifting sleep a little on the days before you fly means fewer jet-lagged \
+                            days after you land. Pick "Day of" to start on departure day.
+                            """)
                     }
                 }
                 .listRowBackground(Theme.cardFill)
 
                 if let draft {
                     Section { summary(draft) }
-                        .listRowBackground(Color.clear)
+                        .listRowBackground(Theme.cardFill)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -67,16 +96,19 @@ struct NewTripSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
-                        guard let draft else { return }
-                        onCreate(draft)
-                        dismiss()
-                    }
-                    .disabled(draft == nil || problem != nil)
+            }
+            .bottomBar {
+                Button("Create plan") {
+                    guard let draft else { return }
+                    onCreate(draft)
+                    dismiss()
                 }
+                .buttonStyle(.primary)
+                .disabled(!canCreate)
+                .opacity(canCreate ? 1 : 0.4)
             }
             .onChange(of: departure) { old, new in arrival += new.timeIntervalSince(old) }
+            .sensoryFeedback(.selection, trigger: preAdjustDays)
             .sheet(item: $picking) { end in
                 switch end {
                 case .from: CityPickerView(excluded: Set([destination?.id].compactMap { $0 })) { origin = $0 }
@@ -86,22 +118,41 @@ struct NewTripSheet: View {
         }
     }
 
+    private var canCreate: Bool { draft != nil && problem == nil }
+
+    private var flightDuration: String {
+        let minutes = Int(arrival.timeIntervalSince(departure) / 60)
+        return minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m"
+    }
+
     private func cityRow(_ title: String, city: WorldCity?, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             LabeledContent(title) {
                 HStack {
-                    Text(city?.name ?? "Choose").foregroundStyle(city == nil ? .secondary : .primary)
+                    Text(city?.name ?? "Choose").foregroundStyle(city == nil ? Color.accentColor : .primary)
                     Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                 }
             }
+            .contentShape(Rectangle())
         }
         .tint(.primary)
     }
 
-    private func timeLabel(_ title: String, city: WorldCity) -> some View {
-        VStack(alignment: .leading) {
-            Text(title)
-            Text("\(city.name) time").font(.caption).foregroundStyle(.secondary)
+    private func flightRow(_ title: String, _ field: Field, date: Binding<Date>, city: WorldCity) -> some View {
+        UnfoldingRow(id: field, open: $open) {
+            VStack(alignment: .leading) {
+                Text(title)
+                Text("\(city.name) time").font(.caption).foregroundStyle(.secondary)
+            }
+        } value: {
+            Text(date.wrappedValue.formatted(.dateTime.month(.abbreviated).day().hour().minute(), in: city.timeZone))
+                .monospacedDigit()
+        } picker: {
+            DatePicker(title, selection: date)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+                .environment(\.timeZone, city.timeZone)
         }
     }
 
@@ -112,14 +163,19 @@ struct NewTripSheet: View {
                 .foregroundStyle(Theme.Tone.warn)
         } else {
             let plan = draft.plan(for: profile)
-            let parts = [
-                "\(draft.zoneShiftLabel) \(draft.zoneShiftHours > 0 ? "east" : "west")",
-                plan.direction == .none ? nil : (plan.direction == .advance ? "advancing" : "delaying"),
+            let detail = [
+                plan.direction == .none ? nil : (plan.direction == .advance ? "Advancing" : "Delaying"),
                 plan.adjustingDays > 0 ? "about \(plan.adjustingDays) days" : nil,
             ]
-            Text(parts.compactMap { $0 }.joined(separator: " · "))
-                .font(.clock(17, weight: .regular))
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(draft.zoneShiftLabel).font(.clock(34))
+                    Text(draft.zoneShiftHours > 0 ? "east" : "west").font(.cardTitle).foregroundStyle(.secondary)
+                }
+                Text(detail.compactMap { $0 }.joined(separator: " · "))
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
         }
     }
 }

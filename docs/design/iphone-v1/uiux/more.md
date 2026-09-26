@@ -8,6 +8,7 @@ More                                         ← screenTitle
 MAIN
 🌐 World        📌                          ›   ← 📌 = pinned to tab bar
 ☾ Sleep         📌                          ›
+✈ Jet lag planner                           ›
 📅 Lunar        📌                          ›
 TIMERS
 ⏱ Stopwatch                         03:12   ›   ← live, only once started
