@@ -1,74 +1,87 @@
 import SwiftUI
 
-/// Flat list of every secondary time tool, one tap each. Owns timer state so timers survive navigation.
+/// Every tool one tap away, then the tab bar editor and settings, inline.
 struct MoreView: View {
-    @State private var stopwatch = StopwatchModel()
-    @State private var interview = ElapsedClock()
-    @State private var reversal = ElapsedClock()
-    @State private var leetcode = LeetCodeModel()
+    @Environment(TimerStore.self) private var timers
+    @Stored("app.tabs") private var pinned = AppTool.defaultPins.map(\.rawValue)
+    @Stored(TimerStore.interviewMinutesKey) private var interviewMinutes = TimerStore.defaultInterviewMinutes
+    @Stored(TimerStore.rehearsalMinutesKey) private var rehearsalMinutes = TimerStore.defaultRehearsalMinutes
+    @Stored(TimerStore.leetcodeHistoryKey) private var history: [TimerSession] = []
 
-    @Stored("timers.interviewMinutes") private var interviewMinutes = 45
-    @Stored("timers.reversalMinutes") private var reversalMinutes = 10
-    @Stored("timers.leetcodeHistory") private var history: [TimerSession] = []
+    private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
     var body: some View {
         NavigationStack {
             List {
-                Section("Timers") {
-                    ForEach(TimerKind.allCases) { kind in
-                        NavigationLink(value: kind) {
-                            LabeledContent {
-                                detail(for: kind).monospacedDigit()
-                            } label: {
-                                Label(kind.rawValue, systemImage: kind.symbol)
-                            }
-                        }
+                Text("More")
+                    .font(.screenTitle)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 0, trailing: 4))
+
+                ForEach(AppTool.Group.allCases) { group in
+                    Section {
+                        ForEach(group.tools) { toolRow($0) }
+                    } header: {
+                        SectionLabel(group.rawValue).textCase(nil)
                     }
+                    .listRowBackground(Theme.cardFill)
                 }
-                Section("Dates") {
-                    NavigationLink { SinceView() } label: { Label("How long since…", systemImage: "clock.arrow.circlepath") }
-                    NavigationLink { WaitingView() } label: { Label("Wait times", systemImage: "hourglass") }
-                }
-                Section("Developer") {
-                    NavigationLink { UnixTimestampView() } label: { Label("Unix timestamp", systemImage: "number") }
-                    NavigationLink { TimestampConverterView() } label: { Label("Timestamp converter", systemImage: "arrow.left.arrow.right") }
-                    NavigationLink { CronParserView() } label: { Label("Cron parser", systemImage: "calendar.badge.clock") }
-                }
-                Section {
-                    NavigationLink { SettingsView() } label: { Label("Settings", systemImage: "gear") }
-                }
+
+                tabBarSection
+
+                SettingsSections()
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .listSectionSpacing(Theme.spacing * 2)
             .navigationTitle("More")
-            .navigationDestination(for: TimerKind.self) { kind in
-                switch kind {
-                case .stopwatch:
-                    StopwatchView(model: stopwatch)
-                case .interview:
-                    CountdownView(kind: .interview, clock: interview, minutes: $interviewMinutes)
-                case .reversal:
-                    CountdownView(kind: .reversal, clock: reversal, minutes: $reversalMinutes, step: 1)
-                case .leetcode:
-                    LeetCodeView(model: leetcode, history: $history)
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: AppTool.self) { $0.destination }
         }
-        .countdownAlarm(interview, minutes: interviewMinutes, allowsOvertime: false)
-        .countdownAlarm(reversal, minutes: reversalMinutes, allowsOvertime: true)
+    }
+
+    // MARK: Tools
+
+    private func toolRow(_ tool: AppTool) -> some View {
+        NavigationLink(value: tool) {
+            HStack(spacing: Theme.spacing) {
+                Image(systemName: tool.symbol)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28)
+                Text(tool.title)
+                if pins.contains(tool) {
+                    Image(systemName: "pin.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .accessibilityLabel("Pinned")
+                }
+                Spacer(minLength: 8)
+                liveValue(tool)
+                    .font(.clock(17, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+            }
+            .frame(minHeight: 44)
+        }
+        .contextMenu { pinButton(tool) }
+        .swipeActions(edge: .trailing) { pinButton(tool).tint(.accentColor) }
     }
 
     @ViewBuilder
-    private func detail(for kind: TimerKind) -> some View {
-        switch kind {
+    private func liveValue(_ tool: AppTool) -> some View {
+        switch tool {
         case .stopwatch:
-            if stopwatch.clock.hasTime {
-                ClockTimeline(clock: stopwatch.clock, interval: 1) { Text(TimeText.clock(Int($0))) }
+            if timers.stopwatch.clock.hasTime {
+                ClockTimeline(clock: timers.stopwatch.clock, interval: 1) { Text(TimeText.clock(Int($0))) }
             }
         case .interview:
-            countdown(interview, minutes: interviewMinutes, allowsOvertime: false)
-        case .reversal:
-            countdown(reversal, minutes: reversalMinutes, allowsOvertime: true)
+            countdown(timers.interview, minutes: interviewMinutes, allowsOvertime: false)
+        case .rehearsal:
+            countdown(timers.rehearsal, minutes: rehearsalMinutes, allowsOvertime: true)
         case .leetcode:
-            Text("^[\(history.count) session](inflect: true)")
+            Text("^[\(history.count) session](inflect: true)").font(.subheadline)
+        default:
+            EmptyView()
         }
     }
 
@@ -78,8 +91,92 @@ struct MoreView: View {
             Text(TimeText.countdown(allowsOvertime ? remaining : max(0, remaining)))
         }
     }
+
+    // MARK: Tab bar
+
+    private var tabBarSection: some View {
+        Section {
+            ForEach(pins) { tool in
+                HStack(spacing: Theme.spacing) {
+                    Image(systemName: tool.symbol)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28)
+                    Text(tool.title)
+                    Spacer(minLength: 8)
+                    Button { unpin(tool) } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.title3)
+                            .foregroundStyle(pins.count > 1 ? Theme.Tone.bad : Color.secondary.opacity(0.4))
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(pins.count <= 1)
+                    .accessibilityLabel("Unpin \(tool.title)")
+                    Image(systemName: "line.3.horizontal")
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .onMove { from, to in
+                var tools = pins
+                tools.move(fromOffsets: from, toOffset: to)
+                save(tools)
+            }
+
+            Menu {
+                ForEach(AppTool.Group.allCases) { group in
+                    Section(group.rawValue) {
+                        ForEach(group.tools.filter { !pins.contains($0) }) { tool in
+                            Button { pin(tool) } label: { Label(tool.title, systemImage: tool.symbol) }
+                        }
+                    }
+                }
+            } label: {
+                Label("Add a tool", systemImage: "plus.circle")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .disabled(pins.count >= AppTool.maxPins)
+        } header: {
+            SectionLabel(title: "Tab bar") {
+                Text("\(pins.count) of \(AppTool.maxPins)").font(.label).foregroundStyle(.tertiary)
+            }
+            .textCase(nil)
+        } footer: {
+            Text(pins.count >= AppTool.maxPins
+                 ? "Up to \(AppTool.maxPins). Remove one to add another. Hold and drag to reorder."
+                 : "Up to \(AppTool.maxPins), shown before More. Hold and drag to reorder.")
+        }
+        .listRowBackground(Theme.cardFill)
+    }
+
+    @ViewBuilder
+    private func pinButton(_ tool: AppTool) -> some View {
+        if pins.contains(tool) {
+            Button { unpin(tool) } label: { Label("Unpin from tab bar", systemImage: "pin.slash") }
+                .disabled(pins.count <= 1)
+        } else {
+            Button { pin(tool) } label: { Label("Pin to tab bar", systemImage: "pin") }
+                .disabled(pins.count >= AppTool.maxPins)
+        }
+    }
+
+    private func pin(_ tool: AppTool) {
+        guard pins.count < AppTool.maxPins, !pins.contains(tool) else { return }
+        save(pins + [tool])
+    }
+
+    private func unpin(_ tool: AppTool) {
+        guard pins.count > 1 else { return }
+        save(pins.filter { $0 != tool })
+    }
+
+    private func save(_ tools: [AppTool]) {
+        withAnimation(.snappy) { pinned = tools.map(\.rawValue) }
+    }
 }
 
 #Preview {
     MoreView()
+        .environment(TimerStore())
 }
