@@ -18,7 +18,8 @@ Everything about time, in one free iPhone app.
   is the hero (days, then hours, minutes, seconds), sideways full screen,
   and fireworks or confetti, sound, vibration and a notification when it ends.
 - **More** — flat list of the rest: stopwatch, interview timer, rehearsal
-  timer, LeetCode timer with session history, important events (from the
+  timer, LeetCode timer with session history, work timer (clock in/out,
+  breaks, daily history, CSV export), important events (from the
   iPhone Calendar or by hand: time since, next anniversary, yearly reminder), wait times,
   Unix timestamp, timestamp converter, cron parser. Timers open a full-screen
   sideways clock. Settings: iCloud Drive and local zip backups
