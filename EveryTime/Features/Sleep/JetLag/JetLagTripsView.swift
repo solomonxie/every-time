@@ -1,0 +1,125 @@
+import SwiftUI
+
+struct JetLagTripsView: View {
+    @Stored(JetLagKey.profile) private var profile: JetLagProfile? = nil
+    @Stored(JetLagKey.trips) private var trips: [Trip] = []
+    @State private var sheet: SheetKind?
+    @State private var tripAfterProfile = false
+
+    private enum SheetKind: Identifiable {
+        case profile, newTrip
+        var id: Self { self }
+    }
+
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            list(now: context.date)
+        }
+        .navigationDestination(for: TripRoute.self) { JetLagPlanView(tripID: $0.id) }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { sheet = .profile } label: { Image(systemName: "gearshape") }
+                    .accessibilityLabel("Your profile")
+            }
+        }
+        .bottomBar {
+            Button(action: planTrip) { Label("Plan a trip", systemImage: "airplane") }
+                .buttonStyle(.primary)
+        }
+        .sheet(item: $sheet, onDismiss: showTripAfterProfile) { kind in
+            switch kind {
+            case .profile:
+                JetLagProfileSheet(profile: profile ?? JetLagProfile()) { profile = $0 }
+            case .newTrip:
+                NewTripSheet(profile: profile ?? JetLagProfile()) { trips.append($0) }
+            }
+        }
+        .onChange(of: trips) { JetLagNotifications.reschedule(requestingAuthorization: true) }
+        .onChange(of: profile) { JetLagNotifications.reschedule(requestingAuthorization: true) }
+    }
+
+    private func list(now: Date) -> some View {
+        let rows = trips
+            .map { trip in (trip: trip, status: trip.status(of: trip.plan(for: profile ?? JetLagProfile()), now: now)) }
+            .sorted { $0.trip.departure < $1.trip.departure }
+        let upcoming = rows.filter { !$0.status.isPast }
+        let past = rows.filter(\.status.isPast).reversed()
+
+        return List {
+            SleepSectionPicker()
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+
+            if trips.isEmpty {
+                ContentUnavailableView {
+                    Label("No trips yet", systemImage: "airplane")
+                } description: {
+                    Text("Get a plan to beat jet lag — light, sleep and caffeine timing.")
+                }
+                .listRowBackground(Color.clear)
+            }
+            section("Upcoming", rows: Array(upcoming))
+            section("Past", rows: Array(past))
+        }
+        .scrollContentBackground(.hidden)
+    }
+
+    @ViewBuilder
+    private func section(_ title: String, rows: [(trip: Trip, status: (text: String, isPast: Bool))]) -> some View {
+        if !rows.isEmpty {
+            Section {
+                ForEach(rows, id: \.trip.id) { row in
+                    NavigationLink(value: TripRoute(id: row.trip.id)) { TripRow(trip: row.trip, status: row.status.text) }
+                }
+                .onDelete { offsets in
+                    let ids = Set(offsets.map { rows[$0].trip.id })
+                    trips.removeAll { ids.contains($0.id) }
+                }
+                .listRowBackground(Theme.cardFill)
+            } header: {
+                SectionLabel(title)
+            }
+        }
+    }
+
+    private func planTrip() {
+        if profile == nil {
+            tripAfterProfile = true
+            sheet = .profile
+        } else {
+            sheet = .newTrip
+        }
+    }
+
+    private func showTripAfterProfile() {
+        defer { tripAfterProfile = false }
+        if tripAfterProfile, profile != nil { sheet = .newTrip }
+    }
+}
+
+private struct TripRoute: Hashable {
+    let id: Trip.ID
+}
+
+private struct TripRow: View {
+    let trip: Trip
+    let status: String
+
+    var body: some View {
+        HStack(spacing: Theme.spacing) {
+            Image(systemName: "airplane").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(trip.origin.name) → \(trip.destination.name)").font(.cardTitle)
+                Text(status).font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(trip.arrival.formatted(.dateTime.month(.abbreviated).day(), in: trip.destination.timeZone))
+                    .font(.clock(17, weight: .regular))
+                Text(trip.zoneShiftLabel).font(.label).foregroundStyle(.secondary).monospacedDigit()
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+}
