@@ -17,6 +17,7 @@ targets:
     info:
       path: EveryTime/Info.plist
       properties:
+        CFBundleDisplayName: Every Time
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.
@@ -84,6 +85,7 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_KEY_CFBundleDisplayName: Every Time
         INFOPLIST_KEY_WKApplication: "YES"
         INFOPLIST_KEY_WKWatchOnly: "NO"
         INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.solomonxie.everytime
