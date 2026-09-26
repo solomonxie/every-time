@@ -1,34 +1,24 @@
 # Every Time
 
-> 🚧 Work in progress — skeleton only, not yet functional.
+> 🚧 Work in progress — iPhone app functional (Wait times is sample data); widget and watch are stubs. Docs: `docs/design/iphone-v1/`.
 
-Everything about time, in one free iPhone app. A world clock keeps a list of
-cities across timezones side by side. A set of purpose-built timers covers a
-LeetCode timer that keeps a persistent history of past practice sessions, an
-interview timer, a "reversal timer", and a plain stopwatch. A meeting-time
-lookup shows overlapping working hours across several timezones at once, so
-scheduling across a distributed team doesn't need a separate tool. A sleep
-calculator suggests bedtimes for a target wake-up time based on ~90-minute
-REM sleep cycles instead of a flat "8 hours" rule, in the spirit of apps like
-Timeshifter. A waiting/queue-time lookup rounds things out with a place to
-check public wait-time data — theme parks, DMV-style offices, and similar.
-A calendar tab covers lunar-calendar alerts (birthdays and holidays kept on
-the Chinese lunar calendar), an "on this day" lookup for past years' events
-on the same date, and a "how long since…" elapsed-time tracker. A tools tab
-covers everyday dev/time utilities: a live Unix timestamp, a timestamp
-converter, and a cron expression parser.
+Everything about time, in one free iPhone app.
 
-The same time tools are also available from the wrist via a companion Apple
-Watch app, and a home-screen widget surfaces a glanceable clock without
-opening the app.
+- **World** — World Time Buddy–style planner: city column pinned left, hour
+  strips share one horizontal scroll across a week, a center cursor shows every
+  city's time at that instant, work-hour overlaps listed as jump targets.
+- **Sleep** — bedtimes for a wake time (or wake times for "bed now") from
+  ~90-minute sleep cycles.
+- **Lunar** — today's Chinese lunar date, a converter, and lunar events
+  (once / monthly / yearly) with their next Gregorian date, optionally added
+  to the iPhone Calendar.
+- **More** — flat list of the rest: stopwatch, interview timer, reversal
+  timer, LeetCode timer with session history, "how long since…", wait times,
+  Unix timestamp, timestamp converter, cron parser. Timers open a full-screen
+  sideways clock. Settings: iCloud Drive and local zip backups
+  (`EveryTime/Backup/README.md`).
 
-## Screen design — Meetings
-
-Timeshifter-style horizontal timeline, not a static overlap table: one row
-per timezone, each row a scrollable strip of hour blocks shaded by time of
-day (night vs. waking hours), all rows sharing one vertical "now" line so
-overlap is read at a glance. A date strip (day-of-week + date, scrollable)
-sits above the rows; the home timezone's row is pinned at top.
+Planned: a companion Apple Watch app and a home-screen clock widget.
 
 ## Setup
 
@@ -36,6 +26,15 @@ Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```
 xcodegen generate && open EveryTime.xcodeproj
+```
+
+Install on a device (team ID from env, never committed). iCloud backup needs a paid team with
+container `iCloud.com.solomonxie.everytime` registered (Xcode → Signing & Capabilities → iCloud):
+
+```
+xcodebuild -scheme EveryTime -destination id=$DEVICE_UDID -allowProvisioningUpdates \
+  DEVELOPMENT_TEAM=$TEAM_ID build
+xcrun devicectl device install app --device $DEVICE_UDID <DerivedData>/Debug-iphoneos/EveryTime.app
 ```
 
 ## Watch target note
@@ -49,3 +48,9 @@ collides with Xcode's own product install step and fails the build with
 XcodeGen/Xcode incompatibility (yonaskolb/XcodeGen#1613). The plain
 `application` product type sidesteps it and is itself how modern Xcode
 project templates set up single-target watch apps.
+
+## Screenshots
+
+| World | Sleep | Lunar | More |
+|---|---|---|---|
+| <img src="docs/screenshots/world.png" width="200"> | <img src="docs/screenshots/sleep.png" width="200"> | <img src="docs/screenshots/lunar.png" width="200"> | <img src="docs/screenshots/more.png" width="200"> |
