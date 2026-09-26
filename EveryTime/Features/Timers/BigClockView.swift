@@ -8,64 +8,64 @@ struct BigClockView<Readout: View>: View {
     let controls: TimerControls
     @ViewBuilder let readout: (TimeInterval) -> Readout
 
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        GeometryReader { geo in
-            landscape
-                .padding(.horizontal, 56)
-                .padding(.vertical, 20)
-                .frame(width: geo.size.height, height: geo.size.width)
-                .rotationEffect(.degrees(90))
-                .position(x: geo.size.width / 2, y: geo.size.height / 2)
-        }
-        .ignoresSafeArea()
-        .background(.black)
-        .environment(\.colorScheme, .dark)
-        .statusBarHidden()
-        .persistentSystemOverlays(.hidden)
-        .onAppear { UIApplication.shared.isIdleTimerDisabled = true }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        SidewaysScreen { landscape }
     }
 
     private var landscape: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             if let caption, !caption.isEmpty {
                 Text(caption)
-                    .font(.title3)
+                    .font(.system(.title3, design: .rounded, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             ClockTimeline(clock: clock, interval: interval, content: readout)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            HStack {
-                Button("Close", systemImage: "xmark", action: dismiss.callAsFunction)
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.circle)
-                    .tint(.gray)
+            HStack(spacing: 20) {
+                SidewaysCloseButton()
                 Spacer()
-                controls
+                compactControls
             }
-            .opacity(0.7)
+            .opacity(0.75)
         }
+    }
+
+    private var compactControls: TimerControls {
+        var compact = controls
+        compact.size = 60
+        compact.spread = false
+        return compact
     }
 }
 
+/// Sideways readout: thin digits scaled to fill; countdowns add a small ring + note.
 struct BigClockLabel: View {
     let text: String
     var note: String?
+    var progress: Double?
+    var tint: Color?
 
     var body: some View {
         VStack(spacing: 4) {
             Text(text)
-                .font(.system(size: 400, weight: .light, design: .rounded))
+                .font(.system(size: 400, weight: .thin, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.05)
-            if let note {
-                Text(note).font(.title2)
+                .foregroundStyle(tint ?? .primary)
+            if progress != nil || note != nil {
+                HStack(spacing: 10) {
+                    if let progress {
+                        ProgressRing(progress: progress, tint: tint ?? .accentColor, lineWidth: 4)
+                            .frame(width: 36, height: 36)
+                    }
+                    if let note {
+                        Text(note)
+                            .font(.system(.title2, design: .rounded, weight: .medium))
+                            .foregroundStyle(tint ?? .secondary)
+                    }
+                }
             }
         }
     }
