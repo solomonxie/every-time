@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Finds events in your calendar to mark as important and adds lunar events.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Adds your lunar events to the iPhone Calendar.</string>
 	<key>NSUbiquitousContainers</key>
