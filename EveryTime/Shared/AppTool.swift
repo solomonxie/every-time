@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
-    case world, sleep, jetLag, lunar
+    case world, sleep, nap, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, work, countdown
     case since, waitTimes, unixTime, converter, cron
 
@@ -22,7 +22,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     var group: Group {
         switch self {
-        case .world, .sleep, .jetLag, .lunar: .main
+        case .world, .sleep, .nap, .jetLag, .lunar: .main
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
         case .since, .waitTimes: .dates
         case .unixTime, .converter, .cron: .developer
@@ -33,6 +33,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "World"
         case .sleep: "Sleep"
+        case .nap: "Nap"
         case .jetLag: "Jet lag planner"
         case .lunar: "Lunar"
         case .stopwatch: "Stopwatch"
@@ -67,6 +68,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "globe"
         case .sleep: "moon.stars"
+        case .nap: "powersleep"
         case .jetLag: "airplane"
         case .lunar: "calendar"
         case .stopwatch: "stopwatch"
@@ -89,6 +91,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: WorldView()
         case .sleep: SleepView()
+        case .nap: NapView()
         case .jetLag: JetLagTripsView()
         case .lunar: LunarCalendarView()
         case .stopwatch, .interview, .rehearsal, .leetcode: TimerToolView(tool: self)
