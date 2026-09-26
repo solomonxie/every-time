@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
-    case world, sleep, lunar
+    case world, sleep, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, countdown
     case since, waitTimes, unixTime, converter, cron
 
@@ -22,7 +22,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     var group: Group {
         switch self {
-        case .world, .sleep, .lunar: .main
+        case .world, .sleep, .jetLag, .lunar: .main
         case .stopwatch, .interview, .rehearsal, .leetcode, .countdown: .timers
         case .since, .waitTimes: .dates
         case .unixTime, .converter, .cron: .developer
@@ -33,6 +33,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "World"
         case .sleep: "Sleep"
+        case .jetLag: "Jet lag planner"
         case .lunar: "Lunar"
         case .stopwatch: "Stopwatch"
         case .interview: "Interview"
@@ -50,6 +51,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     /// Short label that fits under a tab bar icon.
     var tabTitle: String {
         switch self {
+        case .jetLag: "Jet lag"
         case .since: "Events"
         case .waitTimes: "Waits"
         case .unixTime: "Unix"
@@ -63,6 +65,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "globe"
         case .sleep: "moon.stars"
+        case .jetLag: "airplane"
         case .lunar: "calendar"
         case .stopwatch: "stopwatch"
         case .interview: "mic"
@@ -83,6 +86,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: WorldView()
         case .sleep: SleepView()
+        case .jetLag: JetLagTripsView()
         case .lunar: LunarCalendarView()
         case .stopwatch, .interview, .rehearsal, .leetcode: TimerToolView(tool: self)
         case .countdown: CountdownListView()

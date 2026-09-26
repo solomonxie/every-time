@@ -1,8 +1,8 @@
 import Foundation
 
 enum SleepMode: String, CaseIterable, Identifiable {
-    case wakeAt = "I want to wake at"
-    case bedNow = "Going to bed now"
+    case wakeAt = "Wake at"
+    case bedNow = "Sleep now"
 
     var id: Self { self }
 }
@@ -30,5 +30,11 @@ struct SleepSuggestion: Identifiable, Equatable {
         cycleCounts.map { n in
             SleepSuggestion(time: bed.addingTimeInterval(fallAsleepTime + Double(n) * cycleLength), cycles: n)
         }
+    }
+
+    /// Next time the clock reads `minutes` after midnight, strictly after `now`.
+    static func nextOccurrence(ofMinutes minutes: Int, after now: Date, calendar: Calendar = .current) -> Date {
+        calendar.nextDate(after: now, matching: DateComponents(hour: minutes / 60, minute: minutes % 60),
+                          matchingPolicy: .nextTime) ?? now
     }
 }

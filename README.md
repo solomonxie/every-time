@@ -9,6 +9,8 @@ Everything about time, in one free iPhone app.
   city's time at that instant, work-hour overlaps listed as jump targets.
 - **Sleep** — bedtimes for a wake time (or wake times for "bed now") from
   ~90-minute sleep cycles.
+- **Jet lag planner** — per-trip plan of light, sleep, caffeine and melatonin
+  timing to shift your body clock, from your usual sleep hours.
 - **Lunar** — today's Chinese lunar date, a converter, and lunar events
   (once / monthly / yearly) with their next Gregorian date, optionally added
   to the iPhone Calendar.

@@ -1,63 +1,19 @@
 # Jet lag planner — UI/UX
 
-Product: [DESIGN.md](DESIGN.md). Lives in the Sleep tab: `[ Cycles | JET LAG ]`.
+Product: [DESIGN.md](DESIGN.md). Its own tool, "Jet lag planner" (tab label "Jet lag").
 
 ## Screen map
 
 ```
-Sleep ─ [Cycles | Jet lag]
-          Jet lag ─ no profile ──▶ Profile form (sheet, first run)
-                  ─ Trips list ─ tap ──▶ Plan (pushed)
-                               ─ [[ Plan a trip ]] ──▶ New trip (sheet)
-                  ─ ⚙ ──▶ Profile form (sheet, edit)
+Jet lag ─ no profile ──▶ Profile form (sheet, first run)
+        ─ Trips list ─ tap ──▶ Plan (pushed)
+                     ─ [[ Plan a trip ]] ──▶ New trip (sheet)
+        ─ Your sleep card ──▶ Profile form (sheet, edit)
 ```
 
-## Trips list
-```
-Sleep                                         ⚙
-[ Cycles | JET LAG ]
-UPCOMING
-✈ Vancouver → London          Nov 1 · +8h   ›
-  Adjusting · day 2 of 6                        ← or "Starts in 3 days" / "Adapted"
-PAST
-✈ Tokyo → Vancouver          Aug 3 · −16h   ›   ← swipe left → Delete!
-─────────────────────────────────────────────────
-[[            ✈ Plan a trip                   ]]  ← bottom, above tab bar
-```
-```
-empty   ✈  No trips yet
-        Get a plan to beat jet lag — light, sleep and caffeine timing.
-```
+## Trips list, profile form, new trip
 
-## Profile form (sheet)
-```
-( Cancel )         About you              ( Save )
-Age                                  [−] 34 [+]
-Sex                          [ Female | Male | — ]
-Chronotype ⓘ          [ Early | IN BETWEEN | Late ]
-Usual bedtime                          11:00 PM
-Usual wake time                         7:00 AM
-ADVICE
-Melatonin ⓘ                                ○─
-Caffeine                                   ─●
-Notifications                              ─●
-```
-
-## New trip (sheet)
-```
-( Cancel )          New trip              ( Create )
-From                          Vancouver ›   ← city picker
-To                               London ›
-Departs      Sat, Oct 31   6:40 PM   (Vancouver time)
-Arrives      Sun, Nov 1   12:05 PM   (London time)
-Adjust before departure            [−] 2 days [+]
-─────────────────────────────────────────────────
-+8h east · advancing · about 6 days         ← live summary
-```
-```
-invalid   ⚠ Arrival is before departure
-same tz   ⚠ No time difference — no plan needed
-```
+Redesigned — see [iphone-v1/uiux/sleep.md](../iphone-v1/uiux/sleep.md).
 
 ## Plan (pushed) — mirrors Timeshifter's day timeline
 ```
