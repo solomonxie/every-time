@@ -12,14 +12,38 @@ struct TimelineRow: Identifiable {
     }
 }
 
+/// Local hours every city should share; `end` before `start` wraps past midnight.
+struct TargetHours: Codable, Equatable {
+    var start = 8
+    var end = 18
+
+    static let work = TargetHours()
+    static let awake = TargetHours(start: 7, end: 23)
+
+    func contains(_ hour: Int) -> Bool {
+        start < end ? (start..<end).contains(hour) : hour >= start || hour < end
+    }
+
+    /// The target plus 2h before and 4h after, shaded as edge hours.
+    var widened: TargetHours {
+        TargetHours(start: (start + 22) % 24, end: (end + 4) % 24)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var targetHours = TargetHours.work
+}
+
 enum HourShade {
     case night, edge, work
 
-    init(hour: Int) {
-        switch hour {
-        case 8..<18: self = .work
-        case 6..<8, 18..<22: self = .edge
-        default: self = .night
+    init(hour: Int, target: TargetHours) {
+        if target.contains(hour) {
+            self = .work
+        } else if target.widened.contains(hour) {
+            self = .edge
+        } else {
+            self = .night
         }
     }
 
@@ -223,6 +247,7 @@ private struct HourCell: View {
 
     private static let uses12h = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") ?? false
     private static let radius: CGFloat = 12
+    @Environment(\.targetHours) private var target
 
     var body: some View {
         let parts = calendar.dateComponents([.weekday, .day, .hour, .minute], from: date)
@@ -250,7 +275,7 @@ private struct HourCell: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            hour == 0 ? Theme.cardFill : HourShade(hour: hour).color,
+            hour == 0 ? Theme.cardFill : HourShade(hour: hour, target: target).color,
             in: UnevenRoundedRectangle(
                 topLeadingRadius: opensBand ? Self.radius : 0, bottomLeadingRadius: opensBand ? Self.radius : 0,
                 bottomTrailingRadius: closesBand ? Self.radius : 0, topTrailingRadius: closesBand ? Self.radius : 0,
@@ -262,7 +287,7 @@ private struct HourCell: View {
 
     /// nil = midnight cell, its own band.
     private func band(_ hour: Int) -> HourShade? {
-        hour == 0 ? nil : HourShade(hour: hour)
+        hour == 0 ? nil : HourShade(hour: hour, target: target)
     }
 
     private func label(hour: Int, minute: Int) -> String {

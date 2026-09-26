@@ -22,10 +22,16 @@ Singapore          +15h  ╭─────  │  ──────────
 OVERLAP · Fri 25
 ╭───────────────────────────────────────────────╮
 │ ( 8 – 9 AM )  ( 4 – 5 PM )                    │  ← pill chips; tap → cursor jumps; filled = contains cursor
-│ All cities within 8 AM – 6 PM · tap to jump   │
+├───────────────────────────────────────────────┤
+│ Target hours                   8 AM – 6 PM  › │  ← tap → unfolds in place, › → ⌄
+│ ( Work 8 AM – 6 PM )  ( Awake 7 AM – 11 PM )  │  ← presets
+│        8 AM   –   6 PM                        │  ← From / To hour wheels
+│ In each city's local time                     │
 ╰───────────────────────────────────────────────╯
- or   ☾ No shared work hours this day
+ or   ☾ No shared target hours this day
 ```
+- Target hours (`world.targetHours`) drive the chips and the grid bands: work = target,
+  edge = 2h before / 4h after, rest night. End before start wraps past midnight; equal = all day.
 
 City label: name (cardTitle, 🏠 for local), time at cursor (Font.clock 22), secondary = weekday if another day · offset.
 
