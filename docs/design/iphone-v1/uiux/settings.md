@@ -1,12 +1,15 @@
 # Settings
 
-Pushed from More → Settings (last section). Backups only, for now.
-Patterns: `uiux` backup-restore + platform-cloud-drive.
+Inline sections at the bottom of More (no separate page). Backups only,
+for now. Patterns: `uiux` backup-restore + platform-cloud-drive.
 
 ## Default (iCloud on, ready)
 
 ```
-‹ More            Settings
+More (scrolled to bottom)
+…
+TAB BAR  3 of 4                         ← more.md
+…
 BACKUP ⓘ
 ☁ iCloud Drive                               ●──
   Files → iCloud Drive → Every Time · 4 min ago
@@ -53,8 +56,8 @@ Re-checked on every foreground. Auto path never alerts; signed-out is silent.
 ## ⓘ popovers
 
 ```
-BACKUP ⓘ →  A copy of your cities, lunar and "since" dates, timer settings
-            and LeetCode history, as one small .zip. Saved once a day when
+BACKUP ⓘ →  A copy of your cities, lunar and "since" dates, timer settings,
+            tab bar and LeetCode history, as one small .zip. Saved once a day when
             something changed; iCloud Drive keeps the latest 10. It's a
             backup, not sync between devices. Reinstall the app and your
             data comes back from iCloud by itself.

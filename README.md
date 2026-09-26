@@ -12,8 +12,12 @@ Everything about time, in one free iPhone app.
 - **Lunar** — today's Chinese lunar date, a converter, and lunar events
   (once / monthly / yearly) with their next Gregorian date, optionally added
   to the iPhone Calendar.
-- **More** — flat list of the rest: stopwatch, interview timer, reversal
-  timer, LeetCode timer with session history, "how long since…", wait times,
+- **Countdown** — count down to any date/time; the biggest remaining unit
+  is the hero (days, then hours, minutes, seconds), sideways full screen,
+  and fireworks or confetti, sound, vibration and a notification when it ends.
+- **More** — flat list of the rest: stopwatch, interview timer, rehearsal
+  timer, LeetCode timer with session history, important events (from the
+  iPhone Calendar or by hand: time since, next anniversary, yearly reminder), wait times,
   Unix timestamp, timestamp converter, cron parser. Timers open a full-screen
   sideways clock. Settings: iCloud Drive and local zip backups
   (`EveryTime/Backup/README.md`).
