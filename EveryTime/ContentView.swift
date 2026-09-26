@@ -1,22 +1,22 @@
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("tab") private var tab = 0
+
     var body: some View {
-        TabView {
-            ClocksView()
-                .tabItem { Label("Clocks", systemImage: "globe") }
-            TimersView()
-                .tabItem { Label("Timers", systemImage: "timer") }
-            MeetingsView()
-                .tabItem { Label("Meetings", systemImage: "person.2") }
+        TabView(selection: $tab) {
+            WorldView()
+                .tabItem { Label("World", systemImage: "globe") }
+                .tag(0)
             SleepView()
                 .tabItem { Label("Sleep", systemImage: "moon.stars") }
-            WaitingView()
-                .tabItem { Label("Waiting", systemImage: "hourglass") }
-            CalendarView()
-                .tabItem { Label("Calendar", systemImage: "calendar") }
-            ToolsView()
-                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+                .tag(1)
+            NavigationStack { LunarCalendarView() }
+                .tabItem { Label("Lunar", systemImage: "calendar") }
+                .tag(2)
+            MoreView()
+                .tabItem { Label("More", systemImage: "ellipsis.circle") }
+                .tag(3)
         }
     }
 }
