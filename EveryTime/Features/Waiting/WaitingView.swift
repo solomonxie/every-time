@@ -8,30 +8,19 @@ struct WaitingView: View {
     ]
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(entries) { entry in
-                        HStack {
-                            Text(entry.place)
-                            Spacer()
-                            Text(entry.placeholderWait)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+        List {
+            Section {
+                ForEach(entries) { entry in
+                    LabeledContent(entry.place, value: entry.placeholderWait)
                 }
-                Section {
-                    NavigationLink("About") {
-                        Text("Every Time")
-                            .navigationTitle("About")
-                    }
-                }
+            } footer: {
+                Text("Sample data — live wait times coming later.")
             }
-            .navigationTitle("Waiting")
         }
+        .navigationTitle("Wait times")
     }
 }
 
 #Preview {
-    WaitingView()
+    NavigationStack { WaitingView() }
 }
