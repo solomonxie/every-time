@@ -275,7 +275,7 @@ private struct HourCell: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            hour == 0 ? Theme.cardFill : HourShade(hour: hour, target: target).color,
+            HourShade(hour: hour, target: target).color,
             in: UnevenRoundedRectangle(
                 topLeadingRadius: opensBand ? Self.radius : 0, bottomLeadingRadius: opensBand ? Self.radius : 0,
                 bottomTrailingRadius: closesBand ? Self.radius : 0, topTrailingRadius: closesBand ? Self.radius : 0,
@@ -285,9 +285,8 @@ private struct HourCell: View {
         .padding(.trailing, closesBand ? 1.5 : 0)
     }
 
-    /// nil = midnight cell, its own band.
-    private func band(_ hour: Int) -> HourShade? {
-        hour == 0 ? nil : HourShade(hour: hour, target: target)
+    private func band(_ hour: Int) -> HourShade {
+        HourShade(hour: hour, target: target)
     }
 
     private func label(hour: Int, minute: Int) -> String {

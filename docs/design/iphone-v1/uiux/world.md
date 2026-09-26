@@ -13,7 +13,7 @@ Friday, Sep 25 · Now                                 ← date · "Now" / "in 3h
 🏠 Vancouver             ╭────┴──┬──┴───╮╭───╮╭───── ← rows = rounded strips, 6pt gaps
 9:45 PM                  │ 8  9  │ 10 11 ││Sat││ 1  2   same-shade hours merge into one band
                          ╰───────┴──────╯│ 26│╰─────   ░ edge  ▓ night  █ work (Theme.Tone, soft)
-London              +8h  ╭──────────────╮╰───╯╭────   midnight = own subtle cell "Sat 26"
+London              +8h  ╭──────────────╮╰───╯╭────   midnight shows the date "Sat 26" in its band's shade
 5:45 AM  Sat             │ 4  5  │ 6  7 ...           hour digits small/light, am/pm tiny
                          ╰──────────────╯
 Singapore          +15h  ╭─────  │  ────────────
