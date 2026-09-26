@@ -5,39 +5,65 @@ struct TimestampConverterView: View {
     @State private var date = Date()
 
     var body: some View {
-        Form {
-            Section("Timestamp → Date") {
-                TextField("Unix timestamp", text: $input)
-                    .keyboardType(.numbersAndPunctuation)
-                    .autocorrectionDisabled()
-                    .font(.body.monospacedDigit())
-                result
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.spacing) {
+                SectionLabel("Timestamp → Date")
+                Card {
+                    HStack(spacing: 8) {
+                        TextField("Unix timestamp", text: $input, prompt: Text("1758790867"))
+                            .font(.system(.title2, design: .monospaced))
+                            .keyboardType(.numbersAndPunctuation)
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                        Button("Now") { input = String(Int(Date().timeIntervalSince1970)) }
+                            .buttonStyle(.soft)
+                    }
+                    status
+                }
+                if case let .valid(parsed, _) = ParsedTimestamp(input) {
+                    Card {
+                        CopyableRow(title: "Local", value: parsed.formatted(Self.style(timeZone: .current)))
+                        CopyableRow(title: "UTC", value: parsed.formatted(Self.style(timeZone: .gmt)))
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            CopyableRow(title: "Relative", value: parsed.formatted(.relative(presentation: .named)))
+                        }
+                    }
+                    .transition(.opacity)
+                }
+
+                SectionLabel("Date → Timestamp")
+                    .padding(.top, 20)
+                Card {
+                    DatePicker("Date", selection: $date)
+                        .font(.system(.body, design: .rounded))
+                    CopyableRow(title: "Seconds", value: String(Int(date.timeIntervalSince1970)))
+                    CopyableRow(title: "Milliseconds", value: String(Int64(date.timeIntervalSince1970 * 1000)))
+                }
             }
-            Section("Date → Timestamp") {
-                DatePicker("Date", selection: $date)
-                CopyableRow(title: "Seconds", value: String(Int(date.timeIntervalSince1970)))
-            }
+            .screen()
+            .padding(.vertical, Theme.spacing)
+            .animation(.snappy, value: ParsedTimestamp(input))
         }
+        .scrollDismissesKeyboard(.interactively)
+        .copyToast()
         .navigationTitle("Timestamp converter")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     @ViewBuilder
-    private var result: some View {
+    private var status: some View {
         switch ParsedTimestamp(input) {
         case .empty:
-            EmptyView()
+            Text("Seconds or milliseconds")
+                .font(.label)
+                .foregroundStyle(.secondary)
         case .invalid:
             Label("Not a number", systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-        case let .valid(parsed, isMilliseconds):
-            LabeledContent("Local", value: parsed.formatted(Self.style(timeZone: .current)))
-            LabeledContent("UTC", value: parsed.formatted(Self.style(timeZone: .gmt)))
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                LabeledContent("Relative", value: parsed.formatted(.relative(presentation: .named)))
-            }
+                .font(.label)
+                .foregroundStyle(Theme.Tone.warn)
+        case let .valid(_, isMilliseconds):
             Text(isMilliseconds ? "Read as milliseconds" : "Read as seconds")
-                .font(.footnote)
+                .font(.label)
                 .foregroundStyle(.secondary)
         }
     }

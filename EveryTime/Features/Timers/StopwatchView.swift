@@ -18,26 +18,25 @@ struct StopwatchView: View {
     let model: StopwatchModel
 
     var body: some View {
-        VStack(spacing: 24) {
-            ClockTimeline(clock: model.clock, interval: 0.01) { elapsed in
-                Text(TimeText.precise(elapsed))
-                    .timerDigits()
-            }
-            .padding(.top, 40)
-            controls
-            List {
-                ForEach(model.laps.indices.reversed(), id: \.self) { index in
-                    HStack {
-                        Text("Lap \(index + 1)")
-                        Spacer()
-                        Text(TimeText.precise(model.laps[index]))
-                            .monospacedDigit()
-                    }
-                    .foregroundStyle(color(for: model.laps[index]))
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                ClockTimeline(clock: model.clock, interval: 0.01) { elapsed in
+                    Text(TimeText.precise(elapsed))
+                        .timerDigits()
                 }
+                TimerCaption(text: caption)
             }
-            .listStyle(.plain)
+            .padding(.top, 56)
+            .padding(.horizontal, Theme.padding)
+
+            controls
+                .padding(.horizontal, Theme.padding)
+                .padding(.vertical, 36)
+
+            laps
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .sensoryFeedback(.selection, trigger: model.laps.count) { _, new in new > 0 }
         .navigationTitle(TimerKind.stopwatch.rawValue)
         .navigationBarTitleDisplayMode(.inline)
         .bigClock {
@@ -51,10 +50,38 @@ struct StopwatchView: View {
         TimerControls(clock: model.clock, stopTitle: "Stop", onLap: model.lap, onReset: model.clearLaps)
     }
 
-    private func color(for lap: TimeInterval) -> Color {
-        guard model.laps.count > 1 else { return .primary }
-        if lap == model.laps.min() { return .green }
-        if lap == model.laps.max() { return .red }
-        return .primary
+    private var caption: String {
+        if model.clock.isRunning { return model.laps.isEmpty ? "Running" : "Lap \(model.laps.count + 1)" }
+        return model.clock.hasTime ? "Stopped" : "Ready"
+    }
+
+    private var laps: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(model.laps.indices.reversed(), id: \.self) { index in
+                    let lapTint = tint(for: model.laps[index])
+                    HStack {
+                        Text("Lap \(index + 1)")
+                            .foregroundStyle(lapTint ?? .secondary)
+                        Spacer()
+                        Text(TimeText.precise(model.laps[index]))
+                            .font(.clock(17, weight: .regular))
+                            .foregroundStyle(lapTint ?? .primary)
+                    }
+                    .font(.system(.body, design: .rounded))
+                    .padding(.vertical, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, Theme.padding)
+            .animation(.snappy, value: model.laps.count)
+        }
+    }
+
+    private func tint(for lap: TimeInterval) -> Color? {
+        guard model.laps.count > 1 else { return nil }
+        if lap == model.laps.min() { return Theme.Tone.good }
+        if lap == model.laps.max() { return Theme.Tone.bad }
+        return nil
     }
 }

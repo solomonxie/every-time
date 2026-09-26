@@ -3,7 +3,7 @@ import Foundation
 enum TimerKind: String, CaseIterable, Identifiable, Hashable {
     case stopwatch = "Stopwatch"
     case interview = "Interview"
-    case reversal = "Reversal"
+    case rehearsal = "Rehearsal"
     case leetcode = "LeetCode"
 
     var id: String { rawValue }
@@ -12,7 +12,7 @@ enum TimerKind: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .stopwatch: "stopwatch"
         case .interview: "mic"
-        case .reversal: "arrow.counterclockwise"
+        case .rehearsal: "person.wave.2"
         case .leetcode: "chevron.left.forwardslash.chevron.right"
         }
     }
