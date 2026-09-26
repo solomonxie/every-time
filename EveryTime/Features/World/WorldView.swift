@@ -8,10 +8,12 @@ struct WorldView: View {
     ]
     @State private var start = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: .now))!
     @State private var cursor = Date.now
+    @State private var followsNow = true
     @State private var position = ScrollPosition()
     @Stored("world.localIndex") private var localIndex = 0
     @State private var showingPicker = false
     @State private var isEditing = false
+    @State private var showingWall = false
 
     private let hours = 24 * 8
 
@@ -22,94 +24,107 @@ struct WorldView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                hero.screen()
+                VStack(alignment: .leading, spacing: Theme.spacing) {
                     TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, position: $position,
-                                 isEditing: isEditing,
-                                 onScroll: { cursor = date(atOffset: $0) },
-                                 onRemove: { city in cities.removeAll { $0 == city } },
+                                 isEditing: isEditing, snaps: !followsNow,
+                                 onScroll: { if !followsNow { cursor = date(atOffset: $0) } },
+                                 onDragStart: { followsNow = false },
+                                 onRemove: { city in withAnimation(.snappy) { cities.removeAll { $0 == city } } },
                                  onMove: move)
                     if cities.isEmpty {
-                        Text("Tap + to add a city to compare").foregroundStyle(.secondary).padding(.horizontal)
+                        Text("Tap + to add a city to compare")
+                            .font(.footnote).foregroundStyle(.secondary).screen()
                     }
-                    overlapSection
                 }
-                .padding(.vertical)
+                overlapSection.screen()
             }
-            .navigationTitle("World")
-            .safeAreaInset(edge: .bottom) { bottomBar }
-            .sheet(isPresented: $showingPicker) {
-                CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { cities.append($0) }
+            .padding(.vertical, 8)
+        }
+        .navigationTitle("World")
+        .toolbar {
+            Button("Full screen", systemImage: "arrow.up.left.and.arrow.down.right") { showingWall = true }
+        }
+        .fullScreenCover(isPresented: $showingWall) {
+            WorldWallView(rows: rows, start: start, hours: hours, cursor: cursor, followsNow: followsNow)
+        }
+        .bottomBar { bottomBar }
+        .sheet(isPresented: $showingPicker) {
+            CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { cities.append($0) }
+        }
+        .onAppear { jumpToNow(animated: false) }
+        .task { await tickWhileFollowingNow() }
+    }
+
+    // MARK: Hero
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(cursor.formatted(.dateTime.hour().minute()))
+                .font(.clock(56))
+                .contentTransition(.numericText())
+            HStack(spacing: 6) {
+                Text(cursor.formatted(.dateTime.weekday(.wide).month().day()))
+                Text("·").foregroundStyle(.tertiary)
+                Text(relativeLabel).foregroundStyle(followsNow ? Color.secondary : Color.accentColor)
             }
-            .onAppear { scroll(to: .now, animated: false) }
+            .font(.label)
+            .foregroundStyle(.secondary)
         }
-    }
-
-    private var bottomBar: some View {
-        HStack(spacing: 12) {
-            Button("Now", systemImage: "location.fill") { scroll(to: .now) }
-                .buttonStyle(.bordered)
-            Spacer()
-            Button(isEditing ? "Done" : "Edit") { withAnimation { isEditing.toggle() } }
-                .buttonStyle(.bordered)
-            Button("Add City", systemImage: "plus") { showingPicker = true }
-                .buttonStyle(.borderedProminent)
-        }
-        .controlSize(.large)
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
-    }
-
-    private func move(_ id: String, onto targetID: String) {
-        var ids = rows.map(\.id)
-        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: targetID) else { return }
-        ids.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
-        let localID = WorldCity.local.id
-        localIndex = ids.firstIndex(of: localID) ?? 0
-        cities = ids.filter { $0 != localID }.compactMap { id in cities.first { $0.id == id } }
-    }
-
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(cursor.formatted(.dateTime.weekday(.wide).month().day()))
-                .font(.headline)
-            Spacer()
-            Text(relativeLabel).font(.subheadline).foregroundStyle(.secondary)
-        }
-        .padding(.horizontal)
+        .animation(.snappy, value: cursor)
     }
 
     private var relativeLabel: String {
-        let minutes = Int((cursor.timeIntervalSinceNow / 60 / 15).rounded()) * 15
-        guard minutes != 0 else { return "Now" }
+        let minutes = Int((cursor.timeIntervalSinceNow / 60).rounded())
+        guard !followsNow, minutes != 0 else { return "Now" }
         let h = abs(minutes) / 60, m = abs(minutes) % 60
         let span = [h > 0 ? "\(h)h" : nil, m > 0 ? "\(m)m" : nil].compactMap { $0 }.joined(separator: " ")
         return minutes > 0 ? "in \(span)" : "\(span) ago"
     }
 
+    // MARK: Overlap
+
     private var overlapSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("WORK HOURS OVERLAP").font(.footnote).foregroundStyle(.secondary)
-            let ranges = overlapRanges
-            if ranges.isEmpty {
-                Label("No shared 8 AM – 6 PM window this day", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-            } else {
-                ForEach(ranges, id: \.lowerBound) { range in
-                    Button { scroll(to: range.lowerBound) } label: {
-                        HStack {
-                            Text(range.formatted(.interval.hour().minute()))
-                            Spacer()
-                            Image(systemName: "arrow.right.circle")
+            SectionLabel(title: "Overlap") {
+                Text("· " + cursor.formatted(.dateTime.weekday(.abbreviated).day()))
+                    .font(.label).foregroundStyle(.tertiary)
+            }
+            Card {
+                let ranges = overlapRanges
+                if ranges.isEmpty {
+                    Label("No shared work hours this day", systemImage: "moon.zzz")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(ranges, id: \.lowerBound) { range in chip(range) }
                         }
                     }
+                    Text("All cities within 8 AM – 6 PM · tap to jump")
+                        .font(.caption).foregroundStyle(.tertiary)
                 }
             }
         }
-        .padding(.horizontal)
+    }
+
+    private func chip(_ range: Range<Date>) -> some View {
+        let active = range.contains(cursor)
+        return Button {
+            followsNow = false
+            scroll(to: range.lowerBound)
+        } label: {
+            Text(range.formatted(.interval.hour().minute()))
+                .font(.clock(15, weight: .medium))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .foregroundStyle(active ? Color.white : Color.accentColor)
+                .background(active ? Color.accentColor : Color.accentColor.opacity(0.12), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Hour blocks of the cursor's local day where every row is inside work hours.
@@ -128,13 +143,54 @@ struct WorldView: View {
         return ranges
     }
 
+    // MARK: Bottom bar
+
+    private var bottomBar: some View {
+        HStack(spacing: 10) {
+            Button { jumpToNow() } label: { Label("Now", systemImage: "location.fill") }
+                .buttonStyle(.soft)
+                .disabled(followsNow)
+                .opacity(followsNow ? 0.4 : 1)
+            Button(isEditing ? "Done" : "Edit") { withAnimation(.snappy) { isEditing.toggle() } }
+                .buttonStyle(.soft)
+            Button { showingPicker = true } label: { Label("Add City", systemImage: "plus") }
+                .buttonStyle(.primary)
+        }
+        .sensoryFeedback(.selection, trigger: followsNow) { _, new in new }
+    }
+
+    // MARK: Actions
+
+    private func move(_ id: String, onto targetID: String) {
+        var ids = rows.map(\.id)
+        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: targetID) else { return }
+        ids.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
+        let localID = WorldCity.local.id
+        localIndex = ids.firstIndex(of: localID) ?? 0
+        cities = ids.filter { $0 != localID }.compactMap { id in cities.first { $0.id == id } }
+    }
+
+    /// Exact current time (no 15-min snap); the cursor keeps following now until the user drags.
+    private func jumpToNow(animated: Bool = true) {
+        followsNow = true
+        cursor = .now
+        scroll(to: cursor, animated: animated)
+    }
+
+    private func tickWhileFollowingNow() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(15))
+            if followsNow { jumpToNow(animated: false) }
+        }
+    }
+
     private func date(atOffset x: CGFloat) -> Date {
         start.addingTimeInterval(Double(x / TimelineGrid.cellWidth) * 3600)
     }
 
     private func scroll(to date: Date, animated: Bool = true) {
         let x = CGFloat(date.timeIntervalSince(start) / 3600) * TimelineGrid.cellWidth
-        withAnimation(animated ? .default : nil) { position.scrollTo(x: x) }
+        withAnimation(animated ? .snappy : nil) { position.scrollTo(x: x) }
     }
 }
 
