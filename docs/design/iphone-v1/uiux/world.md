@@ -29,9 +29,17 @@ OVERLAP · Fri 25
 │ In each city's local time                     │
 ╰───────────────────────────────────────────────╯
  or   ☾ No shared target hours this day
+
+RECENT                                   Clear
+╭───────────────────────────────────────────────╮
+│ Tokyo                 2:45 PM   +16h      ⊕   │  ← cities ever added, newest first,
+│ Paris                 6:45 AM    +9h      ⊕   │    minus those on the grid; tap → add
+╰───────────────────────────────────────────────╯
 ```
 - Target hours (`world.targetHours`) drive the chips and the grid bands: work = target,
   edge = 2h before / 4h after, rest night. End before start wraps past midnight; equal = all day.
+- Recent (`world.recentCities`, max 20): recorded on add; a removed city not yet in it
+  (the defaults) joins at the top. Section hidden when empty.
 
 City label: name (cardTitle, 🏠 for local), time at cursor (Font.clock 22), secondary = weekday if another day · offset.
 
