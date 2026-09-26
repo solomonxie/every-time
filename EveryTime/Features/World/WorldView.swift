@@ -6,7 +6,7 @@ struct WorldView: View {
         WorldCity(timeZoneIdentifier: "Europe/London"),
         WorldCity(timeZoneIdentifier: "Asia/Singapore"),
     ]
-    @State private var start = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: .now))!
+    @State private var start = Calendar.current.date(byAdding: .day, value: -Self.daysBack, to: Calendar.current.startOfDay(for: .now))!
     @State private var cursor = Date.now
     @State private var followsNow = true
     @State private var position = ScrollPosition()
@@ -19,7 +19,9 @@ struct WorldView: View {
     /// Every city ever added, newest first.
     @Stored("world.recentCities") private var recent: [WorldCity] = []
 
-    private let hours = 24 * 8
+    private static let daysBack = 7
+    private static let daysAhead = 7
+    private let hours = 24 * (Self.daysBack + 1 + Self.daysAhead)
 
     private var rows: [TimelineRow] {
         var rows = cities.map { TimelineRow(city: $0, isLocal: false) }
