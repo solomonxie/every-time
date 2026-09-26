@@ -2,6 +2,7 @@ import SwiftUI
 
 struct JetLagProfileSheet: View {
     @State var profile: JetLagProfile
+    var showsAdvice = true
     let onSave: (JetLagProfile) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var open: Field?
@@ -69,22 +70,7 @@ struct JetLagProfileSheet: View {
                 }
                 .listRowBackground(Theme.cardFill)
 
-                Section {
-                    Toggle(isOn: $profile.caffeine) { Label("Caffeine timing", systemImage: "cup.and.saucer") }
-                    Toggle(isOn: $profile.melatonin) {
-                        HStack(spacing: 6) {
-                            Label("Melatonin", systemImage: "pills")
-                            InfoButton(label: "About melatonin", text: """
-                                Not medical advice. Low-dose melatonin (0.5 mg) can help shift the body \
-                                clock earlier. Rules and dosing vary by country — check with a doctor first.
-                                """)
-                        }
-                    }
-                    Toggle(isOn: $profile.notifications) { Label("Reminders", systemImage: "bell") }
-                } header: {
-                    SectionLabel("Advice")
-                }
-                .listRowBackground(Theme.cardFill)
+                if showsAdvice { adviceSection }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Your sleep")
@@ -101,6 +87,25 @@ struct JetLagProfileSheet: View {
             }
             .sensoryFeedback(.selection, trigger: profile)
         }
+    }
+
+    private var adviceSection: some View {
+                Section {
+                    Toggle(isOn: $profile.caffeine) { Label("Caffeine timing", systemImage: "cup.and.saucer") }
+                    Toggle(isOn: $profile.melatonin) {
+                        HStack(spacing: 6) {
+                            Label("Melatonin", systemImage: "pills")
+                            InfoButton(label: "About melatonin", text: """
+                                Not medical advice. Low-dose melatonin (0.5 mg) can help shift the body \
+                                clock earlier. Rules and dosing vary by country — check with a doctor first.
+                                """)
+                        }
+                    }
+                    Toggle(isOn: $profile.notifications) { Label("Reminders", systemImage: "bell") }
+                } header: {
+                    SectionLabel("Advice")
+                }
+                .listRowBackground(Theme.cardFill)
     }
 
     private func timeRow(_ title: String, _ field: Field, minutes: Binding<Int>) -> some View {
