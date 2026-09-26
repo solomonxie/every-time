@@ -9,9 +9,10 @@ Everything about time, in one free iPhone app.
   center cursor shows every city's time at that instant, work-hour overlaps listed as jump targets.
 - **Sleep** — bedtimes for a wake time (or wake times for "bed now") from
   ~90-minute sleep cycles.
-- **Nap** — nap timer with a wake alarm, best nap window from your usual sleep
-  and age, the likely effect on tonight's sleep and on grogginess, and a log
-  you rate by how the night went, to see your own pattern.
+- **Nap** — nap timer with a wake alarm, best nap window from your age and
+  usual sleep (or tonight's planned bed and tomorrow's wake), the likely effect
+  on tonight's sleep and on grogginess, and a log you rate by how the night
+  went, to see your own pattern.
 - **Jet lag planner** — per-trip plan of light, sleep, caffeine and melatonin
   timing to shift your body clock, from your usual sleep hours.
 - **Lunar** — today's Chinese lunar date, a converter, and lunar events

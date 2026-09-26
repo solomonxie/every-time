@@ -6,14 +6,22 @@ struct NapView: View {
     @Stored(NapKey.naps) private var naps: [Nap] = []
     @Stored(NapKey.active) private var active: ActiveNap? = nil
     @Stored(NapKey.length) private var length = NapAdvice.suggestedMinutes
+    @Stored(NapKey.night) private var plan: NightPlan? = nil
     @State private var sheet: SheetKind?
+    @State private var openField: NightField?
+
+    private enum NightField { case bed, wake }
 
     private enum SheetKind: String, Identifiable {
         case profile, log
         var id: String { rawValue }
     }
 
-    private var advice: NapAdvice { NapAdvice(profile: profile ?? JetLagProfile()) }
+    private var advice: NapAdvice { NapAdvice(profile: profile ?? JetLagProfile(), plan: plan) }
+
+    private var todayPlan: NightPlan? {
+        plan.flatMap { Calendar.current.isDateInToday($0.day) ? $0 : nil }
+    }
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -64,7 +72,7 @@ struct NapView: View {
 
     private func planner(now: Date) -> some View {
         let window = advice.window(on: now)
-        let (_, bed) = advice.usualDay(of: now)
+        let suggested = advice.suggestedMinutes(on: now)
         return VStack(alignment: .leading, spacing: Theme.spacing) {
             HStack(alignment: .firstTextBaseline) {
                 SectionLabel("Best time to nap")
@@ -74,8 +82,10 @@ struct NapView: View {
                 .font(.clock(34, weight: .regular))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text("\(NapAdvice.suggestedMinutes) min, before \(window.end.formatted(date: .omitted, time: .shortened)) · bed at \(bed.formatted(date: .omitted, time: .shortened))")
+            Text("\(suggested) min, starting by \(window.end.formatted(date: .omitted, time: .shortened))")
                 .font(.subheadline).foregroundStyle(.secondary)
+
+            tonightCard(now: now)
 
             Card {
                 Text("If you nap now for")
@@ -98,6 +108,57 @@ struct NapView: View {
                 .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private func tonightCard(now: Date) -> some View {
+        let day = advice.day(of: now)
+        return Card {
+            HStack {
+                Text("Tonight").font(.cardTitle)
+                Spacer()
+                if todayPlan != nil {
+                    Button("Use usual") { withAnimation(.snappy) { plan = nil } }
+                        .font(.label)
+                        .buttonStyle(.borderless)
+                }
+            }
+            timeRow("Bed", .bed, minutes: planBinding(\.bed))
+            timeRow("Wake tomorrow", .wake, minutes: planBinding(\.wake))
+            Text("\(NapAdvice.hours(day.nightHours)) of sleep")
+                .font(.label).foregroundStyle(.secondary)
+            if let note = advice.nightNote(on: now) {
+                Label(note, systemImage: "lightbulb")
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func timeRow(_ title: String, _ field: NightField, minutes: Binding<Int>) -> some View {
+        UnfoldingRow(id: field, open: $openField) {
+            Text(title)
+        } value: {
+            Text(minutes.wrappedValue.timeOfDayText).monospacedDigit()
+        } picker: {
+            DatePicker(title, selection: minutes.timeOfDay, displayedComponents: .hourAndMinute)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderless)
+    }
+
+    /// Edits today's plan, starting from the usual hours.
+    private func planBinding(_ field: WritableKeyPath<NightPlan, Int>) -> Binding<Int> {
+        let usual = profile ?? JetLagProfile()
+        let current = todayPlan ?? NightPlan(day: Calendar.current.startOfDay(for: .now), bed: usual.usualBedtime, wake: usual.usualWake)
+        return Binding {
+            current[keyPath: field]
+        } set: { value in
+            var edited = current
+            edited[keyPath: field] = value
+            plan = edited.bed == usual.usualBedtime && edited.wake == usual.usualWake ? nil : edited
         }
     }
 
@@ -149,7 +210,7 @@ struct NapView: View {
 
     private func finish(_ nap: ActiveNap) {
         NapAlarm.cancel()
-        naps.insert(Nap(start: nap.start, end: .now), at: 0)
+        naps.insert(Nap(start: nap.start, end: .now, bed: todayPlan == nil ? nil : advice.day(of: nap.start).bed), at: 0)
         active = nil
     }
 
@@ -188,7 +249,7 @@ struct NapView: View {
         let rated = naps.filter { $0.night != nil }
         return VStack(alignment: .leading, spacing: 8) {
             ForEach([NapAdvice.Level.low, .some, .high], id: \.self) { level in
-                let group = rated.filter { advice.tonight(start: $0.start, minutes: $0.minutes) == level }
+                let group = rated.filter { advice.tonight(start: $0.start, minutes: $0.minutes, bed: $0.bed) == level }
                 if !group.isEmpty {
                     HStack {
                         Circle().fill(level.tint).frame(width: 8, height: 8)
@@ -218,7 +279,7 @@ struct NapView: View {
                     .napRow()
             }
             ForEach(naps) { nap in
-                NapRow(nap: nap, level: advice.tonight(start: nap.start, minutes: nap.minutes))
+                NapRow(nap: nap, level: advice.tonight(start: nap.start, minutes: nap.minutes, bed: nap.bed))
                     .napRow()
                     .contextMenu {
                         ForEach(Nap.Night.allCases) { night in
