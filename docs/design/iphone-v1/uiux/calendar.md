@@ -19,13 +19,14 @@ UPCOMING                                       ← next anniversaries ≤ 30 day
 ╰─────────────────────────────────────────╯
 ALL EVENTS  3
 ╭─────────────────────────────────────────╮
-│ ⚑ Moved to SF                 1120 days │   ← type icon (tinted) · Font.clock count
-│   Sep 1, 2023             3 y 0 mo 24 d │
+│ ⚑ Moved to SF         3 years 24 days │   ← type icon (tinted) · Font.clock, one line (scales down)
+│   Sep 1, 2023              1,120 days │   ← total days; "to go ·" prefix if future
 │ 4 years since Moved to SF · Sep 1, 2027 │   ← next anniversary phrase
 │ · in 341 days                           │
 ╰─────────────────────────────────────────╯   ← tap → edit · swipe left → Delete
 [[              + Add event                ]]
 ```
+Since hero: ≥ 1 year → `N years N days` · ≥ 1 month → `N months N days` · else `N days` (no caption).
 ```
 empty   ☆  No important events
         Birthdays, anniversaries, milestones — see how long it's been

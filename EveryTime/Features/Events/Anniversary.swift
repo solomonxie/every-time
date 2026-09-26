@@ -3,22 +3,32 @@ import Foundation
 /// Elapsed time, yearly recurrence and wording for important events. Pure; calendar injectable for tests.
 enum Anniversary {
     struct Elapsed: Equatable {
-        var days: Int
-        var years: Int
-        var months: Int
-        var remainderDays: Int
-
-        var breakdown: String {
-            years > 0 ? "\(years) y \(months) mo \(remainderDays) d" : "\(months) mo \(remainderDays) d"
+        struct Part: Equatable {
+            var value: Int
+            var unit: String
         }
+
+        /// Whole days, negative if in the future.
+        var days: Int
+        /// "4 years 92 days", "3 months 5 days" or "12 days".
+        var parts: [Part]
     }
 
-    /// Whole days (negative if in the future) and y/mo/d, day-granular.
+    /// Day-granular; parts use years + days past a year, months + days past a month, else days.
     static func elapsed(since date: Date, to now: Date, calendar: Calendar = .current) -> Elapsed {
         let (from, to) = (calendar.startOfDay(for: date), calendar.startOfDay(for: now))
         let days = calendar.dateComponents([.day], from: from, to: to).day ?? 0
-        let c = calendar.dateComponents([.year, .month, .day], from: min(from, to), to: max(from, to))
-        return Elapsed(days: days, years: c.year ?? 0, months: c.month ?? 0, remainderDays: c.day ?? 0)
+        let (start, end) = (min(from, to), max(from, to))
+        let ym = calendar.dateComponents([.year, .day], from: start, to: end)
+        let md = calendar.dateComponents([.month, .day], from: start, to: end)
+        let parts: [(Int, String)] = if let y = ym.year, y > 0 {
+            [(y, "year"), (ym.day ?? 0, "day")]
+        } else if let m = md.month, m > 0 {
+            [(m, "month"), (md.day ?? 0, "day")]
+        } else {
+            [(abs(days), "day")]
+        }
+        return Elapsed(days: days, parts: parts.map { Elapsed.Part(value: $0, unit: $0 == 1 ? $1 : $1 + "s") })
     }
 
     /// The date's month/day in `year`; Feb 29 falls on Feb 28 in non-leap years.

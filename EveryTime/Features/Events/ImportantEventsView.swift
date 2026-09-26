@@ -265,10 +265,10 @@ private struct CountdownCard: View {
 private struct EventCard: View {
     let info: EventInfo
 
-    private var days: Int { abs(info.elapsed.days) }
-    private var unit: String {
-        let word = days == 1 ? "day" : "days"
-        return info.elapsed.days < 0 ? "\(word) to go" : word
+    private var caption: String? {
+        let days = abs(info.elapsed.days)
+        let total = info.elapsed.parts.count > 1 ? "\(days.formatted()) days" : nil
+        return [info.elapsed.days < 0 ? "to go" : nil, total].compactMap { $0 }.joined(separator: " · ").nilIfEmpty
     }
 
     var body: some View {
@@ -284,11 +284,16 @@ private struct EventCard: View {
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 2) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(days)").font(.clock(40))
-                        Text(unit).font(.label).foregroundStyle(.secondary)
+                        ForEach(info.elapsed.parts, id: \.unit) { part in
+                            Text("\(part.value)").font(.clock(34))
+                            Text(part.unit).font(.label).foregroundStyle(.secondary)
+                        }
                     }
-                    Text(info.elapsed.breakdown).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    if let caption { Text(caption).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                 }
+                .layoutPriority(1)
             }
             if let next = info.next {
                 HStack(spacing: 6) {
@@ -302,6 +307,10 @@ private struct EventCard: View {
         }
         .contentShape(Rectangle())
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 extension View {
