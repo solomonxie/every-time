@@ -20,6 +20,7 @@ targets:
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.
+        NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important and adds lunar events.
         # Makes the iCloud folder visible in Files, so backups there can be got at.
         NSUbiquitousContainers:
           iCloud.com.solomonxie.everytime:
