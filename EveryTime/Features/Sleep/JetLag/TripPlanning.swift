@@ -24,8 +24,11 @@ extension Trip {
         return m == 0 ? "\(sign)\(h)h" : "\(sign)\(h)h \(m)m"
     }
 
+    /// "San Francisco → Tokyo → Singapore".
+    var route: String { cities.map(\.name).joined(separator: " → ") }
+
     func city(in timeZone: TimeZone) -> WorldCity {
-        timeZone.identifier == destination.timeZoneIdentifier ? destination : origin
+        cities.last { $0.timeZoneIdentifier == timeZone.identifier } ?? origin
     }
 
     /// "Starts in 3 days" · "Adjusting · day 2 of 6" · "Adapted".

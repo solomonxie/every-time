@@ -8,28 +8,35 @@ enum JetLagPlanner {
     static let minSleep: TimeInterval = 60 * 60
 
     static func plan(profile: JetLagProfile, trip: Trip, now: Date = .now) -> JetLagPlan {
-        let origin = trip.origin.timeZone, destination = trip.destination.timeZone
-        let delta = wrapped(Double(origin.secondsFromGMT(for: trip.departure)
-                                   - destination.secondsFromGMT(for: trip.arrival)) / 3600)
-        guard abs(delta) >= 0.5, trip.arrival >= trip.departure else {
-            return JetLagPlan(shiftHours: delta, direction: .none, days: [])
-        }
+        let origin = trip.origin.timeZone
+        guard !trip.legs.isEmpty, isOrdered(trip.legs) else { return .empty }
 
         let clock = BodyClock(profile)
-        let advanceHours = delta < 0 ? -delta : 24 - delta
-        let delayHours = 24 - advanceHours
-        let advancing = advanceHours / clock.advanceRate <= delayHours / clock.delayRate
-        let shiftHours = advancing ? -advanceHours : delayHours
+        let stages = trip.stages
+        let targets = stages.enumerated().map { i, stage in
+            Target(from: i == 0 ? .distantPast : stage.departure,
+                   offset: Double(stage.destination.timeZone.secondsFromGMT(for: stage.arrival)) / 3600)
+        }
+        let preAdjustDays = max(0, trip.preAdjustDays)
+        let stayDays = Int((stages.last!.departure.timeIntervalSince(trip.departure) / 86_400).rounded(.up))
+        let dayLimit = maxDays + stayDays
 
-        let firstDay = calendar(origin).date(byAdding: .day, value: -max(0, trip.preAdjustDays),
+        let firstDay = calendar(origin).date(byAdding: .day, value: -preAdjustDays,
                                               to: calendar(origin).startOfDay(for: trip.departure))!
-        let cycles = clock.cycles(firstCBT: firstDay.addingTimeInterval(clock.cbtOffset),
-                                  shiftHours: shiftHours,
-                                  count: maxDays + max(0, trip.preAdjustDays) + 4)
-        let actions = buildActions(cycles, profile: profile, trip: trip, advancing: advancing)
-        let days = buildDays(from: firstDay, trip: trip, origin: origin, destination: destination)
+        let (cycles, shifts) = clock.cycles(firstCBT: firstDay.addingTimeInterval(clock.cbtOffset),
+                                            alignedTo: Double(origin.secondsFromGMT(for: trip.departure)) / 3600,
+                                            targets: targets,
+                                            count: dayLimit + preAdjustDays + 4)
+        let shiftHours = shifts.first ?? 0
+        let direction: ShiftDirection = shiftHours < 0 ? .advance : .delay
+        guard cycles.contains(where: \.shifting) else {
+            return JetLagPlan(shiftHours: shiftHours, direction: .none, days: [])
+        }
 
-        let adaptedWake = cycles.first { !$0.shifting }?.wake
+        let actions = buildActions(cycles, profile: profile, trip: trip)
+        let days = buildDays(from: firstDay, trip: trip, origin: origin, limit: dayLimit)
+
+        let adaptedWake = cycles.first { !$0.shifting && $0.stage == stages.count - 1 }?.wake
         let endInstant = max(adaptedWake ?? .distantFuture, trip.arrival)
         let lastIndex = days.lastIndex { $0.from <= endInstant }
             .flatMap { endInstant < days[$0].end ? $0 : nil }
@@ -42,28 +49,33 @@ enum JetLagPlanner {
                 .filter { $0.start >= day.from && $0.start < upper }
                 .sorted { ($0.start, $0.kind.order) < ($1.start, $1.kind.order) }
             return PlanDay(start: day.start, timeZone: day.timeZone, index: i,
-                           isTravelDay: day.start < trip.arrival && day.end > trip.departure,
+                           isTravelDay: trip.legs.contains { day.start < $0.arrival && day.end > $0.departure },
                            isAdapted: isAdapted && i == kept.count - 1,
                            actions: dayActions)
         }
-        return JetLagPlan(shiftHours: shiftHours, direction: advancing ? .advance : .delay, days: planDays)
+        return JetLagPlan(shiftHours: shiftHours, direction: direction, days: planDays)
+    }
+
+    private static func isOrdered(_ legs: [Trip.Leg]) -> Bool {
+        legs.allSatisfy { $0.arrival >= $0.departure }
+            && zip(legs, legs.dropFirst()).allSatisfy { $1.departure >= $0.arrival }
     }
 
     // MARK: - Actions
 
-    private static func buildActions(_ cycles: [Cycle], profile: JetLagProfile, trip: Trip,
-                                     advancing: Bool) -> [PlanAction] {
-        let flight = Span(trip.departure, trip.arrival)
-        var actions = [PlanAction(kind: .flight, start: trip.departure, end: trip.arrival)]
+    private static func buildActions(_ cycles: [Cycle], profile: JetLagProfile, trip: Trip) -> [PlanAction] {
+        let flights = trip.legs.map { Span($0.departure, $0.arrival) }
+        var actions = flights.map { PlanAction(kind: .flight, start: $0.start, end: $0.end) }
 
         var sleeps: [Span] = [], flightSleeps: [Span] = []
         for c in cycles {
             let s = Span(c.bed, c.wake)
-            if let onBoard = s.intersection(flight) {
-                if onBoard.duration >= 30 * 60 { flightSleeps.append(onBoard) }
-                sleeps += s.subtracting([flight]).filter { $0.duration >= minSleep }
-            } else {
+            let onBoard = flights.compactMap { s.intersection($0) }
+            if onBoard.isEmpty {
                 sleeps.append(s)
+            } else {
+                flightSleeps += onBoard.filter { $0.duration >= 30 * 60 }
+                sleeps += s.subtracting(flights).filter { $0.duration >= minSleep }
             }
         }
         sleeps.sort { $0.start < $1.start }
@@ -72,14 +84,14 @@ enum JetLagPlanner {
 
         var windows: [(ActionKind, Span)] = []
         for (k, c) in cycles.enumerated() where c.shifting {
-            windows += lightWindows(c, advancing: advancing)
+            windows += lightWindows(c, advancing: c.advancing)
             if profile.caffeine, k + 1 < cycles.count {
                 let bed = cycles[k + 1].bed
                 let cutoff = bed.addingTimeInterval(-8 * 3600)
                 windows.append((.caffeineOK, Span(c.wake, cutoff)))
                 windows.append((.caffeineAvoid, Span(max(cutoff, c.wake), bed)))
             }
-            if profile.melatonin, advancing {
+            if profile.melatonin, c.advancing {
                 let t = c.cbt.addingTimeInterval(-9.5 * 3600)
                 actions.append(PlanAction(kind: .melatonin, start: t, end: t))
             }
@@ -94,7 +106,7 @@ enum JetLagPlanner {
         for (a, b) in zip(sleeps, sleeps.dropFirst()) {
             let gap = Span(a.end, b.start)
             let awake = gap.subtracting(flightSleeps)
-            guard gap.duration > 18 * 3600, gap.intersection(flight) != nil,
+            guard gap.duration > 18 * 3600, flights.contains(where: { gap.intersection($0) != nil }),
                   let slot = awake.last.flatMap({ $0.duration >= 4 * 3600 ? $0 : nil })
                     ?? awake.max(by: { $0.duration < $1.duration }),
                   slot.duration >= napLength else { continue }
@@ -129,18 +141,19 @@ enum JetLagPlanner {
         let from: Date
     }
 
-    private static func buildDays(from firstDay: Date, trip: Trip,
-                                  origin: TimeZone, destination: TimeZone) -> [Day] {
+    private static func buildDays(from firstDay: Date, trip: Trip, origin: TimeZone, limit: Int) -> [Day] {
         var days: [Day] = []
-        var tz = origin, arrived = false, start = firstDay
-        while days.count < maxDays {
+        var tz = origin, landed = 0, start = firstDay
+        while days.count < limit {
             var end = calendar(tz).date(byAdding: .day, value: 1, to: start)!
             var from = start
-            if !arrived, trip.arrival < end {
-                arrived = true
-                tz = destination
-                let local = calendar(tz).startOfDay(for: trip.arrival)
-                from = max(local, start)
+            let dayStart = start
+            while landed < trip.legs.count, trip.legs[landed].arrival < end {
+                let leg = trip.legs[landed]
+                landed += 1
+                tz = leg.destination.timeZone
+                let local = calendar(tz).startOfDay(for: leg.arrival)
+                from = max(local, dayStart)
                 start = local
                 end = calendar(tz).date(byAdding: .day, value: 1, to: local)!
             }
@@ -152,7 +165,7 @@ enum JetLagPlanner {
 
     // MARK: - Helpers
 
-    private static func wrapped(_ hours: Double) -> Double {
+    fileprivate static func wrapped(_ hours: Double) -> Double {
         var h = hours.truncatingRemainder(dividingBy: 24)
         if h <= -12 { h += 24 }
         if h > 12 { h -= 24 }
@@ -168,8 +181,16 @@ enum JetLagPlanner {
 
 private struct Cycle {
     let cbt: Date, bed: Date, wake: Date
-    /// Still ≥ 0.5 h from the destination clock; gets light/caffeine/melatonin.
+    /// Still ≥ 0.5 h from the stage's destination clock; gets light/caffeine/melatonin.
     let shifting: Bool
+    let advancing: Bool
+    let stage: Int
+}
+
+/// Body clock aims at `offset` (hours from GMT) from `from` on.
+private struct Target {
+    let from: Date
+    let offset: Double
 }
 
 private struct BodyClock {
@@ -195,20 +216,32 @@ private struct BodyClock {
         sleepLength = p.sleepHours * 3600
     }
 
-    func cycles(firstCBT: Date, shiftHours: Double, count: Int) -> [Cycle] {
-        let rate = shiftHours < 0 ? advanceRate : delayRate
-        var remaining = abs(shiftHours), cbt = firstCBT
-        var result: [Cycle] = []
+    /// At each new target the shift and direction are re-picked from where the clock is then.
+    func cycles(firstCBT: Date, alignedTo offset: Double, targets: [Target],
+                count: Int) -> (cycles: [Cycle], shifts: [Double]) {
+        var aligned = offset, cbt = firstCBT, stage = -1
+        var remaining = 0.0, advancing = true
+        var result: [Cycle] = [], shifts: [Double] = []
         for _ in 0..<count {
+            if let next = targets.indices.last(where: { targets[$0].from <= cbt }), next != stage {
+                stage = next
+                let delta = JetLagPlanner.wrapped(aligned - targets[next].offset)
+                let advanceHours = delta < 0 ? -delta : 24 - delta
+                let delayHours = 24 - advanceHours
+                advancing = advanceHours / advanceRate <= delayHours / delayRate
+                remaining = advancing ? advanceHours : delayHours
+                shifts.append(advancing ? -advanceHours : delayHours)
+            }
             let wake = cbt.addingTimeInterval(wakeAfterCBT)
             let shifting = remaining >= 0.5
             result.append(Cycle(cbt: cbt, bed: wake.addingTimeInterval(-sleepLength), wake: wake,
-                                shifting: shifting))
-            let step = shifting ? min(rate, remaining) : 0
+                                shifting: shifting, advancing: advancing, stage: stage))
+            let step = shifting ? min(advancing ? advanceRate : delayRate, remaining) : 0
             remaining -= step
-            cbt = cbt.addingTimeInterval((24 + (shiftHours < 0 ? -step : step)) * 3600)
+            aligned += advancing ? step : -step
+            cbt = cbt.addingTimeInterval((24 + (advancing ? -step : step)) * 3600)
         }
-        return result
+        return (result, shifts)
     }
 }
 
