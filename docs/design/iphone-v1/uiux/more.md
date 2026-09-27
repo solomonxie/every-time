@@ -20,6 +20,8 @@ DATES
 ☆ Important events                          ›
 📖 On this day                              ›   ← on-this-day.md
 ⌛ Wait times                               ›
+PROJECTS
+▥ Boards                                    ›   ← docs/design/boards/
 DEVELOPER
 # Unix timestamp                            ›
 ⇄ Timestamp converter                       ›
