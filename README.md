@@ -22,7 +22,7 @@ Everything about time, in one free iPhone app.
 - **Countdown** — count down to any date/time; the biggest remaining unit
   is the hero (days, then hours, minutes, seconds), sideways full screen,
   and fireworks or confetti, sound, vibration and a notification when it ends.
-- **Boards** — ZenHub-style project boards stored in Reminders: a list is a
+- **Boards** (coming soon — code kept, page shows a placeholder) — ZenHub-style project boards stored in Reminders: a list is a
   board, a reminder is a card, completed is Done. Kanban columns with drag &
   drop, a roadmap of due dates and calendar milestones, and insights
   (burn-up, velocity, flow). Nothing leaves the phone (`docs/design/boards/`).
