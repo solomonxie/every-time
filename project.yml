@@ -22,7 +22,8 @@ targets:
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.
-        NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important and adds lunar events.
+        NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important, adds lunar events, and shows board milestones.
+        NSRemindersFullAccessUsageDescription: Boards show your Reminders lists as project boards; moving a card edits its reminder.
         # Makes the iCloud folder visible in Files, so backups there can be got at.
         NSUbiquitousContainers:
           iCloud.com.solomonxie.everytime:
