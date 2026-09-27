@@ -12,9 +12,9 @@ Models, trailer codec and the EventKit store first — every view reads/writes t
 ## Phase 2: Views (parallel)
 Disjoint files over the store.
 
-- [ ] T2.1 Boards list + New board sheet + access states — see `UIUX_DESIGN.md → Boards list` — depends: T1.2
-- [ ] T2.2 Board view (paged columns, drag & drop, Move to menu) + Card sheet + Board settings — see `UIUX_DESIGN.md → Board view` — depends: T1.2
-- [ ] T2.3 Roadmap + Insights (Swift Charts) — see `UIUX_DESIGN.md → Roadmap/Insights` — depends: T1.2
+- [x] T2.1 Boards list + New board sheet + access states — see `UIUX_DESIGN.md → Boards list` — depends: T1.2
+- [x] T2.2 Board view (paged columns, drag & drop, Move to menu) + Card sheet + Board settings — see `UIUX_DESIGN.md → Board view` — depends: T1.2
+- [x] T2.3 Roadmap + Insights (Swift Charts) — see `UIUX_DESIGN.md → Roadmap/Insights` — depends: T1.2
 
 ## Phase 3: Finish
 - [ ] T3.1 Docs (README, iphone-v1 DESIGN features, more.md), device install, walkthrough — depends: T2.*
