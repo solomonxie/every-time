@@ -42,4 +42,5 @@ Driven by device use: one visual language, user-chosen tab bar, richer dates.
 
 ## Later (v2)
 - [x] Lunar notifications · widget · watch · App Group sharing (`Glance/`)
-- [ ] Waiting data source · On this day
+- [x] On this day (Wikipedia feed, cached per MM/DD)
+- [ ] Waiting data source
