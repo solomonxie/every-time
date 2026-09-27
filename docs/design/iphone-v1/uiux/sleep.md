@@ -37,7 +37,7 @@ YOUR SLEEP
 │ In between · Caffeine · Reminders│
 ╰─────────────────────────────────╯
 UPCOMING
- ✈ Tokyo → London             Oct 3
+ ✈ Tokyo → London             Oct 3   ← full route when multi-leg
    Starts in 3 days             −8h
 PAST
  …
@@ -79,9 +79,10 @@ Cancel           New trip
 ╭─────────────────────────────────╮
 │ From      San Francisco       › │ ← city picker sheet (searches a corpus)
 │ To        Tokyo               › │
-│                          ⇅ Swap │
+│ + Add a flight           ⇅ Swap │ ← swap only with one flight; max 4
 ╰─────────────────────────────────╯
-FLIGHT
+FLIGHT                              ← "FLIGHT n   Remove" when multi-leg
+│ Stopover in Tokyo         3h      │ ← flights 2+
 │ Departs                  Oct 1, 6:00 PM › │ ← date+time wheel unfolds
 │   San Francisco time                      │
 │ Arrives                  Oct 2, 9:00 PM › │
@@ -92,10 +93,12 @@ START ADJUSTING ⓘ
 ╭─────────────────────────────────╮
 │ +16h east                       │ ← plan preview, clock font
 │ Advancing · about 6 days        │
+│ Tokyo time, then Singapore time │ ← multi-leg; or "Short stopover — straight to X time"
 ╰─────────────────────────────────╯
 [[           Create plan          ]]
 ```
 ```
 invalid   ⚠ Arrival is before departure   [[ Create plan ]]· dimmed
+          ⚠ Flight 2 departs before flight 1 lands
 no dest   [[ Create plan ]]· dimmed
 ```
