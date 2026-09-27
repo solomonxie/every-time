@@ -14,7 +14,8 @@ it with timed actions but is paid; Every Time should offer a free, offline plan.
   nap-if-you-can, caffeine OK / avoid, optional melatonin — each with a time window.
 - Adjust before departure (0–3 days), during travel, and after arrival until adapted.
 - Local notifications at the start of each action.
-- Non-goals: multi-leg trips and flight-number lookup (v2 — needs a paid flight API; v1 = manual times), shift-work plans, wearables/HealthKit input, medical dosing advice.
+- Multi-leg trips (stopovers), times entered manually.
+- Non-goals: flight-number lookup (needs a paid flight API), shift-work plans, wearables/HealthKit input, medical dosing advice.
 
 ## Model (all times as UTC instants, displayed in the tz the user is in that day)
 
@@ -32,7 +33,9 @@ it with timed actions but is paid; Every Time should offer a free, offline plan.
 | Caffeine | OK wake → bed − 8h · avoid bed − 8h → bed |
 | Travel day | part of a sleep window inside the flight → "sleep if you can"; nap 25 min when the gap between regular sleeps > 18h and spans the flight — in the post-flight awake stretch (≥ 4h) else the longest one |
 | Clipping | light/caffeine windows overlapping any sleep are cut; past actions are kept (history) |
-| Adapted | remaining |Δ| < 0.5h → final day shows sleep only, plan ends (≥ arrival day, max 14 days); |Δ| < 0.5h at start → no plan |
+| Multi-leg | stopover < 48h → no own target, keep shifting toward the next stay; ≥ 48h → stage ends: adapt to the stop zone, switch target to the next stay at its departure (Δ + direction re-picked from the current clock, no pre-adjust) |
+| Days | zone = where you are; switches at each landing |
+| Adapted | remaining |Δ| < 0.5h → final day shows sleep only, plan ends (≥ final arrival day, max 14 days + days until the last stage departs); |Δ| < 0.5h at start → no plan |
 
 Sex is asked (Timeshifter does) but v1 applies no adjustment — evidence is weak; kept for later tuning.
 
@@ -45,7 +48,7 @@ Sex is asked (Timeshifter does) but v1 applies no adjustment — evidence is wea
 ## Data
 
 `sleep.jetlag.profile` (age, sex, chronotype, usual bed/wake, melatonin, caffeine, notifications),
-`sleep.jetlag.trips` ([origin tz, dest tz, depart, arrive, pre-adjust days]). `sleep.` prefix ⇒ included in backups.
+`sleep.jetlag.trips` ([origin, legs [dest, depart, arrive], pre-adjust days]); old single-leg trips decode as one leg; final dest/depart/arrive also written so older versions still read backups. `sleep.` prefix ⇒ included in backups.
 
 ## Risks
 
