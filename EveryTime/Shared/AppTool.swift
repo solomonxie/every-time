@@ -106,7 +106,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .countdown: CountdownListView()
         case .since: ImportantEventsView()
         case .onThisDay: OnThisDayView()
-        case .boards: BoardsListView()
+        case .boards: ComingSoonView(tool: self)  // BoardsListView() once it's ready
         case .waitTimes: WaitingView()
         case .unixTime: UnixTimestampView()
         case .converter: TimestampConverterView()
