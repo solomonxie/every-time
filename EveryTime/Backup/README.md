@@ -1,7 +1,7 @@
 # Backup
 
 All user data is small Codable JSON in UserDefaults (`@Stored`). Backed up = every key with prefix
-`world.` `calendar.` `timers.` `sleep.` `tools.` `app.` (`BackupSnapshot.keyPrefixes`) — new keys travel automatically.
+`world.` `calendar.` `timers.` `sleep.` `tools.` `app.` `boards.` (`BackupSnapshot.keyPrefixes`; board cards live in Reminders, only board settings here) — new keys travel automatically.
 
 ## Tiers
 

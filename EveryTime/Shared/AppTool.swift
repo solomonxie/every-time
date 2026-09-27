@@ -4,7 +4,7 @@ import SwiftUI
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
     case world, sleep, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, work, countdown
-    case since, onThisDay, waitTimes, unixTime, converter, cron
+    case since, onThisDay, waitTimes, boards, unixTime, converter, cron
 
     static let defaultPins: [AppTool] = [.world, .sleep, .lunar]
     static let maxPins = 4
@@ -14,6 +14,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case sleep = "Sleep"
         case timers = "Timers"
         case dates = "Dates"
+        case projects = "Projects"
         case developer = "Developer"
         var id: String { rawValue }
         var tools: [AppTool] { AppTool.allCases.filter { $0.group == self } }
@@ -27,6 +28,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .sleep, .jetLag: .sleep
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
         case .since, .onThisDay, .waitTimes: .dates
+        case .boards: .projects
         case .unixTime, .converter, .cron: .developer
         }
     }
@@ -46,6 +48,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .since: "Important events"
         case .onThisDay: "On this day"
         case .waitTimes: "Wait times"
+        case .boards: "Boards"
         case .unixTime: "Unix timestamp"
         case .converter: "Timestamp converter"
         case .cron: "Cron parser"
@@ -83,6 +86,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .since: "star.circle"
         case .onThisDay: "text.book.closed"
         case .waitTimes: "hourglass"
+        case .boards: "rectangle.split.3x1"
         case .unixTime: "number"
         case .converter: "arrow.left.arrow.right"
         case .cron: "calendar.badge.clock"
@@ -102,6 +106,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .countdown: CountdownListView()
         case .since: ImportantEventsView()
         case .onThisDay: OnThisDayView()
+        case .boards: BoardsListView()
         case .waitTimes: WaitingView()
         case .unixTime: UnixTimestampView()
         case .converter: TimestampConverterView()
