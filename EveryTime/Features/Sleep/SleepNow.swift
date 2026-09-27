@@ -122,8 +122,8 @@ struct SleepNow {
         guard let bed = SleepSuggestion.bedtimes(wakingAt: day.nextWake)
             .first(where: { $0.isRecommended && $0.time >= earliest && $0.time < day.bed.addingTimeInterval(-20 * 60) })
         else { return nil }
-        return Option(kind: .bedAt(bed.time), title: "Stay up, bed at \(Self.clock(bed.time))",
-                      detail: "\(bed.cycles) cycles (\(NapAdvice.hours(bed.hours))) · wake \(Self.clock(day.nextWake))",
+        return Option(kind: .bedAt(bed.time), title: "Stay up a little",
+                      detail: "\(bed.cycles) cycles (\(NapAdvice.hours(bed.hours))) before your \(Self.clock(day.nextWake)) wake",
                       time: bed.time, level: .low)
     }
 
@@ -132,13 +132,13 @@ struct SleepNow {
         if isFarFromBed {
             let from = asleep.addingTimeInterval(3 * Self.cycle), to = asleep.addingTimeInterval(4 * Self.cycle)
             return Option(kind: .splitNight(wakeFrom: from, wakeTo: to), title: "Sleep for the night now",
-                          detail: "Likely awake \(Self.clock(from))–\(Self.clock(to)), then hard to fall back asleep",
+                          detail: "Hard to fall back asleep until ~\(Self.clock(to))",
                           time: from, level: .high)
         }
         let cycles = max(1, Int(day.nextWake.timeIntervalSince(asleep) / Self.cycle))
         let wake = asleep.addingTimeInterval(Double(cycles) * Self.cycle)
         return Option(kind: .night(cycles: cycles, wake: wake), title: "Early night now",
-                      detail: "\(cycles) cycles · wake \(Self.clock(wake))",
+                      detail: "\(cycles) full cycles",
                       time: wake, level: cycles >= 5 ? .low : .some)
     }
 
@@ -150,8 +150,8 @@ struct SleepNow {
             let wake = asleep.addingTimeInterval(Double(cycles) * Self.cycle)
             guard wake <= latest, cycles >= 3 || zone == .lateNight else { return nil }
             let late = wake > day.nextWake
-            return Option(kind: .night(cycles: cycles, wake: wake), title: "Wake \(Self.clock(wake))",
-                          detail: "\(cycles) cycle\(cycles == 1 ? "" : "s") · \(NapAdvice.hours(Double(cycles) * 1.5))"
+            return Option(kind: .night(cycles: cycles, wake: wake), title: "Sleep \(NapAdvice.hours(Double(cycles) * 1.5))",
+                          detail: "\(cycles) full cycle\(cycles == 1 ? "" : "s")"
                               + (late ? " · after your \(Self.clock(day.nextWake)) wake" : ""),
                           time: wake, level: cycles >= 5 ? .low : cycles >= 3 ? .some : .high)
         }
@@ -182,7 +182,7 @@ struct SleepNow {
             return ("Close to bedtime", "An early night beats a nap now.")
         case .bedtime:
             guard let pick = options.first(where: \.isRecommended), case .night = pick.kind else { return ("Bedtime", "") }
-            return ("Bedtime", "Asleep by ~\(Self.clock(start.addingTimeInterval(Self.fallAsleep))), wake at \(Self.clock(pick.time)).")
+            return ("Bedtime", "Asleep by ~\(Self.clock(start.addingTimeInterval(Self.fallAsleep))).")
         case .lateNight:
             if options.contains(where: { if case .night = $0.kind { true } else { false } }) {
                 return ("Past bedtime", "Wake times that still fit before \(Self.clock(day.nextWake)).")
