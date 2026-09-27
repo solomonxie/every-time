@@ -4,7 +4,7 @@ import SwiftUI
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
     case world, sleep, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, work, countdown
-    case since, waitTimes, unixTime, converter, cron
+    case since, onThisDay, waitTimes, unixTime, converter, cron
 
     static let defaultPins: [AppTool] = [.world, .sleep, .lunar]
     static let maxPins = 4
@@ -26,7 +26,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .world, .lunar: .main
         case .sleep, .jetLag: .sleep
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
-        case .since, .waitTimes: .dates
+        case .since, .onThisDay, .waitTimes: .dates
         case .unixTime, .converter, .cron: .developer
         }
     }
@@ -44,6 +44,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .work: "Work timer"
         case .countdown: "Countdown"
         case .since: "Important events"
+        case .onThisDay: "On this day"
         case .waitTimes: "Wait times"
         case .unixTime: "Unix timestamp"
         case .converter: "Timestamp converter"
@@ -58,6 +59,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .jetLag: "Jet lag"
         case .work: "Work"
         case .since: "Events"
+        case .onThisDay: "This day"
         case .waitTimes: "Waits"
         case .unixTime: "Unix"
         case .converter: "Convert"
@@ -79,6 +81,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .work: "briefcase"
         case .countdown: "hourglass.bottomhalf.filled"
         case .since: "star.circle"
+        case .onThisDay: "text.book.closed"
         case .waitTimes: "hourglass"
         case .unixTime: "number"
         case .converter: "arrow.left.arrow.right"
@@ -98,6 +101,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .work: WorkTimerView()
         case .countdown: CountdownListView()
         case .since: ImportantEventsView()
+        case .onThisDay: OnThisDayView()
         case .waitTimes: WaitingView()
         case .unixTime: UnixTimestampView()
         case .converter: TimestampConverterView()
