@@ -1,12 +1,5 @@
 import Foundation
 
-enum SleepMode: String, CaseIterable, Identifiable {
-    case wakeAt = "Wake at"
-    case bedNow = "Sleep now"
-
-    var id: Self { self }
-}
-
 struct SleepSuggestion: Identifiable, Equatable {
     static let cycleLength: TimeInterval = 90 * 60
     static let fallAsleepTime: TimeInterval = 15 * 60
