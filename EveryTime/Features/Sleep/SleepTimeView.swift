@@ -70,11 +70,6 @@ struct SleepTimeView: View {
         .animation(.snappy, value: offset)
         .navigationTitle("When to sleep?")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Log a nap", systemImage: "plus") { sheet = .log }
-            }
-        }
         .sheet(item: $sheet) { kind in
             switch kind {
             case .profile:
@@ -160,14 +155,22 @@ struct SleepTimeView: View {
                 Button("I'm up") { finish(active) }
                     .buttonStyle(.primary)
             }
-        } else if case .nap(let minutes)? = selected?.kind {
-            Button {
-                let nap = ActiveNap(start: .now, minutes: minutes)
-                active = nap
-                Task { await NapAlarm.schedule(nap) }
-            } label: {
-                Label("Nap \(minutes) min · wake at \(SleepNow.clock(Date.now.addingTimeInterval(Double(minutes) * 60)))",
-                      systemImage: "powersleep")
+        } else {
+            HStack(spacing: Theme.spacing) {
+                Button { sheet = .log } label: { Label("Log", systemImage: "plus") }
+                    .buttonStyle(.soft)
+                    .fixedSize()
+                    .accessibilityLabel("Log a past nap")
+                primaryAction(selected, day: day)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func primaryAction(_ selected: SleepNow.Option?, day: NapAdvice.Day) -> some View {
+        if case .nap(let minutes)? = selected?.kind {
+            Button { startNap(minutes) } label: {
+                Label("Nap \(minutes) min · wake at \(Self.wakeText(minutes))", systemImage: "powersleep")
             }
             .buttonStyle(.primary)
         } else if case .bedAt(let bed)? = selected?.kind, !Calendar.current.isDate(bed, equalTo: day.bed, toGranularity: .minute) {
@@ -178,7 +181,26 @@ struct SleepTimeView: View {
                 Label("Plan bed at \(SleepNow.clock(bed)) tonight", systemImage: "bed.double")
             }
             .buttonStyle(.primary)
+        } else {
+            Menu {
+                ForEach(NapAdvice.lengths, id: \.self) { minutes in
+                    Button("\(minutes) min · wake at \(Self.wakeText(minutes))") { startNap(minutes) }
+                }
+            } label: {
+                Label("Start a nap", systemImage: "powersleep")
+            }
+            .buttonStyle(.primary)
         }
+    }
+
+    private func startNap(_ minutes: Int) {
+        let nap = ActiveNap(start: .now, minutes: minutes)
+        active = nap
+        Task { await NapAlarm.schedule(nap) }
+    }
+
+    private static func wakeText(_ minutes: Int) -> String {
+        SleepNow.clock(Date.now.addingTimeInterval(Double(minutes) * 60))
     }
 
     private func finish(_ nap: ActiveNap) {
@@ -336,7 +358,7 @@ struct SleepTimeView: View {
     private var history: some View {
         Section {
             if naps.isEmpty {
-                Text("No naps yet — start one, or log a past nap with +")
+                Text("No naps yet — start one, or log a past nap with + Log below")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .napRow()
