@@ -16,13 +16,24 @@ func tonightPlan(bed: Int, wake: Int) -> NightPlan {
 
 struct NightPlanTests {
     @Test func bedBeforeNoonMeansAfterMidnight() {
-        #expect(tonightPlan(bed: 60, wake: 480).bedDate() == date(2026, 3, 11, 1))
-        #expect(tonightPlan(bed: 23 * 60, wake: 480).bedDate() == date(2026, 3, 10, 23))
-        #expect(tonightPlan(bed: 60, wake: 480).wakeDate() == date(2026, 3, 11, 8))
+        #expect(tonightPlan(bed: 60, wake: 480).bedDate(calendar: gregorian()) == date(2026, 3, 11, 1))
+        #expect(tonightPlan(bed: 23 * 60, wake: 480).bedDate(calendar: gregorian()) == date(2026, 3, 10, 23))
+        #expect(tonightPlan(bed: 60, wake: 480).wakeDate(calendar: gregorian()) == date(2026, 3, 11, 8))
     }
 }
 
 struct NapAdviceTests {
+    @Test func clockChangeDayKeepsWallClockTimes() {
+        let newYork = TimeZone(identifier: "America/New_York")!
+        var profile = JetLagProfile()
+        profile.usualBedtime = 23 * 60
+        let advice = NapAdvice(profile: profile, calendar: gregorian(newYork))
+        let day = advice.day(of: date(2026, 3, 8, 14, in: newYork))
+        #expect(day.wake == date(2026, 3, 8, 7, in: newYork))
+        #expect(day.bed == date(2026, 3, 8, 23, in: newYork))
+        #expect(day.nextWake == date(2026, 3, 9, 7, in: newYork))
+    }
+
     @Test func usualDay() {
         let day = napAdvice().day(of: date(2026, 3, 10, 14))
         #expect(day.wake == date(2026, 3, 10, 7))
