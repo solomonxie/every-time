@@ -39,8 +39,8 @@ struct SleepTimeView: View {
                 Section {
                     tonightCard(day: sleepNow.day).napRow()
                 } header: {
-                    SectionLabel(title: "Tonight") {
-                        InfoButton(label: "About tonight", text: Self.tonightInfo)
+                    SectionLabel(title: "Tomorrow") {
+                        InfoButton(label: "About tomorrow", text: Self.tonightInfo)
                     }
                     .textCase(nil)
                 }
@@ -220,15 +220,15 @@ struct SleepTimeView: View {
         switch selected.kind {
         case .nap(let minutes):
             Button { startNap(minutes) } label: {
-                Label("Start \(minutes)-min nap · alarm \(Self.wakeText(minutes))", systemImage: "powersleep").pill()
+                Label("Start \(minutes)-min nap", systemImage: "powersleep").pill()
             }
         case .bedAt(let bed) where !Calendar.current.isDate(bed, equalTo: day.bed, toGranularity: .minute):
             Button { planBinding(\.bed, day: day).wrappedValue = Self.minutes(of: bed) } label: {
-                Label("Plan bed at \(SleepNow.clock(bed)) tonight", systemImage: "bed.double").pill()
+                Label("Use as tonight's bed", systemImage: "bed.double").pill()
             }
         case .night(_, let wake) where !Calendar.current.isDate(wake, equalTo: day.nextWake, toGranularity: .minute):
             Button { planBinding(\.wake, day: day).wrappedValue = Self.minutes(of: wake) } label: {
-                Label("Plan wake at \(SleepNow.clock(wake))", systemImage: "alarm").pill()
+                Label("Use as tomorrow's wake", systemImage: "alarm").pill()
             }
         default:
             EmptyView()
@@ -272,7 +272,7 @@ struct SleepTimeView: View {
         let cycles = max(0, Int((day.nightHours * 3600 - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength))
         return Card {
             timeRow("Wake up", symbol: "alarm", .wake, minutes: planBinding(\.wake, day: day))
-            timeRow("Bed", symbol: "bed.double", .bed, minutes: planBinding(\.bed, day: day))
+            timeRow("Bed tonight", symbol: "bed.double", .bed, minutes: planBinding(\.bed, day: day))
             LabeledContent {
                 Text("\(NapAdvice.hours(day.nightHours)) · \(cycles) \(cycles == 1 ? "cycle" : "cycles")").monospacedDigit()
             } label: {
@@ -315,7 +315,8 @@ struct SleepTimeView: View {
             UnfoldingRow(id: NightField.bedtimes, open: $openField) {
                 infoLabel("Bedtimes", info: Self.bedtimesInfo)
             } value: {
-                Text("to wake \(SleepNow.clock(day.nextWake))").foregroundStyle(.secondary)
+                let best = SleepSuggestion.bedtimes(wakingAt: day.nextWake).first { $0.isRecommended && $0.time >= now }
+                Text(best.map { "best \(SleepNow.clock($0.time))" } ?? "see list").foregroundStyle(.secondary)
             } picker: {
                 VStack(spacing: 8) {
                     ForEach(SleepSuggestion.bedtimes(wakingAt: day.nextWake)) { suggestion in
@@ -404,7 +405,7 @@ struct SleepTimeView: View {
     private static let tonightInfo = """
         Tomorrow's wake and tonight's bed. Change them for tonight only — \
         "Back to usual" undoes it. The options below are worked out against this plan, \
-        so changing it (or tapping Plan bed / Plan wake) changes which options show.
+        so changing it (or tapping "Use as…") changes which options show.
         """
 
     private static let windowInfo = """

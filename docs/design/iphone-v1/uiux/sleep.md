@@ -9,10 +9,10 @@ Plan first, then choices, then what a choice does; naps last.
 
 ```
                  When to sleep?
-TONIGHT                                     ⓘ
+TOMORROW                                    ⓘ
 ╭──────────────────────────────────────────╮
 │ ⏰ Wake up                     7:00 AM › │  ← wheel unfolds in place
-│ 🛏 Bed                        11:00 PM › │
+│ 🛏 Bed tonight                11:00 PM › │
 │ 😴 Sleep length          8h · 5 cycles   │
 │ 💡 Late night — a 90-minute nap …        │
 │ ↺ Back to usual · 11:00 PM – 7:00 AM     │  ← only when changed; undoes Plan bed/wake
@@ -26,7 +26,7 @@ YOUR OPTIONS                                ⓘ  ← colours; changes follow the
 ╰──────────────────────────────────────────╯
 TODAY'S GUIDE
 │ Best nap window ⓘ         1:00 – 3:30 PM │
-│ Bedtimes ⓘ              to wake 7:00 AM ›│
+│ Bedtimes ⓘ                best 10:45 PM ›│
 │ Usual sleep ⓘ          11:00 PM – 7:00 › │
 
 If I sleep now                              ⓘ  ← largeTitle
@@ -38,7 +38,7 @@ Good time for a nap
 │ 🌙 Little effect on tonight              │
 │ ☀ Wake up fresh                          │
 │ ▓▓░░░░░░░░│██████████   + legend          │
-│ ( ⏲ Start 20-min nap · alarm 3:40 )      │  ← or Plan bed at … / Plan wake at …
+│ ( ⏲ Start 20-min nap )                   │  ← or Use as tonight's bed / tomorrow's wake
 ╰──────────────────────────────────────────╯
 
 HOW THIS WORKS   • cycles • 15 min • colours • backup alarm • not medical advice
