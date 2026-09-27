@@ -157,10 +157,9 @@ struct SleepTimeView: View {
             }
         } else {
             HStack(spacing: Theme.spacing) {
-                Button { sheet = .log } label: { Label("Log", systemImage: "plus") }
+                Button { sheet = .log } label: { Label("Add past nap", systemImage: "plus") }
                     .buttonStyle(.soft)
                     .fixedSize()
-                    .accessibilityLabel("Log a past nap")
                 Spacer(minLength: 0)
                 primaryAction(selected, day: day)
                     .buttonStyle(.soft)
@@ -359,7 +358,7 @@ struct SleepTimeView: View {
     private var history: some View {
         Section {
             if naps.isEmpty {
-                Text("No naps yet — start one, or log a past nap with + Log below")
+                Text("No naps yet — start one, or add one you already took with + Add past nap")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .napRow()
