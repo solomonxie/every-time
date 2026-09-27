@@ -9,7 +9,7 @@ struct JetLagPlanView: View {
         if let index = trips.firstIndex(where: { $0.id == tripID }) {
             let trip = trips[index]
             PlanTimeline(trip: trip, plan: trip.plan(for: profile ?? JetLagProfile()))
-                .navigationTitle("\(trip.origin.name) → \(trip.destination.name)")
+                .navigationTitle(trip.route)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -111,22 +111,26 @@ private struct DayBand: View {
         }
     }
 
+    private var range: Range<Date> { window.lower..<window.end }
+
+    /// Legs taking off or landing in this band.
+    private var legs: [Trip.Leg] {
+        trip.legs.filter { range.contains($0.departure) || range.contains($0.arrival) }
+    }
+
     private var place: String {
-        let range = window.lower..<window.end
-        return range.contains(trip.departure) || range.contains(trip.arrival)
-            ? "\(trip.origin.name) → \(trip.destination.name)"
-            : trip.city(in: window.timeZone).name
+        guard let first = legs.first else { return trip.city(in: window.timeZone).name }
+        return ([trip.from(first)] + legs.map(\.destination)).map(\.name).joined(separator: " → ")
     }
 
     @ViewBuilder
     private var trailing: some View {
-        let range = window.lower..<window.end
         if day.isAdapted {
             Text("Adapted 🎉")
-        } else if range.contains(trip.departure) {
-            Label("Departs \(trip.departure.time(in: trip.origin.timeZone))", systemImage: "airplane.departure")
-        } else if range.contains(trip.arrival) {
-            Label("Lands \(trip.arrival.time(in: trip.destination.timeZone))", systemImage: "airplane.arrival")
+        } else if let leg = legs.first(where: { range.contains($0.departure) }) {
+            Label("Departs \(leg.departure.time(in: trip.from(leg).timeZone))", systemImage: "airplane.departure")
+        } else if let leg = legs.last(where: { range.contains($0.arrival) }) {
+            Label("Lands \(leg.arrival.time(in: leg.destination.timeZone))", systemImage: "airplane.arrival")
         } else if !window.isContinuation {
             Text("Day \(day.index + 1) of \(adjustingDays)").monospacedDigit()
         }
@@ -154,19 +158,34 @@ private struct Hatch: Shape {
     PlanPreview(from: "Europe/London", to: "America/Vancouver", hours: 10)
 }
 
+#Preview("Stopover") {
+    PlanPreview(from: "America/Los_Angeles", via: "Asia/Tokyo", to: "Asia/Singapore", stay: 3)
+}
+
 private struct PlanPreview: View {
     let trip: Trip
 
+    private static var departure: Date { Calendar.current.date(bySettingHour: 18, minute: 40, second: 0, of: .now)! }
+
     init(from: String, to: String, hours: Double) {
-        let departure = Calendar.current.date(bySettingHour: 18, minute: 40, second: 0, of: .now)!
+        let departure = Self.departure
         trip = Trip(origin: WorldCity(timeZoneIdentifier: from), destination: WorldCity(timeZoneIdentifier: to),
                     departure: departure, arrival: departure.addingTimeInterval(hours * 3600))
+    }
+
+    init(from: String, via: String, to: String, stay days: Double) {
+        let first = Trip.Leg(destination: WorldCity(timeZoneIdentifier: via),
+                             departure: Self.departure, arrival: Self.departure.addingTimeInterval(11 * 3600))
+        let next = first.arrival.addingTimeInterval(days * 86_400)
+        trip = Trip(origin: WorldCity(timeZoneIdentifier: from),
+                    legs: [first, Trip.Leg(destination: WorldCity(timeZoneIdentifier: to),
+                                           departure: next, arrival: next.addingTimeInterval(7 * 3600))])
     }
 
     var body: some View {
         NavigationStack {
             PlanTimeline(trip: trip, plan: trip.plan(for: JetLagProfile(melatonin: true)))
-                .navigationTitle("\(trip.origin.name) → \(trip.destination.name)")
+                .navigationTitle(trip.route)
                 .navigationBarTitleDisplayMode(.inline)
         }
     }
