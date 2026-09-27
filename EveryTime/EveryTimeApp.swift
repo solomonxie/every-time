@@ -19,6 +19,7 @@ struct EveryTimeApp: App {
                 JetLagNotifications.reschedule()
                 ImportantEventNotifications.reschedule()
                 CountdownNotifications.reschedule()
+                LunarNotifications.reschedule()
             case .background:
                 LocalBackups.runIfDue()
                 AutoBackup.shared.backUpInBackground()
