@@ -16,5 +16,8 @@ Disjoint files over the store.
 - [x] T2.2 Board view (paged columns, drag & drop, Move to menu) + Card sheet + Board settings — see `UIUX_DESIGN.md → Board view` — depends: T1.2
 - [x] T2.3 Roadmap + Insights (Swift Charts) — see `UIUX_DESIGN.md → Roadmap/Insights` — depends: T1.2
 
+## Status
+On hold: More → Boards shows "Coming soon" (`ComingSoonView`); swap back to `BoardsListView()` in `AppTool.destination` to re-enable.
+
 ## Phase 3: Finish
 - [ ] T3.1 Docs (README, iphone-v1 DESIGN features, more.md), device install, walkthrough — depends: T2.*

@@ -88,6 +88,8 @@ struct MoreView: View {
                     Text(TimeText.clock(Int(log.today(at: context.date)?.worked ?? 0)))
                 }
             }
+        case .boards:
+            Text("Soon").font(.label)
         default:
             EmptyView()
         }
