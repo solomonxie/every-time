@@ -13,4 +13,5 @@ Model types + planner signature first, so engine and UI build in parallel.
 
 ## Phase 3
 - [ ] T3.1 Install on device, walk through a sample trip — depends: T2.*
-- [ ] T3.2 Multi-leg trips; flight-number lookup (needs a flight data API, e.g. AeroDataBox) (v2)
+- [x] T3.2a Multi-leg trips (stopover rule in DESIGN)
+- [ ] T3.2b Flight-number lookup (needs a flight data API, e.g. AeroDataBox) (v2)
