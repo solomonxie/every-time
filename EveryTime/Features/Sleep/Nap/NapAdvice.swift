@@ -15,12 +15,19 @@ struct NightPlan: Codable, Equatable {
     var wake: Int
 
     func bedDate(calendar: Calendar = .current) -> Date {
-        let date = day.addingTimeInterval(Double(bed) * 60)
-        return bed < 12 * 60 ? date.addingTimeInterval(86_400) : date
+        calendar.clockTime(minutes: bed, daysAfter: bed < 12 * 60 ? 1 : 0, of: day)
     }
 
     func wakeDate(calendar: Calendar = .current) -> Date {
-        day.addingTimeInterval(86_400 + Double(wake) * 60)
+        calendar.clockTime(minutes: wake, daysAfter: 1, of: day)
+    }
+}
+
+extension Calendar {
+    /// Wall-clock `minutes` after midnight, `daysAfter` days from `date`'s day; DST-safe.
+    func clockTime(minutes: Int, daysAfter: Int = 0, of date: Date) -> Date {
+        let day = self.date(byAdding: .day, value: daysAfter, to: startOfDay(for: date)) ?? date
+        return self.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: day) ?? day
     }
 }
 
@@ -83,19 +90,19 @@ struct NapAdvice {
     /// This morning's usual wake, then tonight's bed and tomorrow's wake (planned or usual).
     func day(of date: Date) -> Day {
         let start = calendar.startOfDay(for: date)
-        let wake = start.addingTimeInterval(Double(profile.usualWake) * 60)
-        var usualBed = start.addingTimeInterval(Double(profile.usualBedtime) * 60)
-        if usualBed <= wake { usualBed.addTimeInterval(86_400) }
-        let nextWake = wake.addingTimeInterval(86_400)
+        let wake = calendar.clockTime(minutes: profile.usualWake, of: start)
+        var usualBed = calendar.clockTime(minutes: profile.usualBedtime, of: start)
+        if usualBed <= wake { usualBed = calendar.clockTime(minutes: profile.usualBedtime, daysAfter: 1, of: start) }
+        let nextWake = calendar.clockTime(minutes: profile.usualWake, daysAfter: 1, of: start)
         guard let plan, calendar.isDate(plan.day, inSameDayAs: start) else {
             return Day(wake: wake, usualBed: usualBed, bed: usualBed, nextWake: nextWake)
         }
-        return Day(wake: wake, usualBed: usualBed, bed: plan.bedDate(), nextWake: plan.wakeDate())
+        return Day(wake: wake, usualBed: usualBed, bed: plan.bedDate(calendar: calendar), nextWake: plan.wakeDate(calendar: calendar))
     }
 
     /// The day `date` belongs to: before the planned wake it's still last night.
     func current(at date: Date) -> Day {
-        let previous = day(of: date.addingTimeInterval(-86_400))
+        let previous = day(of: calendar.date(byAdding: .day, value: -1, to: date) ?? date)
         return date < previous.nextWake ? previous : day(of: date)
     }
 
