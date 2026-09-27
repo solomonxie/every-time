@@ -4,7 +4,6 @@ import UserNotifications
 enum NapKey {
     static let naps = "sleep.naps"
     static let active = "sleep.nap.active"
-    static let length = "sleep.nap.length"
     static let night = "sleep.nap.night"
 }
 
@@ -92,6 +91,12 @@ struct NapAdvice {
             return Day(wake: wake, usualBed: usualBed, bed: usualBed, nextWake: nextWake)
         }
         return Day(wake: wake, usualBed: usualBed, bed: plan.bedDate(), nextWake: plan.wakeDate())
+    }
+
+    /// The day `date` belongs to: before the planned wake it's still last night.
+    func current(at date: Date) -> Day {
+        let previous = day(of: date.addingTimeInterval(-86_400))
+        return date < previous.nextWake ? previous : day(of: date)
     }
 
     /// A full cycle before a night that runs 2+ h late banks sleep; otherwise a short refresher.
