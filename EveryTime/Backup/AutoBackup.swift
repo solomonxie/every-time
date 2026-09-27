@@ -1,6 +1,6 @@
 import UIKit
 
-/// The iCloud Drive switch. Daily, only if changed; the fingerprint is recorded only after a successful write.
+/// The iCloud Drive switch. At most hourly, only if changed; the fingerprint is recorded only after a successful write.
 @MainActor
 final class AutoBackup: ObservableObject {
     static let shared = AutoBackup()
@@ -53,8 +53,19 @@ final class AutoBackup: ObservableObject {
         guard isEnabled else { return }
         let snapshot = BackupSnapshot.current()
         guard snapshot.fingerprint != UserDefaults.standard.string(forKey: Self.fingerprintKey) else { return }
-        if let lastBackupAt, Calendar.current.isDateInToday(lastBackupAt) { return }
+        if let lastBackupAt, Date.now.timeIntervalSince(lastBackupAt) < BackupSchedule.minimumGap { return }
         await backUp(snapshot)
+    }
+
+    /// From the backups list; ignores the hourly gate but still skips an unchanged snapshot.
+    func backUpNow() async {
+        let snapshot = BackupSnapshot.current()
+        guard snapshot.fingerprint != UserDefaults.standard.string(forKey: Self.fingerprintKey) else { return }
+        await backUp(snapshot)
+    }
+
+    var isUpToDate: Bool {
+        BackupSnapshot.current().fingerprint == UserDefaults.standard.string(forKey: Self.fingerprintKey)
     }
 
     private func backUp(_ snapshot: BackupSnapshot = .current()) async {
