@@ -16,7 +16,6 @@ or paid. One free app should cover them all.
 
 ## Non-goals (v1)
 
-- Widget and Watch — targets stay as stubs until the phone app is solid.
 - Wait times live data — no free, reliable public wait-time API found yet.
 - "On this day" — needs a network source (Wikipedia feed); v2.
 - iCloud sync, iPad layout, landscape.
@@ -37,6 +36,7 @@ or paid. One free app should cover them all.
 ## Options considered
 
 - Persistence: SwiftData vs Codable JSON in UserDefaults → **JSON/UserDefaults**. Data is tiny (dozens of rows), no queries; avoids schema migrations and keeps the widget/watch able to read it later via an App Group.
+- Widget/watch data: share every store vs a small snapshot → **snapshot** (`Glance`: cities + countdowns) in the App Group for the widget, and as WatchConnectivity application context for the watch (App Groups don't cross devices). Published on scene-phase changes.
 - Lunar math: own tables vs `Calendar(identifier: .chinese)` → **Foundation**. Built-in, correct, no data files.
 - Cron: library vs own parser → **own parser**. Standard 5-field syntax is ~150 lines; no SPM dependency.
 - Separate Clocks list + Meetings planner vs one screen → **merged into World**. The planner's cursor-at-now already is a world clock; one place for cities.
