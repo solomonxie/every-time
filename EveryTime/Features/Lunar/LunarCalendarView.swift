@@ -2,7 +2,7 @@ import EventKit
 import SwiftUI
 
 struct LunarCalendarView: View {
-    @Stored("calendar.lunar") private var events: [LunarEvent] = []
+    @Stored(LunarNotifications.storageKey) private var events: [LunarEvent] = []
     @State private var convertDate = Date.now
     @State private var isAdding = false
     @State private var calendarMessage: String?
@@ -16,8 +16,14 @@ struct LunarCalendarView: View {
             }
             .padding(.top, 12)
             .cardRow(vertical: 2)
-            ForEach(events) { LunarEventRow(event: $0).cardRow(vertical: 4) }
-                .onDelete { events.remove(atOffsets: $0) }
+            ForEach($events) { $event in
+                LunarEventRow(event: event)
+                    .cardRow(vertical: 4)
+                    .contextMenu {
+                        Toggle(isOn: $event.notify) { Label("Remind me at 9:00", systemImage: "bell") }
+                    }
+            }
+            .onDelete { events.remove(atOffsets: $0) }
             if events.isEmpty {
                 Label("No events yet — add a birthday or festival", systemImage: "calendar.badge.plus")
                     .font(.subheadline)
@@ -40,6 +46,8 @@ struct LunarCalendarView: View {
             }
         }
         .sensoryFeedback(.success, trigger: events.count) { old, new in new > old }
+        .onChange(of: events.map(\.notify)) { LunarNotifications.reschedule(requestingAuthorization: events.contains(where: \.notify)) }
+        .onChange(of: events.map(\.id)) { LunarNotifications.reschedule() }
         .alert("Calendar", isPresented: Binding(get: { calendarMessage != nil }, set: { if !$0 { calendarMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -148,7 +156,8 @@ private struct LunarEventRow: View {
             HStack(alignment: .center, spacing: Theme.spacing) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(event.name).font(.cardTitle).lineLimit(2)
-                    Text("\(event.lunar.numeric) · \(event.repeat.caption)")
+                    Label("\(event.lunar.numeric) · \(event.repeat.caption)", systemImage: "bell.fill")
+                        .labelStyle(TrailingBell(on: event.notify))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if let next {
@@ -160,6 +169,17 @@ private struct LunarEventRow: View {
                 Spacer(minLength: 0)
                 if let days { DayCount(days: days) }
             }
+        }
+    }
+}
+
+private struct TrailingBell: LabelStyle {
+    let on: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.title
+            if on { configuration.icon.font(.caption2) }
         }
     }
 }
@@ -190,6 +210,7 @@ private struct AddLunarSheet: View {
     @State private var day = Lunar.date(of: .now).day
     @State private var rule = LunarRepeat.yearly
     @State private var addToCalendar = false
+    @State private var notify = true
 
     private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
 
@@ -241,11 +262,14 @@ private struct AddLunarSheet: View {
                     Text("Repeat")
                 }
                 Section {
+                    Toggle(isOn: $notify) {
+                        Label("Remind me at 9:00", systemImage: "bell")
+                    }
                     Toggle(isOn: $addToCalendar) {
                         Label("Add to iPhone Calendar", systemImage: "calendar")
                     }
                 } footer: {
-                    Text("Adds all-day events to your default calendar.")
+                    Text("Reminds you on the day. Calendar adds all-day events to your default calendar.")
                 }
                 .listRowBackground(Theme.cardFill)
             }
@@ -259,7 +283,7 @@ private struct AddLunarSheet: View {
             }
             .bottomBar {
                 Button("Add") {
-                    onAdd(LunarEvent(name: trimmedName, month: month, day: day, repeat: rule), addToCalendar)
+                    onAdd(LunarEvent(name: trimmedName, month: month, day: day, repeat: rule, notify: notify), addToCalendar)
                     dismiss()
                 }
                 .buttonStyle(.primary)

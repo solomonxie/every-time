@@ -140,15 +140,17 @@ LUNAR DATE
 REPEAT
 ( Once | Monthly | [Yearly] )                     ← segmented
 ╭───────────────────────────────────────╮
+│ 🔔 Remind me at 9:00             (o ) │        ← default on
 │ 📅 Add to iPhone Calendar        ( o) │        ← default off
 ╰───────────────────────────────────────╯
-Adds all-day events to your default calendar.
+Reminds you on the day. Calendar adds all-day events to your default calendar.
 [[                  Add                  ]]      ← bottom, disabled until name
 ```
 - Next occurrence: yearly → same lunar month/day; monthly → next month with day (clamped to 29/30); never → once, anchored at creation.
 - Calendar on → write-only EventKit access → all-day events "Mom's birthday (农历 三月十二)" in default calendar; yearly next 10, monthly next 24, never 1 (EKRecurrenceRule can't do lunar). IDs stored on the event.
 - Access denied → event still saved; alert: "Calendar access is off — Settings → Privacy & Security → Calendars → Every Time".
 - Deleting in-app doesn't remove Calendar events (write-only access can't).
+- Reminder: 9:00 on each of the next 3 dates, ids `lunar.<uuid>.<n>`; soonest 10 overall, within iOS's 64 cap. Rescheduled on add/delete/toggle and app active. Row shows 🔔 when on; long-press row → toggle. Old events decode with it off.
 
 ### Countdown (future events)
 

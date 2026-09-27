@@ -19,7 +19,6 @@ or paid. One free app should cover them all.
 - Widget and Watch — targets stay as stubs until the phone app is solid.
 - Wait times live data — no free, reliable public wait-time API found yet.
 - "On this day" — needs a network source (Wikipedia feed); v2.
-- Lunar birthday push notifications — v1 shows next occurrence only; alerts v2.
 - iCloud sync, iPad layout, landscape.
 
 ## Features
