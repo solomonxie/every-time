@@ -19,7 +19,7 @@ struct SettingsSections: View {
         } header: {
             InfoHeader(
                 title: "Backup",
-                info: "A copy of your cities, lunar and “since” dates, timer settings, tab bar and LeetCode history, as one small .zip. Saved once a day when something changed; iCloud Drive keeps the latest 10. It's a backup, not sync between devices. Reinstall the app and your data comes back from iCloud by itself."
+                info: "A copy of everything you've added and set — cities, events, countdowns, timers, naps, trips — as one small .zip. Saved within an hour of a change, each as its own file; kept for a year, thinning out with age. Tap iCloud Drive to see each backup's contents or restore one. It's a backup, not sync between devices. Reinstall the app and your data comes back from iCloud by itself."
             )
         } footer: {
             Text("Outlives deleting the app.")
@@ -27,21 +27,23 @@ struct SettingsSections: View {
         .listRowBackground(Theme.cardFill)
 
         Section {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Daily copies")
-                    Text("\(Self.localPath) · last 7 days")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            NavigationLink { BackupListView(tier: .local) } label: {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Copies on this iPhone")
+                        Text(Self.localPath)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "iphone").foregroundStyle(.secondary)
                 }
-            } icon: {
-                Image(systemName: "iphone").foregroundStyle(.secondary)
+                .frame(minHeight: 44)
             }
-            .frame(minHeight: 44)
         } header: {
             InfoHeader(
                 title: "This iPhone",
-                info: "A copy is also saved here once a day, and before every import. They go when the app does, so they're for undoing a mistake, not for a lost phone: import one to roll back."
+                info: "A copy is also saved here within an hour of a change, and before every import or restore. They go when the app does, so they're for undoing a mistake, not for a lost phone."
             )
         }
         .listRowBackground(Theme.cardFill)
@@ -75,25 +77,29 @@ struct SettingsSections: View {
         )
     }
 
+    /// Opens the backups list, which holds the switch.
     private var cloudDriveRow: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Toggle(isOn: $backup.isEnabled) {
-                Label {
-                    Text("iCloud Drive")
-                } icon: {
-                    Image(systemName: "icloud").foregroundStyle(.secondary)
+        NavigationLink { BackupListView(tier: .cloud) } label: {
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("iCloud Drive")
+                        Spacer()
+                        Text(backup.isEnabled && backup.status == .ready ? "On" : "Off").foregroundStyle(.secondary)
+                    }
+                    TimelineView(.everyMinute) { _ in
+                        Text(cloudDriveSubtitle)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if backup.status == .driveOff {
+                        Text("Settings → your name → iCloud → iCloud Drive → turn on")
+                            .font(.footnote)
+                            .foregroundStyle(.tint)
+                    }
                 }
-            }
-            .disabled(backup.status != .ready)
-            TimelineView(.everyMinute) { _ in
-                Text(cloudDriveSubtitle)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            if backup.status == .driveOff {
-                Text("Settings → your name → iCloud → iCloud Drive → turn on")
-                    .font(.footnote)
-                    .foregroundStyle(.tint)
+            } icon: {
+                Image(systemName: "icloud").foregroundStyle(.secondary)
             }
         }
     }
@@ -124,12 +130,12 @@ struct SettingsSections: View {
     }
 
     private func restore(_ snapshot: BackupSnapshot) {
-        guard LocalBackups.writeBefore("import") else {
-            message = "Couldn't save a copy of the current data first, so nothing was replaced."
-            return
+        do {
+            try BackupRestore.replace(with: snapshot, before: "import")
+            message = "Restored \(snapshot.summary)."
+        } catch {
+            message = error.localizedDescription
         }
-        snapshot.apply()
-        message = "Restored \(snapshot.summary)."
     }
 
     fileprivate static func read(_ url: URL) throws -> BackupSnapshot {

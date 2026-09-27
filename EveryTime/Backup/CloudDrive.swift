@@ -16,12 +16,11 @@ enum CloudDriveError: LocalizedError {
     var errorDescription: String? { "This device's iCloud folder isn't available." }
 }
 
-/// Tier 2: `Files → iCloud Drive → Every Time`. Archives only, one per day, latest 10 kept.
+/// Tier 2: `Files → iCloud Drive → Every Time`. Archives only, kept per `BackupRetention`.
+/// Writes and deletes go through NSFileCoordinator so iCloud's daemon never sees a half-written file.
 /// Every call touches the filesystem or iCloud's daemon, so all are nonisolated async (off the main actor).
 enum CloudDrive {
     static let containerID = "iCloud.com.example.everytime"
-    static let keptArchives = 10
-
     static func status() async -> CloudDriveStatus {
         if documentsURL() != nil { return .ready }
         // Entitlement first: without it ubiquityIdentityToken reads nil, same as signed out.
@@ -30,10 +29,31 @@ enum CloudDrive {
         return .notReady
     }
 
-    static func write(_ archive: Data) async throws {
+    /// Written, read back and compared before anything older is pruned.
+    static func write(_ archive: Data, now: Date = .now) async throws {
         guard let documents = documentsURL() else { throw CloudDriveError.unavailable }
-        try archive.write(to: documents.appending(path: BackupArchiveName.daily()), options: .atomic)
-        prune(in: documents)
+        let url = documents.appending(path: BackupArchiveName.auto(now))
+        try coordinate(writing: url, options: .forReplacing) { try archive.write(to: $0, options: .atomic) }
+        guard try Data(contentsOf: url) == archive else { throw BackupError.unreadable }
+        prune(in: documents, now: now)
+    }
+
+    /// Every archive here, newest first; files not yet downloaded report `isDownloaded == false`.
+    static func files() async throws -> [BackupFile] {
+        guard let documents = documentsURL() else { throw CloudDriveError.unavailable }
+        let onDisk = listing(documents)
+        return BackupArchiveName.newestFirst(onDisk.keys).compactMap { name in
+            guard let fileName = onDisk[name] else { return nil }
+            let url = documents.appending(path: name)
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey, .ubiquitousItemDownloadingStatusKey])
+            let isDownloaded = fileName == name && values?.ubiquitousItemDownloadingStatus != .notDownloaded
+            return BackupFile(name: name, url: url, size: values?.fileSize, isDownloaded: isDownloaded)
+        }
+    }
+
+    /// Downloads if needed; nil when it didn't arrive in time.
+    static func data(of file: BackupFile, timeout: TimeInterval = 30) async -> Data? {
+        await read(file.url, until: Date().addingTimeInterval(timeout))
     }
 
     /// Newest acceptable archive, waiting for iCloud to download placeholders (always the case on a fresh install).
@@ -50,7 +70,7 @@ enum CloudDrive {
         return nil
     }
 
-    private static func read(_ url: URL, until deadline: Date) async -> Data? {
+    fileprivate static func read(_ url: URL, until deadline: Date) async -> Data? {
         try? FileManager.default.startDownloadingUbiquitousItem(at: url)
         repeat {
             if let data = try? Data(contentsOf: url), !data.isEmpty { return data }
@@ -59,13 +79,23 @@ enum CloudDrive {
         return nil
     }
 
-    private static func prune(in documents: URL) {
+    private static func prune(in documents: URL, now: Date) {
         let onDisk = listing(documents)
-        let newest = BackupArchiveName.newestFirst(onDisk.keys)
-        for name in newest.dropFirst(keptArchives) {
+        for name in BackupRetention.expired(onDisk.keys, now: now) {
             guard let fileName = onDisk[name] else { continue }
-            try? FileManager.default.removeItem(at: documents.appending(path: fileName))
+            try? coordinate(writing: documents.appending(path: fileName), options: .forDeleting) {
+                try FileManager.default.removeItem(at: $0)
+            }
         }
+    }
+
+    private static func coordinate(writing url: URL, options: NSFileCoordinator.WritingOptions, _ body: (URL) throws -> Void) throws {
+        var coordinationError: NSError?
+        var bodyError: Error?
+        NSFileCoordinator().coordinate(writingItemAt: url, options: options, error: &coordinationError) { url in
+            do { try body(url) } catch { bodyError = error }
+        }
+        if let error = coordinationError ?? bodyError { throw error }
     }
 
     /// Real name → name on disk. Undownloaded files sit under `.<name>.icloud`.

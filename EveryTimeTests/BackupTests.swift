@@ -155,3 +155,61 @@ struct BackupArchiveNameTests {
                                                          "20260924-daily-every-time.zip"])
     }
 }
+
+struct BackupRetentionTests {
+    private let now = date(2026, 9, 26, 12)
+
+    private func names(_ dates: [Date]) -> [String] { dates.map { BackupArchiveName.auto($0) } }
+
+    @Test func autoNamesRoundTripTheirTime() {
+        let when = date(2026, 9, 25, 14, 2, 33)
+        #expect(BackupArchiveName.date(of: BackupArchiveName.auto(when)) == when)
+        #expect(BackupArchiveName.kind(of: BackupArchiveName.auto(when)) == "Automatic")
+        #expect(BackupArchiveName.kind(of: "20260925140233-before-import-every-time.zip") == "Before import")
+        #expect(BackupArchiveName.kind(of: "20260925-daily-every-time.zip") == "Daily")
+    }
+
+    @Test func keepsEverythingRecent() {
+        let hourly = names((0..<47).map { now.addingTimeInterval(-Double($0) * 3600) })
+        #expect(BackupRetention.expired(hourly, now: now, calendar: gregorian()).isEmpty)
+    }
+
+    @Test func thinsOlderToOnePerDayThenPerMonth() {
+        let calendar = gregorian()
+        let morning = names((3..<20).map { calendar.date(byAdding: .day, value: -$0, to: date(2026, 9, 26, 9))! })
+        let evening = names((3..<20).map { calendar.date(byAdding: .day, value: -$0, to: date(2026, 9, 26, 21))! })
+        let expired = Set(BackupRetention.expired(morning + evening, now: now, calendar: calendar))
+        // Within 14 days only the evening (newest) copy of each day stays; the newest 3 include one morning.
+        #expect(expired.isSuperset(of: morning[1..<11]))
+        #expect(!expired.contains(morning[0]))
+        #expect(expired.isDisjoint(with: evening.prefix(11)))
+        // Past 14 days September's newest is already kept, so older days go.
+        #expect(expired.isSuperset(of: evening.suffix(from: 12)))
+    }
+
+    @Test func keepsNewestOfEachMonthForAYear() {
+        let calendar = gregorian()
+        let monthly = names((1...14).map { calendar.date(byAdding: .month, value: -$0, to: now)! })
+        let expired = BackupRetention.expired(monthly, now: now, calendar: calendar)
+        #expect(Set(expired) == Set(monthly.suffix(2)))
+    }
+
+    @Test func alwaysKeepsNewestThreeAndIgnoresForeignFiles() {
+        let calendar = gregorian()
+        let old = names((0..<3).map { calendar.date(byAdding: .year, value: -2, to: now)!.addingTimeInterval(-Double($0) * 86_400) })
+        #expect(BackupRetention.expired(old + ["notes.zip"], now: now, calendar: calendar).isEmpty)
+    }
+}
+
+struct BackupContentTests {
+    @Test func settingsAloneAreNotUserContent() {
+        #expect(!snapshot(["world.localIndex": "0", "app.tabs": "[]"]).hasUserContent)
+        #expect(snapshot(["world.cities": #"[{"a":1}]"#]).hasUserContent)
+    }
+
+    @Test func statsCountEachKindInOrder() {
+        let stats = snapshot(["timers.countdowns": "[1,2,3]", "world.cities": "[1]", "sleep.naps": "[]", "app.tabs": #"["world"]"#]).stats
+        #expect(stats.map(\.key) == ["world.cities", "timers.countdowns", "sleep.naps"])
+        #expect(stats.map(\.text) == ["1 city", "3 countdowns", "0 naps"])
+    }
+}

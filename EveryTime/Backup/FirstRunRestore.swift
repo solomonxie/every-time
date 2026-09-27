@@ -1,6 +1,7 @@
 import Foundation
 
 /// Fresh install: pull the newest iCloud archive back once, silently. Retries on later launches while the container isn't ready.
+/// "Fresh" = no lists with items yet; small values the app writes on launch (selected tab, scroll spot) don't count.
 enum FirstRunRestore {
     private static let doneKey = "backup.icloud.didRestore"
 
@@ -17,6 +18,6 @@ enum FirstRunRestore {
     }
 
     private static var shouldRun: Bool {
-        !UserDefaults.standard.bool(forKey: doneKey) && BackupSnapshot.storedKeys().isEmpty
+        !UserDefaults.standard.bool(forKey: doneKey) && !BackupSnapshot.current().hasUserContent
     }
 }
