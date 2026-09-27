@@ -1,6 +1,6 @@
 # Every Time
 
-> 🚧 Work in progress — iPhone app, widget and watch functional (Wait times is sample data). Docs: `docs/design/iphone-v1/`.
+> 🚧 Work in progress — iPhone app, widget and watch functional (Wait times is sample data). Docs: `docs/design/iphone-v1/`, `docs/design/boards/`.
 
 Everything about time, in one free iPhone app.
 
@@ -22,6 +22,10 @@ Everything about time, in one free iPhone app.
 - **Countdown** — count down to any date/time; the biggest remaining unit
   is the hero (days, then hours, minutes, seconds), sideways full screen,
   and fireworks or confetti, sound, vibration and a notification when it ends.
+- **Boards** — ZenHub-style project boards stored in Reminders: a list is a
+  board, a reminder is a card, completed is Done. Kanban columns with drag &
+  drop, a roadmap of due dates and calendar milestones, and insights
+  (burn-up, velocity, flow). Nothing leaves the phone (`docs/design/boards/`).
 - **More** — flat list of the rest: stopwatch, interview timer, rehearsal
   timer, LeetCode timer with session history, work timer (clock in/out,
   breaks, daily history, CSV export), important events (from the

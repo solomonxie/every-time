@@ -30,6 +30,7 @@ or paid. One free app should cover them all.
 | Jet lag planner | own tool (was a Sleep segment): per-trip light/sleep/caffeine/melatonin plan — `docs/design/jet-lag/` |
 | On this day (More) | Wikipedia feed per date: selected, events, births, deaths, holidays; tap → article; last copy per MM/DD cached offline |
 | Wait times (More) | sample data only |
+| Boards (More → Projects) | ZenHub-style boards over Reminders lists + Calendar milestones — `docs/design/boards/` |
 | Lunar (tab) + Important events (More) | important events (manual or picked from iPhone Calendar, typed: birthday, anniversary, memorial…) with time since, next anniversary and a yearly 9:00 reminder; lunar date converter + lunar anniversaries' next Gregorian date |
 | Dev tools (More) | live Unix timestamp, timestamp ⇄ date converter, cron expression parser (next runs) |
 
