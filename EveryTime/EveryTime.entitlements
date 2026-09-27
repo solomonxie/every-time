@@ -14,5 +14,9 @@
 	<array>
 		<string>iCloud.com.solomonxie.everytime</string>
 	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.solomonxie.everytime</string>
+	</array>
 </dict>
 </plist>

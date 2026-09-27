@@ -18,6 +18,9 @@ struct WorldCity: Codable, Identifiable, Hashable {
         self.timeZoneIdentifier = timeZoneIdentifier
     }
 
+    static let storageKey = "world.cities"
+    static let defaults = ["America/New_York", "Europe/London", "Asia/Singapore"].map(WorldCity.init)
+
     static var local: WorldCity { WorldCity(timeZoneIdentifier: TimeZone.current.identifier) }
 
     /// Zone cities plus major cities that share another city's zone (Beijing → Asia/Shanghai).
