@@ -11,13 +11,35 @@ More (scrolled to bottom)
 TAB BAR  3 of 4                         ← more.md
 …
 BACKUP ⓘ
-☁ iCloud Drive                               ●──
+☁ iCloud Drive                            On  ›   ← opens the list
   Files → iCloud Drive → Every Time · 4 min ago
 Outlives deleting the app.
 
 THIS IPHONE ⓘ
-📱 Daily copies
-   Files → On My iPhone → Every Time · last 7 days
+📱 Copies on this iPhone                      ›
+   Files → On My iPhone → Every Time
+```
+
+## Backups list (pushed)
+
+```
+iCloud Drive
+╭───────────────────────────────────────╮
+│ Back up to iCloud Drive          ●──  │   ← the switch lives here (cloud only)
+│ ⟳ Back up now                         │   ← disabled when up to date
+╰───────────────────────────────────────╯
+Up to date with this iPhone.
+12 BACKUPS
+│ Sep 26, 2026 at 2:02 PM        2h ago │
+│ Automatic · 3 KB                      │
+│ 🌐 4  📅 2  ⭐ 3  ⏳ 1  </> 12          │   ← counts per kind, from the archive
+│ …  Still in iCloud — pull to retry    │   ← not downloaded in time
+Files → … Saved within an hour of a change… (retention)
+```
+
+Detail: Saved · Kind · Size · App version · File; CONTENTS rows (count, orange "now N" when this iPhone differs), Settings count; "Restore this backup…" (confirm; current data saved to This iPhone first) · Share file….
+
+```
 
 ⬆ Export backup…
 ⬇ Import backup…
@@ -56,15 +78,13 @@ Re-checked on every foreground. Auto path never alerts; signed-out is silent.
 ## ⓘ popovers
 
 ```
-BACKUP ⓘ →  A copy of your cities, lunar and "since" dates, timer settings,
-            tab bar and LeetCode history, as one small .zip. Saved once a day when
-            something changed; iCloud Drive keeps the latest 10. It's a
-            backup, not sync between devices. Reinstall the app and your
-            data comes back from iCloud by itself.
+BACKUP ⓘ →  Everything added and set, as one small .zip. Saved within an hour
+            of a change, each its own file; kept a year, thinning with age.
+            Tap iCloud Drive to see contents or restore. Backup, not sync.
+            Reinstall → data comes back from iCloud by itself.
 
-THIS IPHONE ⓘ →  A copy is also saved here once a day, and before every
-                 import. They go when the app does, so they're for undoing
-                 a mistake, not for a lost phone: import one to roll back.
+THIS IPHONE ⓘ →  Also saved here, and before every import/restore. Goes with
+                 the app: for undoing a mistake, not a lost phone.
 ```
 
 ## Export

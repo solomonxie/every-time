@@ -65,31 +65,62 @@ struct BackupSnapshot {
         }
     }
 
+    /// Any list or object with items: what a user made, as opposed to a remembered setting.
+    var hasUserContent: Bool {
+        entries.values.contains { data in
+            switch Self.json(data) {
+            case let array as [Any]: !array.isEmpty
+            case let object as [String: Any]: !object.isEmpty
+            default: false
+            }
+        }
+    }
+
     var fingerprint: String {
         let canonical = (try? JSONSerialization.data(withJSONObject: embeddedEntries, options: [.sortedKeys, .fragmentsAllowed])) ?? Data()
         return SHA256.hash(data: canonical).map { String(format: "%02x", $0) }.joined()
     }
 
+    struct Stat: Identifiable, Equatable {
+        let key: String
+        let label: String
+        let symbol: String
+        let count: Int
+        var id: String { key }
+        var text: String { "\(count) \(label)" }
+    }
+
+    /// Item counts per kind of data, in a fixed order; kinds absent from the snapshot are left out.
+    var stats: [Stat] {
+        Self.countedKeys.compactMap { key, singular, plural, symbol in
+            guard let data = entries[key], let array = Self.json(data) as? [Any] else { return nil }
+            return Stat(key: key, label: array.count == 1 ? singular : plural, symbol: symbol, count: array.count)
+        }
+    }
+
+    /// Stored values that aren't counted lists: tab bar, timer lengths, sleep profile…
+    var settingsCount: Int {
+        let counted = Set(stats.map(\.key))
+        return entries.keys.filter { !counted.contains($0) }.count
+    }
+
     /// "4 cities · 2 lunar events · 12 LeetCode sessions · saved Sep 25, 2026"
     var summary: String {
-        var parts: [String] = []
-        var counted = Set<String>()
-        for (key, singular, plural) in Self.countedKeys {
-            guard let data = entries[key], let array = Self.json(data) as? [Any] else { continue }
-            counted.insert(key)
-            if !array.isEmpty { parts.append("\(array.count) \(array.count == 1 ? singular : plural)") }
-        }
-        let others = entries.keys.filter { !counted.contains($0) }.count
-        if others > 0 { parts.append("\(others) \(others == 1 ? "setting" : "settings")") }
+        var parts = stats.filter { $0.count > 0 }.map(\.text)
+        if settingsCount > 0 { parts.append("\(settingsCount) \(settingsCount == 1 ? "setting" : "settings")") }
         if let createdAt { parts.append("saved \(createdAt.formatted(date: .abbreviated, time: .omitted))") }
         return parts.joined(separator: " · ")
     }
 
     private static let countedKeys = [
-        ("world.cities", "city", "cities"),
-        ("calendar.lunar", "lunar event", "lunar events"),
-        ("calendar.since", "important event", "important events"),
-        ("timers.leetcodeHistory", "LeetCode session", "LeetCode sessions"),
+        ("world.cities", "city", "cities", "globe"),
+        ("calendar.lunar", "lunar event", "lunar events", "calendar"),
+        ("calendar.since", "important event", "important events", "star.circle"),
+        ("timers.countdowns", "countdown", "countdowns", "hourglass.bottomhalf.filled"),
+        ("timers.leetcodeHistory", "LeetCode session", "LeetCode sessions", "chevron.left.forwardslash.chevron.right"),
+        ("timers.workLog", "work session", "work sessions", "briefcase"),
+        ("sleep.naps", "nap", "naps", "moon.zzz"),
+        ("sleep.jetlag.trips", "trip", "trips", "airplane"),
     ]
 
     // MARK: JSON
