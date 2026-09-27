@@ -148,7 +148,7 @@ private struct TripRow: View {
         HStack(spacing: Theme.spacing) {
             Image(systemName: "airplane").foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(trip.origin.name) → \(trip.destination.name)").font(.cardTitle)
+                Text(trip.route).font(.cardTitle)
                 Text(status).font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)

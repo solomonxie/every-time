@@ -37,6 +37,7 @@ Wed, Nov 4 · London                 Adapted 🎉
 - Hour axis = local time of where the user is that day; a red now-line on today; opens scrolled to now.
 - Tap a bar → popover: "See bright light · 7:00–10:00 AM · Go outside or use a light box."
 - 🔔 toolbar toggles notifications for this trip.
+- Multi-leg: title = full route; one flight bar per leg; a day band with take-offs/landings shows those legs' route and its first departure (else last landing).
 
 ## Notification copy
 | Action | Title | Body |
