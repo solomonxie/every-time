@@ -88,17 +88,19 @@ struct SleepTimeView: View {
     private func nowCard(_ sleepNow: SleepNow, options: [SleepNow.Option], selected: SleepNow.Option?) -> some View {
         let verdict = sleepNow.verdict
         return VStack(alignment: .leading, spacing: Theme.spacing) {
-            HStack(spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("If I sleep")
                 offsetMenu(start: sleepNow.start)
                 Spacer()
                 InfoButton(label: "About naps and sleep cycles", text: Self.info)
+                    .font(.body)
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             VStack(alignment: .leading, spacing: 4) {
                 Text(verdict.headline)
-                    .font(.system(.title2, design: .rounded, weight: .semibold))
+                    .font(.system(.title3, design: .rounded, weight: .semibold))
                 if !verdict.reason.isEmpty {
                     Text(verdict.reason)
                         .font(.subheadline)
@@ -133,7 +135,7 @@ struct SleepTimeView: View {
         } label: {
             HStack(spacing: 3) {
                 Text(offset == 0 ? "now" : "\(Self.offsetText(offset)), at \(SleepNow.clock(start))")
-                Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
+                Image(systemName: "chevron.up.chevron.down").font(.title3.weight(.semibold))
             }
             .foregroundStyle(Color.accentColor)
         }
