@@ -38,7 +38,7 @@ Driven by device use: one visual language, user-chosen tab bar, richer dates.
 - [x] T4.5 Important events (calendar search, types, yearly reminders) — see `uiux/calendar.md` — depends: T4.1
 
 ## Phase 5: Polish
-- [ ] T5.1 Unit test target for pure logic (sleep math, cron, lunar occurrences, backup snapshot/zip) — depends: T3.*
+- [x] T5.1 Unit test target for pure logic (sleep math, cron, lunar occurrences, backup snapshot/zip) — depends: T3.*
 
 ## Later (v2)
 - [ ] Waiting data source · On this day · lunar notifications · widget · watch · App Group sharing
