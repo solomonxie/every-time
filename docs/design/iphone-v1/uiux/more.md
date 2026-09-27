@@ -18,6 +18,7 @@ TIMERS
 ⌛ Countdown                                ›   ← countdown.md
 DATES
 ☆ Important events                          ›
+📖 On this day                              ›   ← on-this-day.md
 ⌛ Wait times                               ›
 DEVELOPER
 # Unix timestamp                            ›

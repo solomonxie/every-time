@@ -16,6 +16,7 @@ TabView ─┬─ 1–4 pinned tools (default World · Sleep · Lunar; any tool 
                          ├─▶ LeetCode         ┘
                          └─▶ Countdown ── + ──▶ New countdown sheet
               DATES      ├─▶ Important events ── + ──▶ New event sheet
+                         ├─▶ On this day (Wikipedia)
                          └─▶ Wait times (sample data)
               DEVELOPER  ├─▶ Unix timestamp
                          ├─▶ Timestamp converter
@@ -35,6 +36,7 @@ TabView ─┬─ 1–4 pinned tools (default World · Sleep · Lunar; any tool 
 | Countdown | pushed from More or pinned tab; detail + sideways full screen | [uiux/countdown.md](uiux/countdown.md) |
 | Sleep | tab page | [uiux/sleep.md](uiux/sleep.md) |
 | Lunar + Important events | tab page / pushed from More | [uiux/calendar.md](uiux/calendar.md) |
+| On this day | pushed from More or pinned tab | [uiux/on-this-day.md](uiux/on-this-day.md) |
 | Dev tools | pushed from More | [uiux/tools.md](uiux/tools.md) |
 | Settings (backups) | inline sections in More | [uiux/settings.md](uiux/settings.md) |
 
