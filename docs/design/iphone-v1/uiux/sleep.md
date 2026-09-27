@@ -5,75 +5,50 @@ Two separate tools: **Sleep** (cycles) and **Jet lag planner** (tab label
 
 ## Sleep time (`SleepTimeView`)
 
-One question, answered top-down: *if I sleep now, what happens?* → pick an
-option → act. Then tonight's plan, reference info, the nap log, and how it works.
+Plan first, then choices, then what a choice does; naps last.
 
 ```
                  When to sleep?
-If I sleep now                              ⓘ  ← largeTitle; "at 3:15 PM" when offset
-[ NOW | In 15 min | In 30 min | In 1 h ]       ← segmented, replaces the menu
-Good time for a nap                            ← verdict, title2
-20 min refreshes without grogginess.           ← reason, secondary
-
-YOUR OPTIONS                                ⓘ  ← ⓘ = colour + timeline legend
+TONIGHT                                     ⓘ
 ╭──────────────────────────────────────────╮
-│ ◉ Nap 20 min   BEST            wake at   │  ← trailing caption says what the time is
-│                                3:40 PM   │
-│   🌙 Little effect on tonight        ●   │  ← effect rows, own colour dot each
-│   ☀ Wake up fresh                   ●   │
-│   ▓▓░░░░░░░░░░░░░░░│████████████         │  ← timeline
-│   3:15 PM       bed 11:00 PM    7:00 AM  │
-│   ▓ Nap  █ Sleep  ▒ Slow to fall asleep  │  ← legend: only kinds shown
-├──────────────────────────────────────────┤
-│ ○ Nap 90 min                   wake at   │
-│                                4:45 PM   │
-├──────────────────────────────────────────┤
-│ ○ Nap 10 min                   wake at   │
-╰──────────────────────────────────────────╯
-Can't fall asleep after ~20 min? …           ← tip, late night only
-
-TONIGHT                              ⓘ  ( Use usual )   ← only when changed
-╭──────────────────────────────────────────╮
-│ 🛏 Bed                        11:00 PM › │  ← wheel unfolds in place
-│ ⏰ Wake                        7:00 AM › │
-│ 😴 Sleep                  8h · 5 cycles  │
+│ ⏰ Wake up                     7:00 AM › │  ← wheel unfolds in place
+│ 🛏 Bed                        11:00 PM › │
+│ 😴 Sleep length          8h · 5 cycles   │
 │ 💡 Late night — a 90-minute nap …        │
+│ ↺ Back to usual · 11:00 PM – 7:00 AM     │  ← only when changed; undoes Plan bed/wake
+│ Changed for tonight only.                │
 ╰──────────────────────────────────────────╯
-
-TODAY'S GUIDE
+YOUR OPTIONS                                ⓘ  ← colours; changes follow the plan
 ╭──────────────────────────────────────────╮
-│ Best nap window  ⓘ      1:00 – 3:30 PM   │
-│ Bedtimes  ⓘ          for 7:00 AM wake ›  │  ← unfolds the cycle list
-│ Usual sleep  ⓘ          11:00 PM – 7:00 › │  ← profile sheet
+│ ◉ Nap 20 min   BEST        wake at    ●  │  ← tap again = back to Best
+│                            3:40 PM       │
+│ ○ Nap 90 min               wake at    ●  │
+╰──────────────────────────────────────────╯
+TODAY'S GUIDE
+│ Best nap window ⓘ         1:00 – 3:30 PM │
+│ Bedtimes ⓘ              to wake 7:00 AM ›│
+│ Usual sleep ⓘ          11:00 PM – 7:00 › │
+
+If I sleep now                              ⓘ  ← largeTitle
+[ NOW | In 15 min | In 30 min | In 1 h ]
+Good time for a nap
+20 min refreshes without grogginess.
+╭──────────────────────────────────────────╮
+│ Nap 20 min                wake at 3:40 PM│  ← the picked option
+│ 🌙 Little effect on tonight              │
+│ ☀ Wake up fresh                          │
+│ ▓▓░░░░░░░░│██████████   + legend          │
+│ ( ⏲ Start 20-min nap · alarm 3:40 )      │  ← or Plan bed at … / Plan wake at …
 ╰──────────────────────────────────────────╯
 
-NAPS  ⓘ                                       ← ⓘ: why rate nights
-┌ How was the night after Tue's 20-min nap? ┐
-│ [😊 Slept well] [⌛ Took longer] [☔ Poorly]│
-└───────────────────────────────────────────┘
-● Tue, Sep 22   2:10 – 2:30 PM   😊   20 min
-YOUR NIGHTS AFTER NAPS (3+ rated)
-● Little effect on tonight      4 of 5 good
+HOW THIS WORKS   • cycles • 15 min • colours • backup alarm • not medical advice
 
-HOW THIS WORKS                                ← plain footnote text, bottom of page
-• A sleep cycle is ~90 min; waking between cycles is easier; 5–6 cycles = a full night.
-• Wake times include ~15 min to fall asleep.
-• ● green little effect · ● orange some · ● red likely to hurt tonight / groggy.
-• Rough guide, not medical advice.
-
-[ + Add past nap ]                 [ 🌙 Nap 20 min · 3:40 ]   ← bottom bar, soft pills
+NAPS                                        ⓘ
+( + Add past nap )  ( ⏲ Start a nap ▾ )        ← 10/20/30/90 min
+rate prompt · nights-after-naps pattern · list
 ```
 
-Bottom bar right pill = the selected option's action:
-```
-nap selected        🌙 Nap 20 min · 3:40         → starts nap + alarm
-bed-earlier chosen  🛏 Plan bed 10:30            → sets tonight's bed
-night option        ⏰ Plan wake 6:45            → sets tomorrow's wake
-otherwise           🌙 Nap ▾                     → menu 10/20/30/90
-napping             ( Cancel )  [[ I'm up ]]     ← NapInProgress replaces the top
-```
-
-ⓘ texts: If I sleep → what the page does; Options → colours + timeline; Tonight → plan vs usual; Nap window → post-lunch dip, ends before bedtime pressure; Bedtimes → cycle maths; Usual sleep → used for every calculation; Naps → rating builds your own pattern.
+No fixed bottom bar, except while napping: `( Cancel )  [[ I'm up ]]` with NapInProgress at the top.
 
 ## Jet lag planner: trips
 
