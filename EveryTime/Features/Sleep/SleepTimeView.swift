@@ -161,7 +161,11 @@ struct SleepTimeView: View {
                     .buttonStyle(.soft)
                     .fixedSize()
                     .accessibilityLabel("Log a past nap")
+                Spacer(minLength: 0)
                 primaryAction(selected, day: day)
+                    .buttonStyle(.soft)
+                    .foregroundStyle(.tint)
+                    .lineLimit(1)
             }
         }
     }
@@ -170,26 +174,23 @@ struct SleepTimeView: View {
     private func primaryAction(_ selected: SleepNow.Option?, day: NapAdvice.Day) -> some View {
         if case .nap(let minutes)? = selected?.kind {
             Button { startNap(minutes) } label: {
-                Label("Nap \(minutes) min · wake at \(Self.wakeText(minutes))", systemImage: "powersleep")
+                Label("Nap \(minutes) min · \(Self.wakeText(minutes))", systemImage: "powersleep")
             }
-            .buttonStyle(.primary)
         } else if case .bedAt(let bed)? = selected?.kind, !Calendar.current.isDate(bed, equalTo: day.bed, toGranularity: .minute) {
             Button {
                 planBinding(\.bed, day: day).wrappedValue = Calendar.current.component(.hour, from: bed) * 60
                     + Calendar.current.component(.minute, from: bed)
             } label: {
-                Label("Plan bed at \(SleepNow.clock(bed)) tonight", systemImage: "bed.double")
+                Label("Plan bed \(SleepNow.clock(bed))", systemImage: "bed.double")
             }
-            .buttonStyle(.primary)
         } else {
             Menu {
                 ForEach(NapAdvice.lengths, id: \.self) { minutes in
                     Button("\(minutes) min · wake at \(Self.wakeText(minutes))") { startNap(minutes) }
                 }
             } label: {
-                Label("Start a nap", systemImage: "powersleep")
+                Label("Nap", systemImage: "powersleep")
             }
-            .buttonStyle(.primary)
         }
     }
 
