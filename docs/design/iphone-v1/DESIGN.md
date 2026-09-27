@@ -12,13 +12,12 @@ or paid. One free app should cover them all.
 
 - Every tab does real work offline — no placeholder screens in v1 except Wait times.
 - User data (cities, timer history, anniversaries) persists on device.
-- Zero accounts, zero network for v1 features.
+- Zero accounts; network only for On this day (first network feature, cached for offline).
 
 ## Non-goals (v1)
 
 - Widget and Watch — targets stay as stubs until the phone app is solid.
 - Wait times live data — no free, reliable public wait-time API found yet.
-- "On this day" — needs a network source (Wikipedia feed); v2.
 - Lunar birthday push notifications — v1 shows next occurrence only; alerts v2.
 - iCloud sync, iPad layout, landscape.
 
@@ -31,6 +30,7 @@ or paid. One free app should cover them all.
 | World (tab 1) | World Time Buddy–style (merged world clock + meeting planner): pinned cities, shared horizontal hour scroll across a week, center cursor, now marker, tappable overlap |
 | Sleep | bedtimes for a wake time, and wake times for "sleep now" — 90-min cycles + 15-min fall-asleep |
 | Jet lag planner | own tool (was a Sleep segment): per-trip light/sleep/caffeine/melatonin plan — `docs/design/jet-lag/` |
+| On this day (More) | Wikipedia feed per date: selected, events, births, deaths, holidays; tap → article; last copy per MM/DD cached offline |
 | Wait times (More) | sample data only |
 | Lunar (tab) + Important events (More) | important events (manual or picked from iPhone Calendar, typed: birthday, anniversary, memorial…) with time since, next anniversary and a yearly 9:00 reminder; lunar date converter + lunar anniversaries' next Gregorian date |
 | Dev tools (More) | live Unix timestamp, timestamp ⇄ date converter, cron expression parser (next runs) |
@@ -39,6 +39,7 @@ or paid. One free app should cover them all.
 
 - Persistence: SwiftData vs Codable JSON in UserDefaults → **JSON/UserDefaults**. Data is tiny (dozens of rows), no queries; avoids schema migrations and keeps the widget/watch able to read it later via an App Group.
 - Lunar math: own tables vs `Calendar(identifier: .chinese)` → **Foundation**. Built-in, correct, no data files.
+- On this day source: `api.wikimedia.org/feed/v1` vs `en.wikipedia.org/api/rest_v1/feed` → **en.wikipedia.org**. Same JSON, no key, long-lived host; cache per MM/DD in Caches, not backups.
 - Cron: library vs own parser → **own parser**. Standard 5-field syntax is ~150 lines; no SPM dependency.
 - Separate Clocks list + Meetings planner vs one screen → **merged into World**. The planner's cursor-at-now already is a world clock; one place for cities.
 - Tab bar: World · Sleep · Lunar · More. Lunar gets a tab (frequent glance); everything else lives in one flat More list — one tap to any tool, no nested menus, no iOS auto-More.
