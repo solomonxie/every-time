@@ -62,14 +62,16 @@ struct LunarEvent: Identifiable, Codable {
     var `repeat`: LunarRepeat = .yearly
     var created = Date.now
     var calendarEventIDs: [String] = []
+    var notify = false
 
     var lunar: LunarDate { LunarDate(month: month, day: day) }
 
-    init(name: String, month: Int, day: Int, repeat rule: LunarRepeat = .yearly, created: Date = .now) {
+    init(name: String, month: Int, day: Int, repeat rule: LunarRepeat = .yearly, notify: Bool = false, created: Date = .now) {
         self.name = name
         self.month = month
         self.day = day
         self.repeat = rule
+        self.notify = notify
         self.created = created
     }
 
@@ -82,6 +84,7 @@ struct LunarEvent: Identifiable, Codable {
         self.repeat = try c.decodeIfPresent(LunarRepeat.self, forKey: .repeat) ?? .yearly
         created = try c.decodeIfPresent(Date.self, forKey: .created) ?? .now
         calendarEventIDs = try c.decodeIfPresent([String].self, forKey: .calendarEventIDs) ?? []
+        notify = try c.decodeIfPresent(Bool.self, forKey: .notify) ?? false
     }
 }
 
