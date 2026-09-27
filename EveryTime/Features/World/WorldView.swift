@@ -1,11 +1,7 @@
 import SwiftUI
 
 struct WorldView: View {
-    @Stored("world.cities") private var cities: [WorldCity] = [
-        WorldCity(timeZoneIdentifier: "America/New_York"),
-        WorldCity(timeZoneIdentifier: "Europe/London"),
-        WorldCity(timeZoneIdentifier: "Asia/Singapore"),
-    ]
+    @Stored(WorldCity.storageKey) private var cities = WorldCity.defaults
     @State private var start = Calendar.current.date(byAdding: .day, value: -Self.daysBack, to: Calendar.current.startOfDay(for: .now))!
     @State private var cursor = Date.now
     @State private var followsNow = true

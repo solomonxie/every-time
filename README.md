@@ -1,6 +1,6 @@
 # Every Time
 
-> 🚧 Work in progress — iPhone app functional (Wait times is sample data); widget and watch are stubs. Docs: `docs/design/iphone-v1/`.
+> 🚧 Work in progress — iPhone app, widget and watch functional (Wait times is sample data). Docs: `docs/design/iphone-v1/`.
 
 Everything about time, in one free iPhone app.
 
@@ -30,7 +30,12 @@ Everything about time, in one free iPhone app.
   sideways clock. Settings: iCloud Drive and local zip backups
   (`EveryTime/Backup/README.md`).
 
-Planned: a companion Apple Watch app and a home-screen clock widget.
+- **Widgets** — World clock (small, medium, Lock Screen) and next Countdown.
+- **Apple Watch** — World times, upcoming countdowns, sleep-now wake times.
+
+The widget reads a snapshot of cities and countdowns from App Group
+`group.com.example.everytime`; the watch gets the same snapshot over
+WatchConnectivity (`Glance/`). The app publishes it whenever it moves between foreground and background.
 
 ## Setup
 
@@ -40,8 +45,7 @@ Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 xcodegen generate && open EveryTime.xcodeproj
 ```
 
-Install on a device (team ID from env, never committed). iCloud backup needs a paid team with
-container `iCloud.com.example.everytime` registered (Xcode → Signing & Capabilities → iCloud):
+Install on a device (team ID from env, never committed). iCloud backup and the widget's App Group need a paid team; `-allowProvisioningUpdates` registers them:
 
 ```
 xcodebuild -scheme EveryTime -destination id=$DEVICE_UDID -allowProvisioningUpdates \

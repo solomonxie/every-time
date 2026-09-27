@@ -11,8 +11,10 @@ struct EveryTimeApp: App {
                 .environment(timers)
                 .timerAlarms(timers)
                 .task { await FirstRunRestore.runIfNeeded() }
+                .task { GlancePublisher.shared.activate() }
         }
         .onChange(of: scenePhase) { _, phase in
+            GlancePublisher.shared.publish()
             switch phase {
             case .active:
                 Task { await AutoBackup.shared.refresh() }

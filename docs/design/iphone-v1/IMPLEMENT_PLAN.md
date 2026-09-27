@@ -41,4 +41,5 @@ Driven by device use: one visual language, user-chosen tab bar, richer dates.
 - [ ] T5.1 Unit test target for pure logic (sleep math, cron, lunar occurrences, backup snapshot/zip) — depends: T3.*
 
 ## Later (v2)
-- [ ] Waiting data source · On this day · lunar notifications · widget · watch · App Group sharing
+- [x] Lunar notifications · widget · watch · App Group sharing (`Glance/`)
+- [ ] Waiting data source · On this day
