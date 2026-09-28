@@ -72,6 +72,6 @@ project templates set up single-target watch apps.
 
 ## Screenshots
 
-| World | Sleep | Lunar | More |
-|---|---|---|---|
-| <img src="docs/screenshots/world.png" width="200"> | <img src="docs/screenshots/sleep.png" width="200"> | <img src="docs/screenshots/lunar.png" width="200"> | <img src="docs/screenshots/more.png" width="200"> |
+| World | Sleep | Nap alarm | Lunar | More |
+|---|---|---|---|---|
+| <img src="docs/screenshots/world.png" width="160"> | <img src="docs/screenshots/sleep.png" width="160"> | <img src="docs/screenshots/nap.png" width="160"> | <img src="docs/screenshots/lunar.png" width="160"> | <img src="docs/screenshots/more.png" width="160"> |
