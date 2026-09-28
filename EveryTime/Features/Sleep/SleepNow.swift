@@ -72,34 +72,48 @@ struct SleepNow {
 
     // MARK: Options
 
-    var options: [Option] {
-        var options: [Option]
-        switch zone {
-        case .beforeWindow, .napWindow:
-            options = naps
-        case .evening:
-            let lengths = isFarFromBed ? [NapAdvice.suggestedMinutes, NapAdvice.longMinutes] : [NapAdvice.suggestedMinutes]
-            let shown = naps.filter { if case .nap(let minutes) = $0.kind { lengths.contains(minutes) } else { false } }
-            options = shown + [bedEarlier, nightNow].compactMap { $0 }
-        case .bedtime, .lateNight:
-            options = nights
-            if options.isEmpty { options = naps.filter { $0.kind == .nap(minutes: NapAdvice.suggestedMinutes) } }
-        }
-        let pick = recommendedID(in: options)
-        return options.map { option in
+    /// Daytime: sleeping now can only be a nap.
+    var isDaytime: Bool { zone == .beforeWindow || zone == .napWindow }
+
+    /// Every nap length, with the pick for now marked if any is worth taking.
+    var napOptions: [Option] {
+        let pick = napPick
+        return naps.map { option in
             var option = option
-            option.isRecommended = option.id == pick
+            option.isRecommended = option.kind == .nap(minutes: pick ?? -1)
             return option
         }
     }
 
-    private func recommendedID(in options: [Option]) -> String? {
+    /// Ways to sleep for the night from now; none during the day.
+    var sleepOptions: [Option] {
+        var options: [Option] = switch zone {
+        case .beforeWindow, .napWindow: []
+        case .evening: [bedEarlier, nightNow].compactMap { $0 }
+        case .bedtime, .lateNight: nights
+        }
+        let pick = sleepPick(in: options)
+        for i in options.indices { options[i].isRecommended = options[i].id == pick }
+        return options
+    }
+
+    private var napPick: Int? {
         switch zone {
-        case .beforeWindow: return "nap\(NapAdvice.suggestedMinutes)"
-        case .napWindow: return "nap\(advice.suggestedMinutes(on: day.wake))"
+        case .beforeWindow: return NapAdvice.suggestedMinutes
+        case .napWindow: return advice.suggestedMinutes(on: day.wake)
         case .evening:
-            if !isFarFromBed, let early = options.first(where: { $0.id == "bed" || $0.id.hasPrefix("night") }) { return early.id }
-            return options.first { $0.id == "nap20" && $0.level != .high }?.id ?? "nap10"
+            return [NapAdvice.suggestedMinutes, 10].first { minutes in
+                naps.contains { $0.kind == .nap(minutes: minutes) && $0.level != .high }
+            }
+        case .bedtime: return nil
+        case .lateNight: return nights.isEmpty ? NapAdvice.suggestedMinutes : nil
+        }
+    }
+
+    private func sleepPick(in options: [Option]) -> String? {
+        switch zone {
+        case .beforeWindow, .napWindow: return nil
+        case .evening: return options.first { $0.level != .high }?.id
         case .bedtime, .lateNight:
             let fits = options.filter { if case .night(_, let wake) = $0.kind { wake <= day.nextWake } else { false } }
             return (fits.first ?? options.last)?.id
@@ -157,37 +171,53 @@ struct SleepNow {
         }
     }
 
-    // MARK: Verdict
+    // MARK: Verdicts
 
-    /// A few words, then why.
-    var verdict: (headline: String, reason: String) {
-        let options = options
+    typealias Verdict = (headline: String, reason: String)
+
+    /// A few words on sleeping for the night now, then why.
+    var sleepVerdict: Verdict {
+        switch zone {
+        case .beforeWindow, .napWindow:
+            return ("Too early for bed", "Sleeping now would be a nap.")
+        case .evening:
+            if case .splitNight(let from, _)? = sleepOptions.first(where: { $0.id == "split" })?.kind {
+                return ("Risk of a split night",
+                        "Sleep for the night now and you'll likely wake around \(Self.clock(from)), then struggle to fall back asleep.")
+            }
+            if case .bedAt(let bed)? = sleepOptions.first(where: { $0.id == "bed" })?.kind {
+                return ("Close to bedtime", "Stay up until \(Self.clock(bed)), or make it an early night.")
+            }
+            return ("Close to bedtime", "An early night works.")
+        case .bedtime:
+            return ("Bedtime", "Asleep by ~\(Self.clock(start.addingTimeInterval(Self.fallAsleep))).")
+        case .lateNight:
+            return sleepOptions.isEmpty
+                ? ("Past bedtime", "Under a cycle left before \(Self.clock(day.nextWake)).")
+                : ("Past bedtime", "Wake times that still fit before \(Self.clock(day.nextWake)).")
+        }
+    }
+
+    /// A few words on napping now, then why.
+    var napVerdict: Verdict {
+        let pick = napPick
         switch zone {
         case .beforeWindow:
-            return ("Early for a nap",
-                    "Best window \(Self.clock(window.start))–\(Self.clock(window.end)). If you can't wait, keep it to \(NapAdvice.suggestedMinutes) min.")
+            return ("Early for a nap", "If you can't wait, keep it to \(NapAdvice.suggestedMinutes) min.")
         case .napWindow:
-            let minutes = advice.suggestedMinutes(on: day.wake)
+            let minutes = pick ?? NapAdvice.suggestedMinutes
             return ("Good time for a nap",
                     minutes >= NapAdvice.longMinutes ? "A full \(minutes)-min cycle banks sleep before a late night."
                         : "\(minutes) min refreshes without grogginess.")
         case .evening:
-            if isFarFromBed, case .splitNight(let from, _)? = options.first(where: { $0.id == "split" })?.kind {
-                return ("Risk of a split night",
-                        "A short nap is OK. Longer, and you'll likely wake around \(Self.clock(from)) and struggle to sleep again.")
-            }
-            if case .bedAt(let bed)? = options.first(where: { $0.id == "bed" })?.kind {
-                return ("Close to bedtime", "Stay up until \(Self.clock(bed)), or make it an early night.")
-            }
-            return ("Close to bedtime", "An early night beats a nap now.")
+            guard let pick else { return ("Too late for a nap", "It would push back tonight's sleep. An early night is better.") }
+            return ("Late for a nap", "Keep it to \(pick) min so you still fall asleep on time.")
         case .bedtime:
-            guard let pick = options.first(where: \.isRecommended), case .night = pick.kind else { return ("Bedtime", "") }
-            return ("Bedtime", "Asleep by ~\(Self.clock(start.addingTimeInterval(Self.fallAsleep))).")
+            return ("Bedtime, not nap time", "A nap now eats into tonight's sleep.")
         case .lateNight:
-            if options.contains(where: { if case .night = $0.kind { true } else { false } }) {
-                return ("Past bedtime", "Wake times that still fit before \(Self.clock(day.nextWake)).")
-            }
-            return ("Past bedtime", "Under a cycle left before \(Self.clock(day.nextWake)) — a short nap or stay up.")
+            return pick == nil
+                ? ("Past bedtime", "Go to bed instead; a nap now cuts into the night.")
+                : ("Short on time", "Under a cycle left — a \(NapAdvice.suggestedMinutes)-min nap beats nothing.")
         }
     }
 

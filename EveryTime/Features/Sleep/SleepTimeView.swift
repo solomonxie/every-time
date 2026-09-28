@@ -1,18 +1,17 @@
 import SwiftUI
 
-/// "When to sleep?": what sleeping now means (nap, early night or cycle wake times), tonight's plan and the nap log.
+/// "When to sleep?": tonight's plan, what sleeping now would mean, and naps with a wake alarm.
 struct SleepTimeView: View {
     @Stored(JetLagKey.profile) private var profile: JetLagProfile? = nil
     @Stored(NapKey.naps) private var naps: [Nap] = []
     @Stored(NapKey.active) private var active: ActiveNap? = nil
     @Stored(NapKey.night) private var plan: NightPlan? = nil
     @State private var offset = 0
-    @State private var picked: String?
+    @State private var pickedNap: String?
+    @State private var pickedSleep: String?
     @State private var showsAllNaps = false
     @State private var sheet: SheetKind?
-    @State private var openField: NightField?
-
-    private enum NightField { case bed, wake, bedtimes }
+    @State private var editsNight = false
 
     private enum SheetKind: String, Identifiable {
         case profile, log
@@ -24,68 +23,72 @@ struct SleepTimeView: View {
     var body: some View {
         TimelineView(.everyMinute) { context in
             let now = context.date
+            let day = advice.current(at: now)
+            let napNow = SleepNow(advice: advice, start: now)
             let sleepNow = SleepNow(advice: advice, start: now.addingTimeInterval(Double(offset) * 60))
-            let options = sleepNow.options
-            let selected = options.first { $0.id == picked } ?? options.first(where: \.isRecommended) ?? options.first
-            List {
-                if let active {
-                    Section {
-                        NapInProgress(nap: active, advice: advice)
-                            .listRowInsets(EdgeInsets(top: 8, leading: Theme.padding, bottom: 12, trailing: Theme.padding))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+            ScrollViewReader { scroll in
+                List {
+                    if let active {
+                        Section {
+                            NapInProgress(nap: active, advice: advice)
+                                .id(Self.napTop)
+                                .listRowInsets(EdgeInsets(top: 8, leading: Theme.padding, bottom: 4, trailing: Theme.padding))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                            NapAlarmStatus().napRow()
+                        }
                     }
-                }
-                Section {
-                    tonightCard(day: sleepNow.day).napRow()
-                } header: {
-                    SectionLabel(title: "Tomorrow") {
-                        InfoButton(label: "About tomorrow", text: Self.tonightInfo)
-                    }
-                    .textCase(nil)
-                }
-                if active == nil {
                     Section {
-                        optionsCard(options: options, selected: selected).napRow()
+                        tonightCard(day: day).napRow()
                     } header: {
-                        SectionLabel(title: "Your options") {
-                            InfoButton(label: "About the options", text: Self.optionsInfo)
+                        SectionLabel(title: "Tonight") {
+                            InfoButton(label: "About tonight", text: Self.tonightInfo)
                         }
                         .textCase(nil)
                     }
+                    if active == nil {
+                        // Whichever fits the time of day comes first.
+                        if napNow.isDaytime {
+                            napSection(napNow)
+                            sleepSection(sleepNow)
+                        } else {
+                            sleepSection(sleepNow)
+                            napSection(napNow)
+                        }
+                    }
+                    if let nap = unratedNap(now: now) {
+                        Section { ratePrompt(nap).napRow() } header: { SectionLabel("Last nap").textCase(nil) }
+                    }
+                    if naps.filter({ $0.night != nil }).count >= 3 {
+                        Section { pattern.napRow() } header: { SectionLabel("Your nights after naps").textCase(nil) }
+                    }
+                    history
+                    howItWorks
                 }
-                Section {
-                    guideCard(now: now, day: sleepNow.day).napRow()
-                } header: {
-                    SectionLabel("Today's guide").textCase(nil)
-                }
-                if active == nil {
-                    Section {
-                        sleepNowCard(sleepNow, selected: selected)
-                            .listRowInsets(EdgeInsets(top: 8, leading: Theme.padding, bottom: 12, trailing: Theme.padding))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .bottomBar { napControls }
+                // A nap started from further down the page would leave its countdown off screen.
+                .onChange(of: active?.start) { _, start in
+                    guard start != nil else { return }
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(100))
+                        withAnimation(.snappy) { scroll.scrollTo(Self.napTop, anchor: .top) }
                     }
                 }
-                howItWorks
-                if let nap = unratedNap(now: now) {
-                    Section { ratePrompt(nap).napRow() } header: { SectionLabel("Last nap").textCase(nil) }
-                }
-                if naps.filter({ $0.night != nil }).count >= 3 {
-                    Section { pattern.napRow() } header: { SectionLabel("Your nights after naps").textCase(nil) }
-                }
-                history
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .bottomBar { napControls }
         }
         .animation(.snappy, value: naps)
         .animation(.snappy, value: active)
-        .animation(.snappy, value: picked)
+        .animation(.snappy, value: pickedNap)
+        .animation(.snappy, value: pickedSleep)
         .animation(.snappy, value: offset)
+        .animation(.snappy, value: plan)
         .navigationTitle("When to sleep?")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $editsNight) {
+            NightEditor(hours: nightBinding(day: advice.current(at: .now)), usual: usualHours)
+        }
         .sheet(item: $sheet) { kind in
             switch kind {
             case .profile:
@@ -95,84 +98,193 @@ struct SleepTimeView: View {
             }
         }
         .sensoryFeedback(.impact(weight: .medium), trigger: active == nil)
-        .sensoryFeedback(.selection, trigger: picked)
+        .sensoryFeedback(.selection, trigger: pickedNap)
+        .sensoryFeedback(.selection, trigger: pickedSleep)
         .sensoryFeedback(.selection, trigger: offset)
+    }
+
+    // MARK: Tonight
+
+    private func tonightCard(day: NapAdvice.Day) -> some View {
+        let fit = SleepSuggestion.fit(minutesInBed: Int((day.nightHours * 60).rounded()))
+        return Card {
+            Button { editsNight = true } label: {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .bottom, spacing: 10) {
+                        clockColumn("Bed", symbol: "bed.double.fill", date: day.bed)
+                        Image(systemName: "arrow.right")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.bottom, 8)
+                        clockColumn("Wake up", symbol: "alarm.fill", date: day.nextWake)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.bottom, 10)
+                    }
+                    HStack(spacing: 10) {
+                        Text("\(NapAdvice.hours(day.nightHours)) · \(fit.cycles) \(fit.cycles == 1 ? "cycle" : "cycles")")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                        CycleFitLabel(isBetweenCycles: fit.isBetweenCycles)
+                    }
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                }
+                .foregroundStyle(.primary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Change tonight's bed and wake")
+            if !fit.isBetweenCycles, let bed = cycleBed(near: day) {
+                Button { nightBinding(day: day).wrappedValue.bed = bed } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "wand.and.stars")
+                        Text("Bed at \(bed.timeOfDayText) wakes you between cycles")
+                            .multilineTextAlignment(.leading)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+            }
+            if let note = advice.nightNote(on: day.wake) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "lightbulb")
+                    Text(note)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            if plan(for: day) != nil {
+                HStack {
+                    Text("Changed for tonight")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Back to usual") {
+                        plan = nil
+                        pickedSleep = nil
+                    }
+                    .fontWeight(.semibold)
+                }
+                .font(.footnote)
+            }
+            Button { sheet = .profile } label: {
+                LabeledContent {
+                    HStack(spacing: 8) {
+                        Text(profileSummary).monospacedDigit()
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .foregroundStyle(.secondary)
+                } label: {
+                    infoLabel("Usual sleep", info: Self.usualInfo)
+                }
+                .font(.subheadline)
+                .contentShape(Rectangle())
+            }
+            .tint(.primary)
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private func clockColumn(_ title: String, symbol: String, date: Date) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol)
+                Text(title)
+            }
+            .font(.label)
+                .foregroundStyle(.secondary)
+            Text(SleepNow.clock(date))
+                .font(.clock(28, weight: .regular))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
+        }
+    }
+
+    /// The 4–6-cycle bedtime for tonight's wake closest to the planned bed; ties go to the longer night.
+    private func cycleBed(near day: NapAdvice.Day) -> Int? {
+        let hours = nightBinding(day: day).wrappedValue
+        let fallAsleep = Int(SleepSuggestion.fallAsleepTime / 60), cycle = Int(SleepSuggestion.cycleLength / 60)
+        return [6, 5, 4]
+            .map { NightDial.wrap(hours.wake - fallAsleep - $0 * cycle) }
+            .min { NightDial.arc($0, hours.bed) < NightDial.arc($1, hours.bed) }
+    }
+
+    private var usualHours: NightDial.Hours {
+        let usual = profile ?? JetLagProfile()
+        return NightDial.Hours(bed: usual.usualBedtime, wake: usual.usualWake)
+    }
+
+    /// The plan for the night `day` leads into, if one is set.
+    private func plan(for day: NapAdvice.Day) -> NightPlan? {
+        plan.flatMap { Calendar.current.isDate($0.day, inSameDayAs: day.wake) ? $0 : nil }
+    }
+
+    /// Tonight's bed and wake, read fresh each time so a drag that moves both lands as one change.
+    private func nightBinding(day: NapAdvice.Day) -> Binding<NightDial.Hours> {
+        Binding {
+            plan(for: day).map { NightDial.Hours(bed: $0.bed, wake: $0.wake) } ?? usualHours
+        } set: { hours in
+            plan = hours == usualHours ? nil
+                : NightPlan(day: Calendar.current.startOfDay(for: day.wake), bed: hours.bed, wake: hours.wake)
+        }
     }
 
     // MARK: Sleep now
 
-    /// The option list; picking one updates "If I sleep now" below.
-    private func optionsCard(options: [SleepNow.Option], selected: SleepNow.Option?) -> some View {
-        Card(padding: 6) {
-            VStack(spacing: 0) {
-                ForEach(options) { option in
-                    OptionRow(option: option, isSelected: option.id == selected?.id) {
-                        picked = picked == option.id ? nil : option.id
-                    }
-                }
-            }
-        }
-    }
-
-    /// When you'd lie down, the verdict, and what the picked option does until tomorrow's wake.
-    private func sleepNowCard(_ sleepNow: SleepNow, selected: SleepNow.Option?) -> some View {
-        let verdict = sleepNow.verdict
-        return VStack(alignment: .leading, spacing: Theme.spacing) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(offset == 0 ? "If I sleep now" : "If I sleep at \(SleepNow.clock(sleepNow.start))")
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Spacer()
-                InfoButton(label: "About this page", text: Self.pageInfo)
-            }
-            Picker("When", selection: $offset) {
-                ForEach(SleepNow.offsets, id: \.self) { Text(Self.offsetText($0)).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verdict.headline)
-                    .font(.system(.title2, design: .rounded, weight: .semibold))
-                if !verdict.reason.isEmpty {
-                    Text(verdict.reason)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.top, 4)
-            if let selected {
-                Card {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(selected.title).font(.cardTitle)
-                        Spacer()
-                        Text("\(OptionRow.caption(selected.kind)) \(SleepNow.clock(selected.time))")
-                            .font(.subheadline)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(effects(of: selected, start: sleepNow.start), id: \.self) { effect in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Image(systemName: effect.symbol)
-                                .foregroundStyle(effect.level.tint)
-                                .frame(width: 20)
-                            Text(effect.text)
-                                .font(.subheadline)
-                                .fixedSize(horizontal: false, vertical: true)
+    /// Going to bed for the night at now (or a little later): verdict, options, and what they do.
+    private func sleepSection(_ sleepNow: SleepNow) -> some View {
+        let options = sleepNow.sleepOptions
+        let selected = Self.selection(in: options, picked: pickedSleep)
+        return Section {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Menu {
+                        Picker("When", selection: $offset) {
+                            ForEach(SleepNow.offsets, id: \.self) { Text(Self.offsetText($0)).tag($0) }
                         }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(offset == 0 ? "If I sleep now" : "If I sleep \(Self.offsetText(offset).lowercased())")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Image(systemName: "chevron.down.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.secondary)
+                        }
+                        .font(.sectionTitle)
+                        .foregroundStyle(.primary)
                     }
-                    SleepTimeline(segments: sleepNow.segments(for: selected), bed: sleepNow.day.bed)
-                        .padding(.top, 4)
-                    selectedAction(selected, day: sleepNow.day)
-                        .buttonStyle(.borderless)
-                        .padding(.top, 4)
+                    .tint(.primary)
+                    .accessibilityLabel("When I'd sleep")
+                    .accessibilityValue(Self.offsetText(offset))
+                    Spacer()
+                    InfoButton(label: "About sleeping now", text: Self.sleepInfo)
                 }
+                verdictText(sleepNow.sleepVerdict)
+            }
+            .buttonStyle(.borderless)
+            .napRow()
+            if !options.isEmpty {
+                optionsCard(options, selected: selected, sleepNow: sleepNow) { pickedSleep = $0 == selected?.id ? Self.folded : $0 }.napRow()
+            }
+            if let selected, let action = sleepAction(selected, day: sleepNow.day) {
+                action.napRow()
             }
             if let tip = sleepNow.tip {
-                Label(tip, systemImage: "lightbulb")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "lightbulb")
+                    Text(tip)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .napRow()
             }
         }
     }
@@ -181,7 +293,118 @@ struct SleepTimeView: View {
         minutes == 0 ? "Now" : minutes < 60 ? "In \(minutes) min" : "In \(minutes / 60) h"
     }
 
-    /// What an option does, one line each with its own colour.
+    /// Makes the picked option tonight's plan, unless it already is.
+    private func sleepAction(_ option: SleepNow.Option, day: NapAdvice.Day) -> AnyView? {
+        switch option.kind {
+        case .bedAt(let bed) where !Calendar.current.isDate(bed, equalTo: day.bed, toGranularity: .minute):
+            AnyView(Button { nightBinding(day: day).wrappedValue.bed = Self.minutes(of: bed) } label: {
+                HStack(spacing: 8) { Image(systemName: "bed.double.fill"); Text("Use as tonight's bed") }
+            }.buttonStyle(.soft))
+        case .night(_, let wake) where !Calendar.current.isDate(wake, equalTo: day.nextWake, toGranularity: .minute):
+            AnyView(Button { nightBinding(day: day).wrappedValue.wake = Self.minutes(of: wake) } label: {
+                HStack(spacing: 8) { Image(systemName: "alarm.fill"); Text("Use as tomorrow's wake") }
+            }.buttonStyle(.soft))
+        default:
+            nil
+        }
+    }
+
+    private static func minutes(of date: Date) -> Int {
+        Calendar.current.component(.hour, from: date) * 60 + Calendar.current.component(.minute, from: date)
+    }
+
+    // MARK: Nap now
+
+    /// Napping right now: verdict, today's nap window, lengths and what each does, then start.
+    private func napSection(_ napNow: SleepNow) -> some View {
+        let options = napNow.napOptions
+        let selected = Self.selection(in: options, picked: pickedNap)
+        return Section {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("If I nap now")
+                        .font(.sectionTitle)
+                    Spacer()
+                    InfoButton(label: "About napping", text: Self.napInfo)
+                }
+                verdictText(napNow.napVerdict)
+            }
+            .napRow()
+            NapWindowBar(day: napNow.day, window: napNow.window, now: napNow.start).napRow()
+            optionsCard(options, selected: selected, sleepNow: napNow) { pickedNap = $0 == selected?.id ? Self.folded : $0 }.napRow()
+            if case .nap(let minutes)? = selected?.kind {
+                Button { NapSession.start(minutes: minutes) } label: {
+                    Label("Start \(minutes)-min nap", systemImage: "alarm.fill")
+                }
+                .buttonStyle(.primary)
+                .napRow()
+            }
+        }
+    }
+
+    private func verdictText(_ verdict: SleepNow.Verdict) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verdict.headline)
+                .font(.system(.title3, design: .rounded, weight: .semibold))
+            if !verdict.reason.isEmpty {
+                Text(verdict.reason)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: Options
+
+    /// `picked` nil follows "Best"; `folded` means the open row was tapped shut.
+    private static let folded = "folded"
+
+    private static func selection(in options: [SleepNow.Option], picked: String?) -> SleepNow.Option? {
+        picked == folded ? nil : options.first { $0.id == picked } ?? options.first(where: \.isRecommended)
+    }
+
+    /// One row per option; the picked one opens to show what it does until tomorrow's wake; tap it again to fold it.
+    private func optionsCard(_ options: [SleepNow.Option], selected: SleepNow.Option?, sleepNow: SleepNow,
+                             pick: @escaping (String) -> Void) -> some View {
+        Card(padding: 6) {
+            VStack(spacing: 2) {
+                ForEach(options) { option in
+                    let isSelected = option.id == selected?.id
+                    VStack(alignment: .leading, spacing: 0) {
+                        OptionRow(option: option, isSelected: isSelected) { pick(option.id) }
+                        if isSelected {
+                            optionDetail(option, sleepNow: sleepNow)
+                                .padding(.leading, 40)
+                                .padding(.trailing, 12)
+                                .padding(.bottom, 14)
+                                .transition(.opacity)
+                        }
+                    }
+                    .background(isSelected ? Color.accentColor.opacity(0.08) : .clear,
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private func optionDetail(_ option: SleepNow.Option, sleepNow: SleepNow) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(effects(of: option, start: sleepNow.start), id: \.self) { effect in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: effect.symbol)
+                        .foregroundStyle(effect.level.tint)
+                        .frame(width: 20)
+                    Text(effect.text)
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            SleepTimeline(segments: sleepNow.segments(for: option), bed: sleepNow.day.bed)
+                .padding(.top, 4)
+        }
+    }
+
     private func effects(of option: SleepNow.Option, start: Date) -> [OptionRow.Effect] {
         switch option.kind {
         case .nap(let minutes):
@@ -198,148 +421,17 @@ struct SleepTimeView: View {
         }
     }
 
-    /// Only while napping; otherwise nap actions live in the page.
+
+    /// Only while napping.
     @ViewBuilder
     private var napControls: some View {
-        if let active {
+        if active != nil {
             HStack(spacing: Theme.spacing) {
-                Button("Cancel") {
-                    NapAlarm.cancel()
-                    self.active = nil
-                }
-                .buttonStyle(.soft)
-                Button("I'm up") { finish(active) }
+                Button("Cancel nap") { NapSession.cancel() }
+                    .buttonStyle(.soft)
+                Button { NapSession.finish() } label: { Label("I'm up", systemImage: "sun.max.fill") }
                     .buttonStyle(.primary)
             }
-        }
-    }
-
-    /// What the picked option can do right away, if anything.
-    @ViewBuilder
-    private func selectedAction(_ selected: SleepNow.Option, day: NapAdvice.Day) -> some View {
-        switch selected.kind {
-        case .nap(let minutes):
-            Button { startNap(minutes) } label: {
-                Label("Start \(minutes)-min nap", systemImage: "powersleep").pill()
-            }
-        case .bedAt(let bed) where !Calendar.current.isDate(bed, equalTo: day.bed, toGranularity: .minute):
-            Button { planBinding(\.bed, day: day).wrappedValue = Self.minutes(of: bed) } label: {
-                Label("Use as tonight's bed", systemImage: "bed.double").pill()
-            }
-        case .night(_, let wake) where !Calendar.current.isDate(wake, equalTo: day.nextWake, toGranularity: .minute):
-            Button { planBinding(\.wake, day: day).wrappedValue = Self.minutes(of: wake) } label: {
-                Label("Use as tomorrow's wake", systemImage: "alarm").pill()
-            }
-        default:
-            EmptyView()
-        }
-    }
-
-    private var napMenu: some View {
-        Menu {
-            ForEach(NapAdvice.lengths, id: \.self) { minutes in
-                Button("\(minutes) min · wake at \(Self.wakeText(minutes))") { startNap(minutes) }
-            }
-        } label: {
-            Label("Start a nap", systemImage: "powersleep").pill()
-        }
-    }
-
-    private static func minutes(of date: Date) -> Int {
-        Calendar.current.component(.hour, from: date) * 60 + Calendar.current.component(.minute, from: date)
-    }
-
-    private func startNap(_ minutes: Int) {
-        let nap = ActiveNap(start: .now, minutes: minutes)
-        active = nap
-        Task { await NapAlarm.schedule(nap) }
-    }
-
-    private static func wakeText(_ minutes: Int) -> String {
-        SleepNow.clock(Date.now.addingTimeInterval(Double(minutes) * 60))
-    }
-
-    private func finish(_ nap: ActiveNap) {
-        NapAlarm.cancel()
-        let day = advice.current(at: nap.start)
-        naps.insert(Nap(start: nap.start, end: .now, bed: plan(for: day) == nil ? nil : day.bed), at: 0)
-        active = nil
-    }
-
-    // MARK: Tonight
-
-    private func tonightCard(day: NapAdvice.Day) -> some View {
-        let cycles = max(0, Int((day.nightHours * 3600 - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength))
-        return Card {
-            timeRow("Wake up", symbol: "alarm", .wake, minutes: planBinding(\.wake, day: day))
-            timeRow("Bed tonight", symbol: "bed.double", .bed, minutes: planBinding(\.bed, day: day))
-            LabeledContent {
-                Text("\(NapAdvice.hours(day.nightHours)) · \(cycles) \(cycles == 1 ? "cycle" : "cycles")").monospacedDigit()
-            } label: {
-                Label("Sleep length", systemImage: "moon.zzz")
-            }
-            if plan(for: day) != nil {
-                Button {
-                    withAnimation(.snappy) {
-                        plan = nil
-                        picked = nil
-                    }
-                } label: {
-                    Label(profile == nil ? "Back to usual" : "Back to usual · \(profileSummary)", systemImage: "arrow.uturn.backward")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.borderless)
-                Text("Changed for tonight only.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            if let note = advice.nightNote(on: day.wake) {
-                Label(note, systemImage: "lightbulb")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func guideCard(now: Date, day: NapAdvice.Day) -> some View {
-        let window = advice.window(on: day.wake)
-        return Card {
-            LabeledContent {
-                Text("\(SleepNow.clock(window.start)) – \(SleepNow.clock(window.end))").monospacedDigit()
-            } label: {
-                infoLabel("Best nap window", info: Self.windowInfo)
-            }
-            UnfoldingRow(id: NightField.bedtimes, open: $openField) {
-                infoLabel("Bedtimes", info: Self.bedtimesInfo)
-            } value: {
-                let best = SleepSuggestion.bedtimes(wakingAt: day.nextWake).first { $0.isRecommended && $0.time >= now }
-                Text(best.map { "best \(SleepNow.clock($0.time))" } ?? "see list").foregroundStyle(.secondary)
-            } picker: {
-                VStack(spacing: 8) {
-                    ForEach(SleepSuggestion.bedtimes(wakingAt: day.nextWake)) { suggestion in
-                        SuggestionRow(suggestion: suggestion, isPassed: suggestion.time < now)
-                    }
-                }
-            }
-            .buttonStyle(.borderless)
-            Button { sheet = .profile } label: {
-                LabeledContent {
-                    HStack(spacing: 8) {
-                        Text(profileSummary).foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                } label: {
-                    infoLabel("Usual sleep", info: Self.usualInfo)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .tint(.primary)
         }
     }
 
@@ -351,71 +443,33 @@ struct SleepTimeView: View {
         }
     }
 
-    private func timeRow(_ title: String, symbol: String, _ field: NightField, minutes: Binding<Int>) -> some View {
-        UnfoldingRow(id: field, open: $openField) {
-            Label(title, systemImage: symbol)
-        } value: {
-            Text(minutes.wrappedValue.timeOfDayText).monospacedDigit()
-        } picker: {
-            DatePicker(title, selection: minutes.timeOfDay, displayedComponents: .hourAndMinute)
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderless)
-    }
-
-    /// The plan for the night `day` leads into, if one is set.
-    private func plan(for day: NapAdvice.Day) -> NightPlan? {
-        plan.flatMap { Calendar.current.isDate($0.day, inSameDayAs: day.wake) ? $0 : nil }
-    }
-
-    /// Edits the plan for `day`'s night, starting from the usual hours.
-    private func planBinding(_ field: WritableKeyPath<NightPlan, Int>, day: NapAdvice.Day) -> Binding<Int> {
-        let usual = profile ?? JetLagProfile()
-        let current = plan(for: day)
-            ?? NightPlan(day: Calendar.current.startOfDay(for: day.wake), bed: usual.usualBedtime, wake: usual.usualWake)
-        return Binding {
-            current[keyPath: field]
-        } set: { value in
-            var edited = current
-            edited[keyPath: field] = value
-            plan = edited.bed == usual.usualBedtime && edited.wake == usual.usualWake ? nil : edited
-        }
-    }
-
     private var profileSummary: String {
         guard let profile else { return "Not set" }
         return "\(profile.usualBedtime.timeOfDayText) – \(profile.usualWake.timeOfDayText)"
     }
 
-    private static let pageInfo = """
-        Pick when you'd lie down. The page says whether that's a nap, an early night or \
-        bedtime, lists what you could do, and shows how each choice plays out until tomorrow's wake.
-        """
+    private static let sleepInfo = """
+        Going to bed for the night now, or in a little while (tap the title). Pick an option to see \
+        how it plays out until tomorrow's wake. \
+        Green: little effect. Orange: some. Red: likely to hurt tonight's sleep or leave you groggy. \
+        "Best" is the pick for right now.
 
-    private static let optionsInfo = """
-        Tap an option to see what it does under "If I sleep now". Green: little effect. Orange: some effect. \
-        Red: likely to hurt tonight's sleep or leave you groggy. "Best" is the pick for right now.
-
-        The bar runs from now to tomorrow's wake: blue = nap, indigo = sleep, \
-        orange = slow to fall asleep, red = likely awake. The line marks bedtime.
+        The bar: blue = nap, indigo = sleep, orange = slow to fall asleep, red = likely awake. \
+        The line marks bedtime.
         """
 
     private static let tonightInfo = """
-        Tomorrow's wake and tonight's bed. Change them for tonight only — \
-        "Back to usual" undoes it. The options below are worked out against this plan, \
-        so changing it (or tapping "Use as…") changes which options show.
+        Tap to change tonight's bed and wake on a dial. The change lasts one night; \
+        the options below follow it.
         """
 
-    private static let windowInfo = """
-        The post-lunch dip, from about 6 hours after you wake. It ends early enough \
-        that a short nap doesn't eat into tonight's sleep.
-        """
+    private static let napInfo = """
+        The bar runs from this morning's wake to tonight's bed. Blue is the nap window: the \
+        post-lunch dip, from about 6 hours after you wake, ending early enough that a short nap \
+        doesn't eat into tonight's sleep. The line is now.
 
-    private static let bedtimesInfo = """
-        Times to fall asleep so you wake between cycles. A cycle is ~90 minutes; \
-        5–6 cycles is a full night. Times include ~15 minutes to fall asleep.
+        Green: little effect. Orange: some. Red: likely to hurt tonight's sleep or leave you groggy.
+        The alarm rings even in silent mode.
         """
 
     private static let usualInfo = """
@@ -448,9 +502,8 @@ struct SleepTimeView: View {
 
     private static let howItWorksLines = [
         "A sleep cycle is about 90 minutes. Waking between cycles feels easier; 5–6 cycles is a full night.",
-        "Wake times include about 15 minutes to fall asleep.",
-        "Green = little effect, orange = some, red = likely to hurt tonight's sleep or leave you groggy.",
-        "Naps get a wake alarm, plus a backup 3 minutes later.",
+        "Times include about 15 minutes to fall asleep.",
+        "A nap ends with an alarm that rings even in silent mode, until you tap I'm up.",
     ]
 
     // MARK: Nights
@@ -511,13 +564,6 @@ struct SleepTimeView: View {
 
     private var history: some View {
         Section {
-            HStack(spacing: Theme.spacing) {
-                Button { sheet = .log } label: { Label("Add past nap", systemImage: "plus").pill() }
-                napMenu
-                Spacer(minLength: 0)
-            }
-            .buttonStyle(.borderless)
-            .napRow()
             if naps.isEmpty {
                 Text("No naps yet.")
                     .font(.subheadline)
@@ -543,14 +589,38 @@ struct SleepTimeView: View {
                     .napRow()
             }
         } header: {
-            SectionLabel(title: "Naps") {
-                InfoButton(label: "About the nap log", text: Self.napsInfo)
+            HStack {
+                SectionLabel(title: "Naps") {
+                    InfoButton(label: "About the nap log", text: Self.napsInfo)
+                }
+                napMenu
             }
             .textCase(nil)
         }
     }
 
+    private var napMenu: some View {
+        Menu {
+            if active == nil {
+                Menu("Start a nap", systemImage: "alarm") {
+                    ForEach(NapAdvice.lengths, id: \.self) { minutes in
+                        Button("\(minutes) min · wake at \(SleepNow.clock(.now.addingTimeInterval(Double(minutes) * 60)))") {
+                            NapSession.start(minutes: minutes)
+                        }
+                    }
+                }
+            }
+            Button("Add past nap", systemImage: "clock.arrow.circlepath") { sheet = .log }
+        } label: {
+            Image(systemName: "plus.circle.fill")
+                .font(.title3)
+                .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
+        }
+        .accessibilityLabel("Add a nap")
+    }
+
     private static let recentNaps = 5
+    private static let napTop = "napTop"
 }
 
 private struct OptionRow: View {
@@ -577,7 +647,9 @@ private struct OptionRow: View {
         Button(action: select) {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .font(.title3)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 22)
                 Text(option.title)
                     .font(.system(.body, design: .rounded, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
@@ -603,27 +675,13 @@ private struct OptionRow: View {
                 Circle().fill(option.level.tint).frame(width: 8, height: 8)
                     .accessibilityHidden(true)
             }
-            .padding(10)
-            .background(isSelected ? Color.accentColor.opacity(0.1) : .clear,
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-private extension View {
-    /// Soft capsule look for buttons that share a List row (borderless keeps taps separate).
-    func pill() -> some View {
-        font(.system(.subheadline, design: .rounded, weight: .semibold))
-            .foregroundStyle(Color.accentColor)
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .background(Theme.cardFill, in: Capsule())
     }
 }
 
@@ -718,49 +776,52 @@ private struct SleepTimeline: View {
     }
 }
 
-private struct SuggestionRow: View {
-    let suggestion: SleepSuggestion
-    let isPassed: Bool
-
-    private var isHighlighted: Bool { suggestion.isRecommended && !isPassed }
-
-    var body: some View {
-        HStack(alignment: .center, spacing: Theme.spacing) {
-            Text(suggestion.time, format: .dateTime.hour().minute())
-                .font(.clock(20, weight: isHighlighted ? .regular : .light))
-                .strikethrough(isPassed)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            CycleBar(cycles: suggestion.cycles, isHighlighted: isHighlighted)
-            Text("\(suggestion.hours.formatted(.number.precision(.fractionLength(0...1))))h")
-                .font(.subheadline)
-                .fontWeight(isHighlighted ? .semibold : .regular)
-                .monospacedDigit()
-                .frame(width: 40, alignment: .trailing)
-        }
-        .foregroundStyle(isHighlighted ? .primary : .secondary)
-        .opacity(isPassed ? 0.45 : 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(suggestion.time.formatted(.dateTime.hour().minute())), \(suggestion.cycles) cycles")
-        .accessibilityValue(isPassed ? "Passed" : suggestion.isRecommended ? "Recommended" : "")
-    }
-}
-
-/// One segment per sleep cycle, out of the maximum offered.
-private struct CycleBar: View {
-    let cycles: Int
-    let isHighlighted: Bool
-
-    var body: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<(SleepSuggestion.cycleCounts.max() ?? 6), id: \.self) { index in
-                Capsule()
-                    .fill(index < cycles ? (isHighlighted ? Color.accentColor : Color.secondary) : Theme.hairline)
-                    .frame(width: 6, height: 16)
-            }
-        }
-    }
-}
-
 #Preview {
     NavigationStack { SleepTimeView() }
+}
+
+/// This morning's wake to tonight's bed, with the nap window and now marked.
+private struct NapWindowBar: View {
+    let day: NapAdvice.Day
+    let window: DateInterval
+    let now: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Nap window")
+                Spacer()
+                Text("\(SleepNow.clock(window.start)) – \(SleepNow.clock(window.end))")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .font(.subheadline)
+            GeometryReader { geo in
+                let span = max(1, day.bed.timeIntervalSince(day.wake))
+                let x = { (date: Date) in geo.size.width * min(1, max(0, date.timeIntervalSince(day.wake) / span)) }
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.1))
+                    Capsule()
+                        .fill(Color.accentColor)
+                        .frame(width: max(4, x(window.end) - x(window.start)))
+                        .offset(x: x(window.start))
+                    if now > day.wake && now < day.bed {
+                        Capsule()
+                            .fill(Color.primary)
+                            .frame(width: 3, height: 16)
+                            .offset(x: x(now) - 1.5)
+                    }
+                }
+                .frame(height: 16)
+                .frame(maxHeight: .infinity)
+            }
+            .frame(height: 16)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Nap window \(SleepNow.clock(window.start)) to \(SleepNow.clock(window.end))")
+    }
+}
+
+private extension Font {
+    static let sectionTitle = Font.system(.title, design: .rounded, weight: .bold)
 }
