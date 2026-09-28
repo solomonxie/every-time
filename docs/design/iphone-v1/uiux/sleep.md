@@ -5,50 +5,52 @@ Two separate tools: **Sleep** (cycles) and **Jet lag planner** (tab label
 
 ## Sleep time (`SleepTimeView`)
 
-Plan first, then choices, then what a choice does; naps last.
+Plan, then "If I sleep now" and "If I nap now" — nap first during the day, sleep first from evening.
 
 ```
                  When to sleep?
-TOMORROW                                    ⓘ
+TONIGHT                                     ⓘ
 ╭──────────────────────────────────────────╮
-│ ⏰ Wake up                     7:00 AM › │  ← wheel unfolds in place
-│ 🛏 Bed tonight                11:00 PM › │
-│ 😴 Sleep length          8h · 5 cycles   │
-│ 💡 Late night — a 90-minute nap …        │
-│ ↺ Back to usual · 11:00 PM – 7:00 AM     │  ← only when changed; undoes Plan bed/wake
-│ Changed for tonight only.                │
+│ 🛏 Bed          ⏰ Wake up             ›  │  ← tap: night dial
+│ 11:00 PM   →    7:00 AM                   │
+│ 8h · 5 cycles  ✓ Wakes between cycles     │  ← orange ! when mid-cycle
+│ ✨ Bed at 11:15 PM wakes you between…     │  ← one-tap fix, mid-cycle only
+│ 💡 Short night — …                        │
+│ Changed for tonight          Back to usual│  ← only when changed
+│ Usual sleep ⓘ        11:00 PM – 7:00 AM › │
 ╰──────────────────────────────────────────╯
-YOUR OPTIONS                                ⓘ  ← colours; changes follow the plan
+If I sleep now ⌄                            ⓘ  ← menu: Now / In 15 / 30 min / 1 h
+Bedtime
+Asleep by ~11:22 PM.
 ╭──────────────────────────────────────────╮
-│ ◉ Nap 20 min   BEST        wake at    ●  │  ← tap again = back to Best
-│                            3:40 PM       │
-│ ○ Nap 90 min               wake at    ●  │
+│ ◉ Sleep 7h 30m  BEST       wake at    ●  │  ← picked row opens: effect + timeline
+│ ○ Sleep 6h                 wake at    ●  │     daytime: no options, "Too early for bed"
 ╰──────────────────────────────────────────╯
-TODAY'S GUIDE
-│ Best nap window ⓘ         1:00 – 3:30 PM │
-│ Bedtimes ⓘ                best 10:45 PM ›│
-│ Usual sleep ⓘ          11:00 PM – 7:00 › │
-
-If I sleep now                              ⓘ  ← largeTitle
-[ NOW | In 15 min | In 30 min | In 1 h ]
+( ⏰ Use as tomorrow's wake )                   ← or Use as tonight's bed
+If I nap now                                ⓘ  ← always now
 Good time for a nap
 20 min refreshes without grogginess.
+Nap window                    1:00 – 3:45 PM
+[────████───│──────────]                       ← wake → bed, window, now line
 ╭──────────────────────────────────────────╮
-│ Nap 20 min                wake at 3:40 PM│  ← the picked option
-│ 🌙 Little effect on tonight              │
-│ ☀ Wake up fresh                          │
-│ ▓▓░░░░░░░░│██████████   + legend          │
-│ ( ⏲ Start 20-min nap )                   │  ← or Use as tonight's bed / tomorrow's wake
+│ ○ Nap 10 min … ◉ Nap 20 min BEST … 90    │  ← none picked when all are bad
 ╰──────────────────────────────────────────╯
+[[ ⏰ Start 20-min nap ]]
+NAPS ⓘ                                   ⊕  ← Start a nap ▸ / Add past nap
+rate prompt · pattern · list · How this works
 
-HOW THIS WORKS   • cycles • 15 min • colours • backup alarm • not medical advice
-
-NAPS                                        ⓘ
-( + Add past nap )  ( ⏲ Start a nap ▾ )        ← 10/20/30/90 min
-rate prompt · nights-after-naps pattern · list
 ```
 
-No fixed bottom bar, except while napping: `( Cancel )  [[ I'm up ]]` with NapInProgress at the top.
+**Night dial** (pushed "Tonight"): Bed / Wake readouts, 24 h dial (midnight on top) —
+drag 🛏 or ⏰ handle, or the arc to move both; 5-min snap, 3–14 h, dots at cycle ends,
+length + cycles in the centre. Chips: bedtimes for 6/5/4 cycles. Back to usual. Applies live, one night.
+
+**Napping**: countdown ring + alarm time, tonight's effect, alarm status
+(silent-mode note, low volume, notifications off). Bar: `( Cancel nap )  [[ ☀ I'm up ]]`.
+
+**Alarm**: iOS 26+ AlarmKit. Earlier: app rings itself via playback audio (ignores
+silent switch; muted loop keeps it alive in background), plus 8 notifications 30 s
+apart with a 29 s sound as backup if swiped away. "I'm up" on the lock-screen banner logs the nap.
 
 ## Jet lag planner: trips
 
