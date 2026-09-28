@@ -1,5 +1,7 @@
+import AVFoundation
 import SwiftUI
 
+/// Countdown ring to the alarm; turns to "Time to get up" once it rings.
 struct NapInProgress: View {
     let nap: ActiveNap
     let advice: NapAdvice
@@ -7,21 +9,73 @@ struct NapInProgress: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let remaining = nap.alarm.timeIntervalSince(context.date)
-            VStack(spacing: 6) {
-                TimerCaption(text: "Napping since \(nap.start.formatted(date: .omitted, time: .shortened))")
-                Text(TimeText.countdown(remaining))
-                    .timerDigits()
-                    .foregroundStyle(remaining > 0 ? Color.primary : Theme.Tone.warn)
-                    .contentTransition(.numericText())
-                TimerCaption(text: remaining > 0 ? "Alarm at \(nap.alarm.formatted(date: .omitted, time: .shortened))" : "Time to get up",
-                             tint: remaining > 0 ? nil : Theme.Tone.warn)
-                NapEffectRow(symbol: "moon.zzz", text: NapAdvice.tonightText(advice.tonight(start: nap.start, minutes: nap.minutes)),
-                          level: advice.tonight(start: nap.start, minutes: nap.minutes))
-                    .padding(.top, 16)
+            let isUp = remaining <= 0
+            let tonight = advice.tonight(start: nap.start, minutes: nap.minutes)
+            VStack(spacing: 16) {
+                ZStack {
+                    ProgressRing(progress: 1 - remaining / (Double(nap.minutes) * 60),
+                                 tint: isUp ? Theme.Tone.warn : .indigo, lineWidth: 10)
+                    VStack(spacing: 6) {
+                        TimerCaption(text: isUp ? "Time to get up" : "\(nap.minutes)-min nap",
+                                     tint: isUp ? Theme.Tone.warn : nil)
+                        Text(TimeText.countdown(remaining))
+                            .timerDigits(size: 60)
+                            .foregroundStyle(isUp ? Theme.Tone.warn : Color.primary)
+                            .contentTransition(.numericText())
+                        HStack(spacing: 4) {
+                            Image(systemName: "alarm.fill")
+                            Text(SleepNow.clock(nap.alarm))
+                        }
+                        .font(.label)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(28)
+                }
+                .frame(width: 250, height: 250)
+                .symbolEffect(.pulse, isActive: isUp)
+                NapEffectRow(symbol: "moon.zzz", text: NapAdvice.tonightText(tonight), level: tonight)
             }
             .frame(maxWidth: .infinity)
-            .sensoryFeedback(.warning, trigger: remaining <= 0)
+            .sensoryFeedback(.warning, trigger: isUp)
+            .accessibilityElement(children: .combine)
         }
+    }
+}
+
+/// How the alarm will reach you, and what could stop it.
+struct NapAlarmStatus: View {
+    @State private var notificationsOff = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 2)) { _ in
+            VStack(alignment: .leading, spacing: 10) {
+                if NapAlarm.kind == .system {
+                    Label("Alarm set. It rings even in silent mode and Focus.", systemImage: "alarm.fill")
+                } else {
+                    Label("Rings even in silent mode. Leave Every Time open or in the background; don't swipe it away.",
+                          systemImage: "alarm.fill")
+                    if AVAudioSession.sharedInstance().outputVolume < 0.3 {
+                        Label("Volume is low. Turn it up so the alarm is loud.", systemImage: "speaker.wave.1.fill")
+                            .foregroundStyle(Theme.Tone.warn)
+                    }
+                    if notificationsOff {
+                        Label("Notifications are off, so a closed app can't wake you.", systemImage: "bell.slash.fill")
+                            .foregroundStyle(Theme.Tone.warn)
+                        Button("Turn on notifications") {
+                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .fontWeight(.semibold)
+                    }
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .task { notificationsOff = await NapAlarm.notificationsDenied }
     }
 }
 

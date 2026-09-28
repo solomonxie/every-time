@@ -1,5 +1,4 @@
 import SwiftUI
-import UserNotifications
 
 enum NapKey {
     static let naps = "sleep.naps"
@@ -213,39 +212,5 @@ extension Nap.Night {
         case .slow: "hourglass"
         case .poor: "cloud.rain"
         }
-    }
-}
-
-/// Wake-up alarm for the nap in progress, plus a backup in case the first is slept through.
-enum NapAlarm {
-    private static let id = "nap.alarm"
-    private static let backupID = "nap.alarm.backup"
-    private static let backupDelay: TimeInterval = 3 * 60
-
-    static func schedule(_ nap: ActiveNap) async {
-        let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [id, backupID])
-        let status = await center.notificationSettings().authorizationStatus
-        if status == .notDetermined {
-            guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
-        } else if status == .denied {
-            return
-        }
-        await add(id, title: "Time to get up", body: "Your \(nap.minutes)-minute nap is over.", at: nap.alarm)
-        await add(backupID, title: "Still asleep? Get up now",
-                  body: "A longer nap turns into tonight's sleep.", at: nap.alarm.addingTimeInterval(backupDelay))
-    }
-
-    private static func add(_ id: String, title: String, body: String, at date: Date) async {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
-        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
-    }
-
-    static func cancel() {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id, backupID])
     }
 }

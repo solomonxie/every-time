@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Wakes you at the end of a nap, even in silent mode.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Finds events in your calendar to mark as important, adds lunar events, and shows board milestones.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
@@ -40,6 +42,10 @@
 			<string>Any</string>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>

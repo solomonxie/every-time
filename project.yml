@@ -24,6 +24,9 @@ targets:
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.
         NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important, adds lunar events, and shows board milestones.
         NSRemindersFullAccessUsageDescription: Boards show your Reminders lists as project boards; moving a card edits its reminder.
+        NSAlarmKitUsageDescription: Wakes you at the end of a nap, even in silent mode.
+        # Keeps a nap alarm able to ring through the silent switch while the app is in the background.
+        UIBackgroundModes: [audio]
         # Makes the iCloud folder visible in Files, so backups there can be got at.
         NSUbiquitousContainers:
           iCloud.com.example.everytime:
@@ -55,6 +58,8 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        # AlarmKit is iOS 26+; weak so the app still launches on iOS 18.
+        OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "AlarmKit"]
     scheme:
       testTargets:
         - EveryTimeTests
