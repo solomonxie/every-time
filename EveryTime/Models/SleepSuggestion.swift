@@ -25,6 +25,14 @@ struct SleepSuggestion: Identifiable, Equatable {
         }
     }
 
+    /// Cycles in a night of `minutes` in bed, and whether waking lands within 15 minutes of a cycle's end.
+    static func fit(minutesInBed minutes: Int) -> (cycles: Int, isBetweenCycles: Bool) {
+        let cycles = max(0, (Double(minutes) * 60 - fallAsleepTime) / cycleLength)
+        let nearest = cycles.rounded()
+        let isBetween = nearest >= 1 && abs(cycles - nearest) * cycleLength <= 15 * 60 + 1
+        return (isBetween ? Int(nearest) : Int(cycles), isBetween)
+    }
+
     /// Next time the clock reads `minutes` after midnight, strictly after `now`.
     static func nextOccurrence(ofMinutes minutes: Int, after now: Date, calendar: Calendar = .current) -> Date {
         calendar.nextDate(after: now, matching: DateComponents(hour: minutes / 60, minute: minutes % 60),
