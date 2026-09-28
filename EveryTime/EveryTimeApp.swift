@@ -5,6 +5,8 @@ struct EveryTimeApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var timers = TimerStore()
 
+    init() { NapAlarm.register() }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -22,6 +24,7 @@ struct EveryTimeApp: App {
                 ImportantEventNotifications.reschedule()
                 CountdownNotifications.reschedule()
                 LunarNotifications.reschedule()
+                NapAlarm.restore()
             case .background:
                 LocalBackups.runIfDue()
                 AutoBackup.shared.backUpInBackground()
