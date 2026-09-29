@@ -2,11 +2,11 @@ import SwiftUI
 
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
-    case world, sleep, jetLag, lunar
+    case world, sleep, whatDid, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, work, countdown
     case since, onThisDay, waitTimes, boards, unixTime, converter, cron
 
-    static let defaultPins: [AppTool] = [.world, .sleep, .lunar]
+    static let defaultPins: [AppTool] = [.world, .sleep, .whatDid, .lunar]
     static let maxPins = 4
 
     enum Group: String, CaseIterable, Identifiable {
@@ -24,7 +24,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     var group: Group {
         switch self {
-        case .world, .lunar: .main
+        case .world, .whatDid, .lunar: .main
         case .sleep, .jetLag: .sleep
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
         case .since, .onThisDay, .waitTimes: .dates
@@ -37,6 +37,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "World"
         case .sleep: "Sleep time"
+        case .whatDid: "What did"
         case .jetLag: "Jet lag planner"
         case .lunar: "Lunar"
         case .stopwatch: "Stopwatch"
@@ -75,6 +76,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "globe"
         case .sleep: "moon.stars"
+        case .whatDid: "hand.tap"
         case .jetLag: "airplane"
         case .lunar: "calendar"
         case .stopwatch: "stopwatch"
@@ -99,6 +101,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: WorldView()
         case .sleep: SleepTimeView()
+        case .whatDid: WhatDidView()
         case .jetLag: JetLagTripsView()
         case .lunar: LunarCalendarView()
         case .stopwatch, .interview, .rehearsal, .leetcode: TimerToolView(tool: self)

@@ -6,6 +6,7 @@ struct SleepTimeView: View {
     @Stored(NapKey.naps) private var naps: [Nap] = []
     @Stored(NapKey.active) private var active: ActiveNap? = nil
     @Stored(NapKey.night) private var plan: NightPlan? = nil
+    @Stored(ActivityLog.key) private var activityMarks: [ActivityMark] = []
     @State private var picked: String?
     @State private var showsAllNaps = false
     @State private var sheet: SheetKind?
@@ -17,6 +18,7 @@ struct SleepTimeView: View {
     }
 
     private var advice: NapAdvice { NapAdvice(profile: profile ?? JetLagProfile(), plan: plan) }
+    private var activityLog: ActivityLog { ActivityLog(marks: activityMarks) }
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -40,6 +42,13 @@ struct SleepTimeView: View {
                         tonightCard(day: day).napRow()
                     } header: {
                         SectionLabel("Tonight").textCase(nil)
+                    }
+                    if LoggedDayCard.hasContent(activityLog, now: now) {
+                        Section {
+                            LoggedDayCard(log: activityLog, now: now).napRow()
+                        } header: {
+                            SectionLabel("From What did").textCase(nil)
+                        }
                     }
                     if let nap = unratedNap(now: now) {
                         Section { ratePrompt(nap).napRow() } header: { SectionLabel("Last nap").textCase(nil) }
