@@ -8,6 +8,8 @@ struct ContentView: View {
     @AppStorage("app.tab") private var savedTab = AppTool.defaultPins[0].rawValue
     /// Selection lives in @State; binding TabView straight to UserDefaults drops taps on iOS 18.
     @State private var tab = ""
+    /// Local only, so a restored backup doesn't pin it again.
+    @AppStorage("migrated.pinWhatDid") private var pinnedWhatDid = false
 
     private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
@@ -19,11 +21,21 @@ struct ContentView: View {
             Tab("More", systemImage: "ellipsis.circle", value: Self.moreTag) { MoreView() }
         }
         .onAppear {
+            pinWhatDidOnce()
             tab = savedTab
             keepSelectionValid(fallback: pins[0].rawValue)
         }
         .onChange(of: tab) { savedTab = tab }
         .onChange(of: pinned) { keepSelectionValid(fallback: Self.moreTag) }
+    }
+
+    /// Adds What did to an existing tab bar once, if there's room.
+    private func pinWhatDidOnce() {
+        guard !pinnedWhatDid else { return }
+        pinnedWhatDid = true
+        if pins.count < AppTool.maxPins, !pins.contains(.whatDid) {
+            pinned = (pins + [.whatDid]).map(\.rawValue)
+        }
     }
 
     /// Unpinning the current tab lands on More, where the change was made.
