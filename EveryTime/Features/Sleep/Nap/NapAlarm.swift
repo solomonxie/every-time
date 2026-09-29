@@ -10,6 +10,7 @@ enum NapSession {
     static func start(minutes: Int) {
         let nap = ActiveNap(start: .now, minutes: minutes)
         UserDefaults.standard.encode(nap as ActiveNap?, NapKey.active)
+        ActivityLog.record(.nap, at: nap.start)
         Task { await NapAlarm.schedule(nap) }
     }
 
@@ -26,10 +27,14 @@ enum NapSession {
         naps.insert(Nap(start: nap.start, end: max(end, nap.start), bed: planned ? day.bed : nil), at: 0)
         defaults.encode(naps, NapKey.naps)
         defaults.encode(nil as ActiveNap?, NapKey.active)
+        ActivityLog.record(.wake, at: max(end, nap.start))
     }
 
     static func cancel() {
         NapAlarm.cancel()
+        if let nap: ActiveNap = UserDefaults.standard.decoded(NapKey.active) {
+            ActivityLog.remove(.nap, at: nap.start)
+        }
         UserDefaults.standard.encode(nil as ActiveNap?, NapKey.active)
     }
 }
@@ -169,21 +174,21 @@ private enum SystemAlarm {
 final class NapRinger {
     static let shared = NapRinger()
     private static let maxRing: TimeInterval = 10 * 60
+    /// Audio session and player setup block for hundreds of ms; they stay off the main thread.
+    private static let audio = DispatchQueue(label: "nap.ringer.audio")
 
     private(set) var isRinging = false
     private(set) var isArmed = false
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var pending: DispatchWorkItem?
-    /// Audio session and player setup block for hundreds of ms; they stay off the main thread.
-    private static let audio = DispatchQueue(label: "nap.ringer.audio")
     @ObservationIgnored private var buzz: Timer?
+    /// Bumped by `stop()` so an arm still in flight on the audio queue is dropped.
+    @ObservationIgnored private var generation = 0
 
     private init() {
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
             guard (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.ended.rawValue
             else { return }
-    /// Bumped by `stop()` so an arm still in flight on the audio queue is dropped.
-    @ObservationIgnored private var generation = 0
             MainActor.assumeIsolated { NapRinger.shared.resume() }
         }
     }
@@ -192,11 +197,6 @@ final class NapRinger {
         stop()
         guard let url = Bundle.main.url(forResource: NapAlarm.sound, withExtension: nil) else { return }
         isArmed = true
-        after(nap.alarm.timeIntervalSinceNow) { $0.ring() }
-    }
-
-    func stop() {
-        pending?.cancel()
         let generation = generation
         Self.audio.async {
             Self.activateSession(mixing: true)
@@ -212,11 +212,16 @@ final class NapRinger {
                 }
             }
         }
+        after(nap.alarm.timeIntervalSinceNow) { $0.ring() }
+    }
+
+    func stop() {
+        generation += 1
+        pending?.cancel()
         buzz?.invalidate()
         let player = player
         self.player = nil
         isRinging = false
-        generation += 1
         isArmed = false
         Self.audio.async {
             player?.stop()

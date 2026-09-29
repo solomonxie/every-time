@@ -8,6 +8,7 @@ struct MoreView: View {
     @Stored(TimerStore.rehearsalMinutesKey) private var rehearsalMinutes = TimerStore.defaultRehearsalMinutes
     @Stored(TimerStore.leetcodeHistoryKey) private var history: [TimerSession] = []
     @Stored(WorkLog.key) private var workSpans: [WorkSpan] = []
+    @Stored(ActivityLog.key) private var activityMarks: [ActivityMark] = []
 
     private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
@@ -87,6 +88,10 @@ struct MoreView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(TimeText.clock(Int(log.today(at: context.date)?.worked ?? 0)))
                 }
+            }
+        case .whatDid:
+            if let current = ActivityLog(marks: activityMarks).current {
+                Text(Activity.of(current.tag).title).font(.subheadline)
             }
         case .boards:
             Text("Soon").font(.label)

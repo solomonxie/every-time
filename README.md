@@ -14,6 +14,11 @@ Everything about time, in one free iPhone app.
   choices sit as chips under it; naps get a wake alarm plus a backup.
   Tonight's bed/wake on a dial, past nights from Health, and a nap log you
   rate by how the night went, to see your own pattern.
+- **What did** — a continuous day log: tap when you start something (sleep,
+  wake up, eat, nap, work, rest, workout, or your own tags); each mark runs
+  until the next. Live "since" timer, today's 24 h strip and totals, 7-day
+  per-day averages and typical bed/wake, editable history. The Sleep page
+  shows up since / last night from it; naps are marked into it.
 - **Jet lag planner** — per-trip plan of light, sleep, caffeine and melatonin
   timing to shift your body clock, from your usual sleep hours.
 - **Lunar** — today's Chinese lunar date, a converter, and lunar events
