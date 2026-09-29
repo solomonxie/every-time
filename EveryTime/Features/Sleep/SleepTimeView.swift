@@ -62,6 +62,7 @@ struct SleepTimeView: View {
                     if naps.filter({ $0.night != nil }).count >= 3 {
                         Section { pattern.napRow() } header: { SectionLabel("Your nights after naps").textCase(nil) }
                     }
+                    PastNightsSection()
                     history
                     howItWorks
                 }
