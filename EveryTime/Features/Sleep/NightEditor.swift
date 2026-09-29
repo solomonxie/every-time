@@ -5,6 +5,7 @@ import SwiftUI
 struct NightEditor: View {
     @Binding var hours: NightDial.Hours
     let usual: NightDial.Hours
+    let editUsual: () -> Void
 
     private var isUsual: Bool { hours == usual }
 
@@ -32,6 +33,8 @@ struct NightEditor: View {
             Text("For tonight only. Your usual hours come back tomorrow.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            Button("Change usual hours…", action: editUsual)
+                .font(.footnote.weight(.semibold))
         }
         .padding(.horizontal, Theme.padding)
         .padding(.vertical, 12)

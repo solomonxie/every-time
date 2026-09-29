@@ -7,13 +7,13 @@ Everything about time, in one free iPhone app.
 - **World** — World Time Buddy–style planner: city column pinned left, hour
   strips share one horizontal scroll from a week back to a week ahead, a
   center cursor shows every city's time at that instant, work-hour overlaps listed as jump targets.
-- **Sleep time** ("When to sleep?") — what sleeping now (or in 15/30/60 min)
-  means, judged against tonight's planned bed and wake: a nap with its effect
-  on tonight and on grogginess, an earlier bedtime, a warning when evening
-  sleep would split the night, or ~90-minute-cycle wake times at night. A
-  timeline shows each option; naps get a wake alarm plus a backup. Tonight's
-  bed/wake plan, bedtimes for the wake time, and a nap log you rate by how
-  the night went, to see your own pattern.
+- **Sleep time** ("When to sleep?") — one answer for right now, judged
+  against tonight's planned bed and wake: by day a nap with its effect on
+  tonight and on grogginess, from evening an earlier bedtime, a warning when
+  sleeping now would split the night, or ~90-minute-cycle wake times. Other
+  choices sit as chips under it; naps get a wake alarm plus a backup.
+  Tonight's bed/wake on a dial, past nights from Health, and a nap log you
+  rate by how the night went, to see your own pattern.
 - **Jet lag planner** — per-trip plan of light, sleep, caffeine and melatonin
   timing to shift your body clock, from your usual sleep hours.
 - **Lunar** — today's Chinese lunar date, a converter, and lunar events
