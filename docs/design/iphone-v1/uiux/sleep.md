@@ -36,10 +36,16 @@ Nap window                    1:00 – 3:45 PM
 │ ○ Nap 10 min … ◉ Nap 20 min BEST … 90    │  ← none picked when all are bad
 ╰──────────────────────────────────────────╯
 [[ ⏰ Start 20-min nap ]]
+PAST NIGHTS ⓘ                                ← from Health; button until allowed
+Average asleep                          7h 20m  ← 3+ nights
+Sun, Sep 28   11:10 PM – 6:50 AM · 5 cycles   7h 25m
 NAPS ⓘ                                   ⊕  ← Start a nap ▸ / Add past nap
 rate prompt · pattern · list · How this works
 
 ```
+
+**Past nights**: last 14 days of Health sleep; Watch/iPhone overlaps merged, split on 2 h awake,
+longest ≥ 3 h per wake day (naps dropped). Falls back to in-bed when no asleep samples.
 
 **Night dial** (pushed "Tonight"): Bed / Wake readouts, 24 h dial (midnight on top) —
 drag 🛏 or ⏰ handle, or the arc to move both; 5-min snap, 3–14 h, dots at cycle ends,
