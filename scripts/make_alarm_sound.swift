@@ -1,4 +1,5 @@
-// Renders the nap alarm (29 s, under the 30 s notification-sound limit). Run: swift scripts/make_alarm_sound.swift
+// Renders the nap alarm (29 s, under the 30 s notification-sound limit) as IMA4 in a CAF, a quarter of PCM size.
+// Run: swift scripts/make_alarm_sound.swift
 import Foundation
 
 let rate = 22_050
@@ -28,4 +29,10 @@ data.append(contentsOf: Array("WAVEfmt ".utf8)); append(UInt32(16)); append(UInt
 append(UInt32(rate)); append(UInt32(rate * 2)); append(UInt16(2)); append(UInt16(16))
 data.append(contentsOf: Array("data".utf8)); append(UInt32(samples.count * 2))
 for s in samples { append(Int16(max(-1, min(1, s)) * 32_000)) }
-try! data.write(to: URL(fileURLWithPath: "EveryTime/Features/Sleep/Nap/nap-alarm.wav"))
+let wav = FileManager.default.temporaryDirectory.appendingPathComponent("nap-alarm.wav")
+try! data.write(to: wav)
+let convert = Process()
+convert.executableURL = URL(fileURLWithPath: "/usr/bin/afconvert")
+convert.arguments = ["-f", "caff", "-d", "ima4", wav.path, "EveryTime/Features/Sleep/Nap/nap-alarm.caf"]
+try! convert.run()
+convert.waitUntilExit()

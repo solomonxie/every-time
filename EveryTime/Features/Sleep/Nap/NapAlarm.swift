@@ -43,7 +43,7 @@ enum NapAlarm {
 
     static let category = "nap.alarm"
     static let upAction = "nap.up"
-    static let sound = "nap-alarm.wav"
+    static let sound = "nap-alarm.caf"
     private static let chain = (0..<8).map { "nap.alarm.\($0)" }
     private static let bannerID = "nap.alarm.now"
     private static let chainGap: TimeInterval = 30
@@ -174,43 +174,59 @@ final class NapRinger {
     private(set) var isArmed = false
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var pending: DispatchWorkItem?
+    /// Audio session and player setup block for hundreds of ms; they stay off the main thread.
+    private static let audio = DispatchQueue(label: "nap.ringer.audio")
     @ObservationIgnored private var buzz: Timer?
 
     private init() {
         NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
             guard (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt) == AVAudioSession.InterruptionType.ended.rawValue
             else { return }
+    /// Bumped by `stop()` so an arm still in flight on the audio queue is dropped.
+    @ObservationIgnored private var generation = 0
             MainActor.assumeIsolated { NapRinger.shared.resume() }
         }
     }
 
     func arm(for nap: ActiveNap) {
         stop()
-        guard let url = Bundle.main.url(forResource: NapAlarm.sound, withExtension: nil),
-              let player = try? AVAudioPlayer(contentsOf: url)
-        else { return }
-        activateSession(mixing: true)
-        player.numberOfLoops = -1
-        player.volume = 0
-        player.play()
-        self.player = player
+        guard let url = Bundle.main.url(forResource: NapAlarm.sound, withExtension: nil) else { return }
         isArmed = true
         after(nap.alarm.timeIntervalSinceNow) { $0.ring() }
     }
 
     func stop() {
         pending?.cancel()
+        let generation = generation
+        Self.audio.async {
+            Self.activateSession(mixing: true)
+            guard let player = try? AVAudioPlayer(contentsOf: url) else { return }
+            player.numberOfLoops = -1
+            player.volume = 0
+            player.prepareToPlay()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard self.generation == generation, self.isArmed else { return }
+                    player.play()
+                    self.player = player
+                }
+            }
+        }
         buzz?.invalidate()
-        player?.stop()
-        player = nil
+        let player = player
+        self.player = nil
         isRinging = false
+        generation += 1
         isArmed = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Self.audio.async {
+            player?.stop()
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 
     private func ring() {
         guard let player else { return }
-        activateSession(mixing: false)
+        Self.audio.async { Self.activateSession(mixing: false) }
         player.currentTime = 0
         player.volume = 0.3
         player.play()
@@ -225,11 +241,19 @@ final class NapRinger {
 
     private func resume() {
         guard let player, isArmed else { return }
-        activateSession(mixing: !isRinging)
-        player.play()
+        let mixing = !isRinging
+        Self.audio.async {
+            Self.activateSession(mixing: mixing)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard self.player === player else { return }
+                    player.play()
+                }
+            }
+        }
     }
 
-    private func activateSession(mixing: Bool) {
+    private nonisolated static func activateSession(mixing: Bool) {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, options: mixing ? [.mixWithOthers] : [.duckOthers])
         try? session.setActive(true)
