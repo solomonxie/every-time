@@ -5,43 +5,65 @@ Two separate tools: **Sleep** (cycles) and **Jet lag planner** (tab label
 
 ## Sleep time (`SleepTimeView`)
 
-Plan, then "If I sleep now" and "If I nap now" — nap first during the day, sleep first from evening.
+One answer for right now, picked by the time of day. Read the headline, tap the button.
 
 ```
-                 When to sleep?
-TONIGHT                                     ⓘ
+                 When to sleep?                  ⓘ  ← sheet: How this works
+╭──────────────────────────────────────────╮
+│ Good time for a nap                      │  ← verdict for now
+│ 20 min refreshes without grogginess.     │
+│                                          │
+│ Wake at                                  │
+│ 2:20 PM                                  │  ← the picked option
+│ 💤 Little effect on tonight              │
+│ ☀ Wake up fresh                          │
+│ [[ ⏰ Start 20-min nap ]]                │
+│                                          │
+│ ●Nap 10 min [●NAP 20 MIN] ●Nap 30 min    │  ← chips wrap; ● = effect colour;
+│ ●Nap 90 min                              │     tap swaps the block above; hidden if one
+╰──────────────────────────────────────────╯
+TONIGHT
 ╭──────────────────────────────────────────╮
 │ 🛏 Bed          ⏰ Wake up             ›  │  ← tap: night dial
 │ 11:00 PM   →    7:00 AM                   │
 │ 8h · 5 cycles  ✓ Wakes between cycles     │  ← orange ! when mid-cycle
-│ ✨ Bed at 11:15 PM wakes you between…     │  ← one-tap fix, mid-cycle only
-│ 💡 Short night — …                        │
-│ Changed for tonight          Back to usual│  ← only when changed
-│ Usual sleep ⓘ        11:00 PM – 7:00 AM › │
+│ Changed for tonight                       │  ← only when changed
+│ 👤 Set your usual sleep hours             │  ← only until set
 ╰──────────────────────────────────────────╯
-If I sleep now ⌄                            ⓘ  ← menu: Now / In 15 / 30 min / 1 h
-Bedtime
-Asleep by ~11:22 PM.
-╭──────────────────────────────────────────╮
-│ ◉ Sleep 7h 30m  BEST       wake at    ●  │  ← picked row opens: effect + timeline
-│ ○ Sleep 6h                 wake at    ●  │     daytime: no options, "Too early for bed"
-╰──────────────────────────────────────────╯
-( ⏰ Use as tomorrow's wake )                   ← or Use as tonight's bed
-If I nap now                                ⓘ  ← always now
-Good time for a nap
-20 min refreshes without grogginess.
-Nap window                    1:00 – 3:45 PM
-[────████───│──────────]                       ← wake → bed, window, now line
-╭──────────────────────────────────────────╮
-│ ○ Nap 10 min … ◉ Nap 20 min BEST … 90    │  ← none picked when all are bad
-╰──────────────────────────────────────────╯
-[[ ⏰ Start 20-min nap ]]
+LAST NAP                                       ← unrated nap from a past day
+How was the night after Monday's 20-minute nap at 2:00 PM?
+( 😊 Slept well ) ( ⏳ Took longer ) ( 🌧 Slept poorly )
 PAST NIGHTS ⓘ                                ← from Health; button until allowed
 Average asleep                          7h 20m  ← 3+ nights
 Sun, Sep 28   11:10 PM – 6:50 AM · 5 cycles   7h 25m
-NAPS ⓘ                                   ⊕  ← Start a nap ▸ / Add past nap
-rate prompt · pattern · list · How this works
+NAPS                                      ⊕  ← Add past nap
+● Little effect on tonight          3 of 4 good ← pattern rows, 3+ rated
+Mon, Sep 28   2:00 – 2:20 PM       😊   20 min  ← long-press: rate / clear
+Show all 12
+```
 
+Answer card by time of day (chips: `*` = best):
+
+```
+morning   Early for a nap
+          If you can't wait, keep it to 20 min.
+          *Nap 20 · Nap 10 · Nap 30 · Nap 90
+evening   Close to bedtime
+          Stay up until 9:45 PM, or make it an early night.
+          Bed at → 9:45 PM · 🛏 6 cycles (9h) before your 7:00 AM wake
+          [ 🛏 Make 9:45 PM tonight's bed ]           ← hidden once it is
+          *Bed at 9:45 PM · Sleep now · Nap 10 · Nap 20 · Nap 30
+6 PM      Risk of a split night                     ← "Sleep now" chip is red
+          Sleep for the night now and you'll likely wake around 10:45 PM…
+bedtime   Bedtime
+          Asleep by ~11:15 PM.
+          Wake at → 6:45 AM · ⏰ 5 full cycles
+          [ ⏰ Make 6:45 AM tomorrow's wake ]
+          Sleep 9h · *Sleep 7h 30m · Sleep 6h · Sleep 4h 30m
+late      Past bedtime
+          Wake times that still fit before 7:00 AM.
+          💡 Can't fall asleep after ~20 minutes? …   ← footnote
+napping   card replaced by the countdown ring (below)
 ```
 
 **Past nights**: last 14 days of Health sleep; Watch/iPhone overlaps merged, split on 2 h awake,
@@ -49,7 +71,8 @@ longest ≥ 3 h per wake day (naps dropped). Falls back to in-bed when no asleep
 
 **Night dial** (pushed "Tonight"): Bed / Wake readouts, 24 h dial (midnight on top) —
 drag 🛏 or ⏰ handle, or the arc to move both; 5-min snap, 3–14 h, dots at cycle ends,
-length + cycles in the centre. Chips: bedtimes for 6/5/4 cycles. Back to usual. Applies live, one night.
+length + cycles in the centre. Chips: bedtimes for 6/5/4 cycles. Back to usual.
+`Change usual hours…` opens the profile sheet. Applies live, one night.
 
 **Napping**: countdown ring + alarm time, tonight's effect, alarm status
 (silent-mode note, low volume, notifications off). Bar: `( Cancel nap )  [[ ☀ I'm up ]]`.
