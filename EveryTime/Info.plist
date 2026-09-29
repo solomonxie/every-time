@@ -28,6 +28,8 @@
 	<string>Finds events in your calendar to mark as important, adds lunar events, and shows board milestones.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Adds your lunar events to the iPhone Calendar.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Shows your past nights of sleep from the Health app.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Boards show your Reminders lists as project boards; moving a card edits its reminder.</string>
 	<key>NSUbiquitousContainers</key>
