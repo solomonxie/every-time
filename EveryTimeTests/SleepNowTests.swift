@@ -103,39 +103,30 @@ struct SleepNowTests {
         #expect(now.napVerdict.headline == "Short on time")
     }
 
-    @Test func napTimeline() {
+    @Test func daytimeAnswersWithNaps() {
         let now = sleepNow(date(2026, 3, 10, 14))
-        let segments = now.segments(for: now.napOptions.first { $0.id == "nap20" }!)
-        #expect(segments == [
-            .init(kind: .nap, start: date(2026, 3, 10, 14), end: date(2026, 3, 10, 14, 20)),
-            .init(kind: .awake, start: date(2026, 3, 10, 14, 20), end: date(2026, 3, 10, 23)),
-            .init(kind: .sleep, start: date(2026, 3, 10, 23), end: date(2026, 3, 11, 7)),
-        ])
+        #expect(now.options.map(\.id) == ["nap10", "nap20", "nap30", "nap90"])
+        #expect(recommended(now.options) == ["nap20"])
+        #expect(now.verdict.headline == now.napVerdict.headline)
     }
 
-    @Test func lateNapDriftsBedtime() {
+    @Test func eveningAnswersWithSleepThenGentleNaps() {
         let now = sleepNow(date(2026, 3, 10, 18))
-        let segments = now.segments(for: now.napOptions.first { $0.id == "nap90" }!)
-        #expect(segments.map(\.kind) == [.nap, .awake, .drift, .sleep])
-        #expect(segments[2].end == date(2026, 3, 11, 0, 30))
+        #expect(now.options.map(\.id) == ["bed", "split", "nap10", "nap20", "nap30"])
+        #expect(recommended(now.options) == ["bed"])
+        #expect(now.options.map(\.title).prefix(2) == ["Bed at \(SleepNow.clock(date(2026, 3, 10, 21, 45)))", "Sleep now"])
+        #expect(now.verdict.headline == "Risk of a split night")
     }
 
-    @Test func splitNightTimeline() {
-        let now = sleepNow(date(2026, 3, 10, 18))
-        let segments = now.segments(for: now.sleepOptions.first { $0.id == "split" }!)
-        #expect(segments == [
-            .init(kind: .sleep, start: date(2026, 3, 10, 18, 15), end: date(2026, 3, 10, 22, 45)),
-            .init(kind: .restless, start: date(2026, 3, 10, 22, 45), end: date(2026, 3, 11, 1, 15)),
-            .init(kind: .sleep, start: date(2026, 3, 11, 1, 15), end: date(2026, 3, 11, 7)),
-        ])
-    }
-
-    @Test func nightTimeline() {
+    @Test func bedtimeAnswersWithNightsOnly() {
         let now = sleepNow(date(2026, 3, 10, 22))
-        let segments = now.segments(for: now.sleepOptions.first { $0.id == "night5" }!)
-        #expect(segments == [
-            .init(kind: .sleep, start: date(2026, 3, 10, 22, 15), end: date(2026, 3, 11, 5, 45)),
-            .init(kind: .awake, start: date(2026, 3, 11, 5, 45), end: date(2026, 3, 11, 7)),
-        ])
+        #expect(now.options.map(\.id) == ["night6", "night5", "night4", "night3"])
+        #expect(now.options.map(\.caption).allSatisfy { $0 == "Wake at" })
+    }
+
+    @Test func lateNightWithNoCycleLeftAnswersWithAShortNap() {
+        let now = sleepNow(date(2026, 3, 11, 6))
+        #expect(recommended(now.options) == ["nap20"])
+        #expect(now.options.allSatisfy { $0.level != .high })
     }
 }
