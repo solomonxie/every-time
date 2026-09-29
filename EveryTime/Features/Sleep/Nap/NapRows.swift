@@ -7,7 +7,8 @@ struct NapInProgress: View {
     let advice: NapAdvice
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        // Ticks on the nap's own seconds, so re-renders of the page don't re-phase the countdown.
+        TimelineView(.periodic(from: nap.start, by: 1)) { context in
             let remaining = nap.alarm.timeIntervalSince(context.date)
             let isUp = remaining <= 0
             let tonight = advice.tonight(start: nap.start, minutes: nap.minutes)
