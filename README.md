@@ -16,11 +16,10 @@ Everything about time, in one free iPhone app.
   On waking: energy 1–5, or sleep more to the next cycle. Today tiles for
   coffee cutoff, energy and sleep debt; score/energy chart; nights scored
   0–100 (own log plus Health); a nap log rated by how the night went.
-- **What did** — a continuous day log: tap when you start something (sleep,
-  wake up, eat, nap, work, rest, workout, or your own tags); each mark runs
-  until the next. Live "since" timer, today's 24 h strip and totals, 7-day
-  per-day averages and typical bed/wake, editable history. The Sleep page
-  shows up since / last night from it; naps are marked into it.
+- **What did** — a continuous day log on a drag-through timeline: Mark (or tap
+  the timeline anywhere) to drop a pin; the range it closes takes a tag, or
+  none. History under it, folded to 3; today's totals, 7-day averages and
+  typical bed/wake. The Sleep page marks naps and wakes into it.
 - **Jet lag planner** — per-trip plan of light, sleep, caffeine and melatonin
   timing to shift your body clock, from your usual sleep hours.
 - **Lunar** — today's Chinese lunar date, a converter, and lunar events
