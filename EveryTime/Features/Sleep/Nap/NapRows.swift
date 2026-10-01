@@ -1,82 +1,62 @@
 import AVFoundation
 import SwiftUI
 
-/// Countdown ring to the alarm; turns to "Time to get up" once it rings.
-struct NapInProgress: View {
-    let nap: ActiveNap
-    let advice: NapAdvice
+/// How the alarm will reach you, and what could stop it.
+struct NapAlarmStatus: View {
+    @State private var notificationsOff = false
+    @State private var volumeLow = false
 
     var body: some View {
-        // Ticks on the nap's own seconds, so re-renders of the page don't re-phase the countdown.
-        TimelineView(.periodic(from: nap.start, by: 1)) { context in
-            let remaining = nap.alarm.timeIntervalSince(context.date)
-            let isUp = remaining <= 0
-            let tonight = advice.tonight(start: nap.start, minutes: nap.minutes)
-            VStack(spacing: 16) {
-                ZStack {
-                    ProgressRing(progress: 1 - remaining / (Double(nap.minutes) * 60),
-                                 tint: isUp ? Theme.Tone.warn : .indigo, lineWidth: 10)
-                    VStack(spacing: 6) {
-                        TimerCaption(text: isUp ? "Time to get up" : "\(nap.minutes)-min nap",
-                                     tint: isUp ? Theme.Tone.warn : nil)
-                        Text(TimeText.countdown(remaining))
-                            .timerDigits(size: 60)
-                            .foregroundStyle(isUp ? Theme.Tone.warn : Color.primary)
-                            .contentTransition(.numericText())
-                        HStack(spacing: 4) {
-                            Image(systemName: "alarm.fill")
-                            Text(SleepNow.clock(nap.alarm))
-                        }
-                        .font(.label)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(28)
+        VStack(alignment: .leading, spacing: 10) {
+            if NapAlarm.kind == .system {
+                Label("Alarm set. It rings even in silent mode and Focus.", systemImage: "alarm.fill")
+            } else {
+                Label("Rings even in silent mode. Leave Every Time open or in the background; don't swipe it away.",
+                      systemImage: "alarm.fill")
+                if volumeLow {
+                    Label("Volume is low. Turn it up so the alarm is loud.", systemImage: "speaker.wave.1.fill")
+                        .foregroundStyle(Theme.Tone.warn)
                 }
-                .frame(width: 250, height: 250)
-                .symbolEffect(.pulse, isActive: isUp)
-                NapEffectRow(symbol: "moon.zzz", text: NapAdvice.tonightText(tonight), level: tonight)
+                if notificationsOff {
+                    Label("Notifications are off, so a closed app can't wake you.", systemImage: "bell.slash.fill")
+                        .foregroundStyle(Theme.Tone.warn)
+                    Button("Turn on notifications") {
+                        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                    .fontWeight(.semibold)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .sensoryFeedback(.warning, trigger: isUp)
-            .accessibilityElement(children: .combine)
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+        // Asking the audio session blocks; once, off the main thread, is enough.
+        .task {
+            notificationsOff = await NapAlarm.notificationsDenied
+            volumeLow = await Task.detached { AVAudioSession.sharedInstance().outputVolume < 0.3 }.value
         }
     }
 }
 
-/// How the alarm will reach you, and what could stop it.
-struct NapAlarmStatus: View {
-    @State private var notificationsOff = false
+/// "Mid-cycle · 2 cycles done · 40 min to the next end".
+struct WakeCheckRow: View {
+    let check: WakeCheck
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 2)) { _ in
-            VStack(alignment: .leading, spacing: 10) {
-                if NapAlarm.kind == .system {
-                    Label("Alarm set. It rings even in silent mode and Focus.", systemImage: "alarm.fill")
-                } else {
-                    Label("Rings even in silent mode. Leave Every Time open or in the background; don't swipe it away.",
-                          systemImage: "alarm.fill")
-                    if AVAudioSession.sharedInstance().outputVolume < 0.3 {
-                        Label("Volume is low. Turn it up so the alarm is loud.", systemImage: "speaker.wave.1.fill")
-                            .foregroundStyle(Theme.Tone.warn)
-                    }
-                    if notificationsOff {
-                        Label("Notifications are off, so a closed app can't wake you.", systemImage: "bell.slash.fill")
-                            .foregroundStyle(Theme.Tone.warn)
-                        Button("Turn on notifications") {
-                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-                                UIApplication.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        .fontWeight(.semibold)
-                    }
-                }
+        HStack(spacing: 10) {
+            Image(systemName: check.isAtCycleEnd ? "checkmark.circle.fill" : "circle.dotted")
+                .foregroundStyle(check.isAtCycleEnd ? Theme.Tone.good : Theme.Tone.warn)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(check.headline).font(.subheadline.weight(.semibold))
+                Text(check.detail).font(.footnote).foregroundStyle(.secondary)
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
-        .task { notificationsOff = await NapAlarm.notificationsDenied }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -108,12 +88,17 @@ struct NapRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if let energy = nap.energy {
+                Text(Nap.energyTitle(energy))
+                    .font(.label)
+                    .foregroundStyle(.secondary)
+            }
             if let night = nap.night {
                 Image(systemName: night.symbol)
                     .foregroundStyle(.secondary)
                     .accessibilityLabel(night.title)
             }
-            Text("\(nap.minutes) min")
+            Text(nap.isNight ? NapAdvice.hours((nap.duration / 60).rounded() / 60) : "\(nap.minutes) min")
                 .font(.clock(20, weight: .regular))
         }
     }
@@ -129,11 +114,11 @@ struct LogNapSheet: View {
         NavigationStack {
             Form {
                 DatePicker("Fell asleep", selection: $start, in: ...Date.now)
-                Stepper("\(minutes) min", value: $minutes, in: 5...240, step: 5)
+                Stepper(minutes < 60 ? "\(minutes) min" : NapAdvice.hours(Double(minutes) / 60), value: $minutes, in: 5...720, step: 5)
                     .monospacedDigit()
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("Log a nap")
+            .navigationTitle("Log sleep")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

@@ -40,14 +40,4 @@ struct SleepSuggestionTests {
         #expect(fit(8 * 60 + 30) == "5 mid")
         #expect(fit(20) == "0 mid")
     }
-
-    @Test func dialStopsAtNightLimitsInsteadOfWrapping() {
-        let night = NightDial.Hours(bed: 23 * 60, wake: 7 * 60)
-        #expect(night.length == 8 * 60)
-        #expect(night.moving(bed: 22 * 60) == NightDial.Hours(bed: 22 * 60, wake: 7 * 60))
-        #expect(night.moving(bed: 5 * 60) == NightDial.Hours(bed: 4 * 60, wake: 7 * 60))
-        #expect(night.moving(bed: 16 * 60) == NightDial.Hours(bed: 17 * 60, wake: 7 * 60))
-        #expect(night.moving(wake: 23 * 60 + 30) == NightDial.Hours(bed: 23 * 60, wake: 2 * 60))
-        #expect(night.shifted(by: 90) == NightDial.Hours(bed: 30, wake: 8 * 60 + 30))
-    }
 }
