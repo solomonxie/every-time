@@ -1,0 +1,181 @@
+{
+  "sleep.naps": [
+    {
+      "id": "E032627A-0CF4-5963-B62D-D39B572BA687",
+      "start": "@today-1 23:20",
+      "end": "@today 07:05",
+      "energy": 4
+    },
+    {
+      "id": "9D250F24-9C06-566F-B292-6FFF4ED78086",
+      "start": "@today-2 23:45",
+      "end": "@today-1 07:15",
+      "energy": 3
+    },
+    {
+      "id": "970D9978-CBBF-52ED-B8E8-338FBA72278C",
+      "start": "@today-2 00:10",
+      "end": "@today-2 07:40",
+      "energy": 3
+    },
+    {
+      "id": "0DBF2181-D389-5FD6-B413-82EBAB6C5BCD",
+      "start": "@today-4 23:05",
+      "end": "@today-3 06:55",
+      "energy": 4
+    },
+    {
+      "id": "053442E7-76D7-5078-9282-BABC630585B6",
+      "start": "@today-5 22:50",
+      "end": "@today-4 06:45",
+      "energy": 5
+    },
+    {
+      "id": "41A33E72-2180-52E4-8A3D-9E30B3954570",
+      "start": "@today-6 23:35",
+      "end": "@today-5 07:10",
+      "energy": 4
+    },
+    {
+      "id": "9C00B86B-D588-5747-A627-EDCA0B28F5CE",
+      "start": "@today-6 01:05",
+      "end": "@today-6 08:20",
+      "energy": 2
+    },
+    {
+      "id": "7ECBD8B7-7D9F-5F7D-A45B-BF3097F2D710",
+      "start": "@today-8 23:25",
+      "end": "@today-7 07:00",
+      "energy": 4
+    },
+    {
+      "id": "04E6B3B9-EEC8-5F46-82A5-148F36AF27CB",
+      "start": "@today-9 23:15",
+      "end": "@today-8 07:05",
+      "energy": 4
+    },
+    {
+      "id": "CA79661F-F7E1-513D-9193-F2130BE8A8F4",
+      "start": "@today-10 23:50",
+      "end": "@today-9 07:30",
+      "energy": 3
+    },
+    {
+      "id": "9E53EC02-4A06-593B-8AD0-CBDB17CC432B",
+      "start": "@today-11 22:40",
+      "end": "@today-10 06:50",
+      "energy": 5
+    },
+    {
+      "id": "5B18C948-0C13-5535-9451-EA9FEF0881B6",
+      "start": "@today-12 23:30",
+      "end": "@today-11 07:10",
+      "energy": 4
+    },
+    {
+      "id": "4FDA2B8C-7D34-534B-9A17-A963AB2D337C",
+      "start": "@today-12 00:20",
+      "end": "@today-12 08:05",
+      "energy": 2
+    },
+    {
+      "id": "501C760F-DB9F-5AE2-8A53-F59C2C49E243",
+      "start": "@today-14 23:20",
+      "end": "@today-13 07:05",
+      "energy": 4
+    },
+    {
+      "id": "4EF4E231-2652-5DE5-B2E4-D87B53011EEF",
+      "start": "@today-1 14:40",
+      "end": "@today-1 15:02",
+      "energy": 4
+    },
+    {
+      "id": "4E0D7D51-5739-5BD4-AEB5-43A54C05E05B",
+      "start": "@today-2 13:35",
+      "end": "@today-2 13:57",
+      "night": "good",
+      "energy": 4
+    },
+    {
+      "id": "FDF23239-1B3B-55B6-965E-0CC7E3188767",
+      "start": "@today-5 14:10",
+      "end": "@today-5 14:38",
+      "night": "slow",
+      "energy": 3
+    },
+    {
+      "id": "A530999E-FACD-5C4A-AC9F-93281A1EC906",
+      "start": "@today-9 15:20",
+      "end": "@today-9 16:45",
+      "night": "poor",
+      "energy": 2
+    }
+  ],
+  "sleep.caffeine": [
+    "@today-1 08:10",
+    "@today-1 14:00",
+    "@today 08:05"
+  ],
+  "sleep.jetlag.profile": {
+    "age": 34,
+    "sex": "unspecified",
+    "chronotype": "intermediate",
+    "usualBedtime": 1395,
+    "usualWake": 425,
+    "melatonin": true,
+    "caffeine": true,
+    "notifications": true
+  },
+  "sleep.jetlag.trips": [
+    {
+      "id": "DF5D518D-E2CB-5423-A2E0-D016FE474DA6",
+      "origin": {
+        "name": "San Francisco",
+        "timeZoneIdentifier": "America/Los_Angeles"
+      },
+      "preAdjustDays": 2,
+      "notifications": true,
+      "legs": [
+        {
+          "id": "34710443-F2DC-5EFD-A065-F6E964B8BDD9",
+          "destination": {
+            "name": "Tokyo",
+            "timeZoneIdentifier": "Asia/Tokyo"
+          },
+          "departure": "@today+5 11:00",
+          "arrival": "@today+5 22:15"
+        }
+      ]
+    },
+    {
+      "id": "1722B9B2-7BD9-5380-B5D0-8C0F920B9BA7",
+      "origin": {
+        "name": "New York",
+        "timeZoneIdentifier": "America/New_York"
+      },
+      "preAdjustDays": 3,
+      "notifications": true,
+      "legs": [
+        {
+          "id": "335D8039-9505-5AEA-8E21-00CFC37C949E",
+          "destination": {
+            "name": "London",
+            "timeZoneIdentifier": "Europe/London"
+          },
+          "departure": "@today+23 19:00",
+          "arrival": "@today+24 02:00"
+        },
+        {
+          "id": "A1EAE530-FCC8-54C1-925C-5FD60E9B7966",
+          "destination": {
+            "name": "Berlin",
+            "timeZoneIdentifier": "Europe/Berlin"
+          },
+          "departure": "@today+29 09:30",
+          "arrival": "@today+29 11:25"
+        }
+      ]
+    }
+  ]
+}

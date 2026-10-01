@@ -4,14 +4,20 @@ import SwiftUI
 struct EveryTimeApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var timers = TimerStore()
+    @AppStorage(AppData.demoKey, store: .standard) private var demoOn = false
 
-    init() { NapAlarm.register() }
+    init() {
+        if AppData.isDemo { DemoSeed.seedIfNeeded() }
+        NapAlarm.register()
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(timers)
                 .timerAlarms(timers)
+                .defaultAppStorage(AppData.defaults)
+                .id(demoOn)
                 .task { await FirstRunRestore.runIfNeeded() }
                 .task { GlancePublisher.shared.activate() }
         }
@@ -19,6 +25,7 @@ struct EveryTimeApp: App {
             GlancePublisher.shared.publish()
             switch phase {
             case .active:
+                if AppData.isDemo { DemoSeed.seedIfNeeded() }
                 Task { await AutoBackup.shared.refresh() }
                 JetLagNotifications.reschedule()
                 ImportantEventNotifications.reschedule()

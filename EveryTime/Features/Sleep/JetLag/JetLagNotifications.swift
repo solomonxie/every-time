@@ -10,6 +10,7 @@ enum JetLagNotifications {
     /// Replaces all pending jet lag notifications from stored profile and trips.
     @MainActor
     static func reschedule(requestingAuthorization: Bool = false) {
+        guard AppData.drivesSystem else { return }
         let previous = queue
         queue = Task {
             await previous?.value
@@ -76,6 +77,6 @@ enum JetLagNotifications {
     }
 
     private static func load<T: Decodable>(_ type: T.Type, _ key: String) -> T? {
-        UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(T.self, from: $0) }
+        AppData.defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(T.self, from: $0) }
     }
 }

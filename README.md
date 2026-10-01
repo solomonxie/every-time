@@ -56,13 +56,21 @@ Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 xcodegen generate && open EveryTime.xcodeproj
 ```
 
-Install on a device (team ID from env, never committed). iCloud backup and the widget's App Group need a paid team; `-allowProvisioningUpdates` registers them:
+Install (iCloud backup and the widget's App Group need a paid team; `-allowProvisioningUpdates` registers them):
 
 ```
-xcodebuild -scheme EveryTime -destination id=$DEVICE_UDID -allowProvisioningUpdates \
-  DEVELOPMENT_TEAM=$TEAM_ID build
-xcrun devicectl device install app --device $DEVICE_UDID <DerivedData>/Debug-iphoneos/EveryTime.app
+make device             # DEVICE_UDID, TEAM_ID from env or .env (see .env.example), never committed
+make sim                # SIM="iPhone 18 Pro" by default
+make device STORE=cn    # store region, default us (Canada/US)
 ```
+
+`STORE` → Info.plist `AppStoreRegion` (`us`|`cn`), read via `StoreRegion.current`.
+
+## Demo mode
+
+More → Demo mode: instant switch to a separate store (`<bundle id>.demo-data`); real data, notifications, widget, watch and backups untouched. Doesn't read Health or write to Calendar. Off → back to real data.
+
+- Preset data: `demo/*.json`, store key → value (`app-storage.json` = plain `@AppStorage` values). Dates are relative: `"@today-1 23:40"`, `"@now-25m"`, `"@now+3h"`. Re-seeded daily or via More → Demo → Reset demo data.
 
 ## Watch target note
 

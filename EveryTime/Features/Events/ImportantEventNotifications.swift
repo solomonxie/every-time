@@ -11,6 +11,7 @@ enum ImportantEventNotifications {
 
     @MainActor
     static func reschedule(requestingAuthorization: Bool = false) {
+        guard AppData.drivesSystem else { return }
         let previous = queue
         queue = Task {
             await previous?.value
@@ -43,7 +44,7 @@ enum ImportantEventNotifications {
 
     private static func upcomingRequests(now: Date) -> [UNNotificationRequest] {
         let calendar = Calendar.current
-        let events = UserDefaults.standard.data(forKey: ImportantEvent.storageKey)
+        let events = AppData.defaults.data(forKey: ImportantEvent.storageKey)
             .flatMap { try? JSONDecoder().decode([ImportantEvent].self, from: $0) } ?? []
         return events.filter(\.notify)
             .compactMap { event -> (event: ImportantEvent, day: Date, fire: Date)? in

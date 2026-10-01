@@ -13,6 +13,7 @@ enum LunarNotifications {
 
     @MainActor
     static func reschedule(requestingAuthorization: Bool = false) {
+        guard AppData.drivesSystem else { return }
         let previous = queue
         queue = Task {
             await previous?.value
@@ -45,7 +46,7 @@ enum LunarNotifications {
 
     private static func upcomingRequests(now: Date) -> [UNNotificationRequest] {
         let calendar = Calendar.current
-        let events = UserDefaults.standard.data(forKey: storageKey)
+        let events = AppData.defaults.data(forKey: storageKey)
             .flatMap { try? JSONDecoder().decode([LunarEvent].self, from: $0) } ?? []
         return events.filter(\.notify)
             .flatMap { event in
