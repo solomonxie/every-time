@@ -9,14 +9,14 @@ import UserNotifications
 enum NapSession {
     static func start(minutes: Int) {
         let nap = ActiveNap(start: .now, minutes: minutes)
-        UserDefaults.standard.encode(nap as ActiveNap?, NapKey.active)
+        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
         ActivityLog.record(.nap, at: nap.start)
         Task { await NapAlarm.schedule(nap) }
     }
 
-    /// Logs the nap, tagged with that night's bedtime if it wasn't the usual one.
+    /// Logs the sleep, tagged with that night's bedtime if it wasn't the usual one.
     static func finish(at end: Date = .now) {
-        let defaults = UserDefaults.standard
+        let defaults = AppData.defaults
         NapAlarm.cancel()
         guard let nap: ActiveNap = defaults.decoded(NapKey.active) else { return }
         let plan: NightPlan? = defaults.decoded(NapKey.night)
@@ -30,12 +30,34 @@ enum NapSession {
         ActivityLog.record(.wake, at: max(end, nap.start))
     }
 
+    /// Ends this stretch and starts another from now, so each wake keeps its own record.
+    static func sleepMore(minutes: Int) {
+        finish()
+        start(minutes: minutes)
+    }
+
+    /// Rings at `time` instead, keeping the same start.
+    static func moveAlarm(to time: Date) {
+        guard var nap: ActiveNap = AppData.defaults.decoded(NapKey.active), time > .now else { return }
+        nap.minutes = max(1, Int((time.timeIntervalSince(nap.start) / 60).rounded()))
+        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
+        Task { await NapAlarm.schedule(nap) }
+    }
+
+    static func rate(_ id: UUID, energy: Int?) {
+        let defaults = AppData.defaults
+        var naps: [Nap] = defaults.decoded(NapKey.naps) ?? []
+        guard let i = naps.firstIndex(where: { $0.id == id }) else { return }
+        naps[i].energy = energy
+        defaults.encode(naps, NapKey.naps)
+    }
+
     static func cancel() {
         NapAlarm.cancel()
-        if let nap: ActiveNap = UserDefaults.standard.decoded(NapKey.active) {
+        if let nap: ActiveNap = AppData.defaults.decoded(NapKey.active) {
             ActivityLog.remove(.nap, at: nap.start)
         }
-        UserDefaults.standard.encode(nil as ActiveNap?, NapKey.active)
+        AppData.defaults.encode(nil as ActiveNap?, NapKey.active)
     }
 }
 
@@ -54,7 +76,7 @@ enum NapAlarm {
     private static let chainGap: TimeInterval = 30
     private static let systemKey = "sleep.nap.alarm.system"
 
-    static var kind: Kind { UserDefaults.standard.string(forKey: systemKey) == nil ? .app : .system }
+    static var kind: Kind { AppData.defaults.string(forKey: systemKey) == nil ? .app : .system }
 
     /// Delegate and "I'm up" action; call at launch so a tap from the lock screen is handled.
     static func register() {
@@ -70,7 +92,7 @@ enum NapAlarm {
     static func schedule(_ nap: ActiveNap) async {
         cancel()
         if #available(iOS 26, *), let id = await SystemAlarm.schedule(nap) {
-            UserDefaults.standard.set(id.uuidString, forKey: systemKey)
+            AppData.defaults.set(id.uuidString, forKey: systemKey)
             return
         }
         NapRinger.shared.arm(for: nap)
@@ -80,7 +102,7 @@ enum NapAlarm {
     /// After a relaunch, re-arms the in-app ringer for a nap still under way.
     static func restore() {
         guard kind == .app, !NapRinger.shared.isArmed,
-              let nap: ActiveNap = UserDefaults.standard.decoded(NapKey.active), nap.alarm > .now
+              let nap: ActiveNap = AppData.defaults.decoded(NapKey.active), nap.alarm > .now
         else { return }
         NapRinger.shared.arm(for: nap)
     }
@@ -90,10 +112,10 @@ enum NapAlarm {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: chain + [bannerID])
         center.removeDeliveredNotifications(withIdentifiers: chain + [bannerID])
-        if #available(iOS 26, *), let id = UserDefaults.standard.string(forKey: systemKey).flatMap(UUID.init) {
+        if #available(iOS 26, *), let id = AppData.defaults.string(forKey: systemKey).flatMap(UUID.init) {
             SystemAlarm.cancel(id)
         }
-        UserDefaults.standard.removeObject(forKey: systemKey)
+        AppData.defaults.removeObject(forKey: systemKey)
     }
 
     /// The app is ringing, so the backup chain isn't needed; a silent banner keeps "I'm up" on the lock screen.
@@ -103,7 +125,7 @@ enum NapAlarm {
         guard UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = "Time to get up"
-        content.body = "Your nap is over."
+        content.body = "Your sleep is over."
         content.categoryIdentifier = category
         content.interruptionLevel = .timeSensitive
         center.add(UNNotificationRequest(identifier: bannerID, content: content, trigger: nil))
@@ -122,7 +144,7 @@ enum NapAlarm {
         for (i, id) in chain.enumerated() {
             let content = UNMutableNotificationContent()
             content.title = i == 0 ? "Time to get up" : "Still asleep? Get up now"
-            content.body = i == 0 ? "Your \(nap.minutes)-minute nap is over." : "A longer nap turns into tonight's sleep."
+            content.body = i == 0 ? "Your \(NapAdvice.hours(Double(nap.minutes) / 60)) of sleep is over." : "Sleeping on past a cycle's end leaves you groggier."
             content.sound = UNNotificationSound(named: UNNotificationSoundName(sound))
             content.categoryIdentifier = category
             content.interruptionLevel = .timeSensitive
