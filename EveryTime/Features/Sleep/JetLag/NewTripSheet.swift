@@ -54,9 +54,9 @@ struct NewTripSheet: View {
         guard let draft else { return nil }
         for (i, leg) in legs.enumerated() {
             if leg.arrival <= leg.departure {
-                return legs.count == 1 ? "Arrival is before departure" : "Flight \(i + 1) lands before it departs"
+                return "Landing is before leaving"
             }
-            if i > 0, leg.departure < legs[i - 1].arrival { return "Flight \(i + 1) departs before flight \(i) lands" }
+            if i > 0, leg.departure < legs[i - 1].arrival { return "A flight leaves before the one before it lands" }
         }
         if draft.plan(for: profile).days.isEmpty { return "No time difference — no plan needed" }
         return nil
@@ -159,27 +159,22 @@ struct NewTripSheet: View {
         }
     }
 
+    /// Just the two times that matter: leaving, in the origin's clock, and landing, in the destination's.
     private func flightSection(_ i: Int, _ leg: LegDraft) -> some View {
         Section {
             if i > 0, leg.departure > legs[i - 1].arrival {
                 LabeledContent("Stopover in \(from(i).name)", value: duration(from: legs[i - 1].arrival, to: leg.departure))
                     .foregroundStyle(.secondary)
             }
-            flightRow("Departs", .departure(leg.id), date: departure(of: leg.id), city: from(i))
-            flightRow("Arrives", .arrival(leg.id), date: arrival(of: leg.id), city: leg.destination ?? from(i))
-            if leg.arrival > leg.departure {
-                LabeledContent("In the air", value: duration(from: leg.departure, to: leg.arrival))
-                    .foregroundStyle(.secondary)
-            }
+            flightRow("Leave", .departure(leg.id), date: departure(of: leg.id), city: from(i))
+            flightRow("Land", .arrival(leg.id), date: arrival(of: leg.id), city: leg.destination ?? from(i))
         } header: {
-            if legs.count == 1 {
-                SectionLabel("Flight")
-            } else {
+            if legs.count > 1 {
                 HStack {
-                    SectionLabel("Flight \(i + 1)")
+                    SectionLabel("\(from(i).name) → \(leg.destination?.name ?? "…")")
                     Button("Remove", role: .destructive) { removeLeg(leg.id) }
                         .font(.label)
-                        .accessibilityLabel("Remove flight \(i + 1)")
+                        .accessibilityLabel("Remove this flight")
                 }
             }
         }
