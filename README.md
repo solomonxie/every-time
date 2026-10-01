@@ -7,6 +7,7 @@ Everything about time, in one free iPhone app.
 - **World** — World Time Buddy–style planner: city column pinned left, hour
   strips share one horizontal scroll from a week back to a week ahead, a
   center cursor shows every city's time at that instant, work-hour overlaps listed as jump targets.
+  Add a city or a zone by name: PST/CET (region zone plus fixed offset), UTC+8, Asia/Shanghai.
 - **Sleep time** ("When to sleep?") — one answer for right now, judged
   against tonight's planned bed and wake: by day a nap with its effect on
   tonight and on grogginess, from evening an earlier bedtime, a warning when
