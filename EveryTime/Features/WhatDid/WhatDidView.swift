@@ -1,47 +1,64 @@
 import SwiftUI
 
-/// One continuous timeline: each tap marks when something started, tagged with what it was.
+/// One continuous timeline split by pins; each range between pins can be tagged with what it was.
 struct WhatDidView: View {
     @Stored(ActivityLog.key) private var marks: [ActivityMark] = []
     @Stored(ActivityLog.tagsKey) private var customTags: [String] = []
     @State private var editing: ActivityMark?
     @State private var addsTag = false
     @State private var newTag = ""
-    @State private var shownDays = 7
+    @State private var showsAllHistory = false
+    /// Nil while following now.
+    @State private var cursor: Date?
+    @State private var selected: UUID?
+    @State private var focus: Date?
 
     private var log: ActivityLog { ActivityLog(marks: marks) }
     private var activities: [Activity] { Activity.builtIn + customTags.map { Activity.of($0) } }
 
     var body: some View {
         TimelineView(.everyMinute) { context in
-            let now = context.date
+            // The minute tick only triggers redraws; a pin just added may be newer than it.
+            let now = max(context.date, .now)
+            // Stored decodes on every read; read once per redraw.
+            let log = log
             let spans = log.spans(at: now)
-            List {
-                Section { hero.whatDidRow() }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                Section { hero(now: now, spans: spans).whatDidRow() }
+                history(spans: spans)
                 if !spans.isEmpty {
                     Section {
                         today(now: now, spans: spans).whatDidRow()
                     } header: {
-                        SectionLabel("Today").textCase(nil)
+                        SectionLabel("Today").textCase(nil).padding(.horizontal, Theme.padding).padding(.top, 14)
                     }
                     Section {
                         trends(now: now).whatDidRow()
                     } header: {
-                        SectionLabel("Last 7 days").textCase(nil)
+                        SectionLabel("Last 7 days").textCase(nil).padding(.horizontal, Theme.padding).padding(.top, 14)
                     }
                 }
-                history(spans: spans)
+                }
+                .padding(.vertical, 8)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
-        .animation(.snappy, value: marks)
+        .animation(.snappy, value: marks.count)
         .sensoryFeedback(.impact(weight: .medium), trigger: marks.count)
         .navigationTitle("What did I do?")
         .navigationBarTitleDisplayMode(.inline)
         .bottomBar {
-            Button { mark(nil) } label: { Label("Mark now", systemImage: "hand.tap.fill") }
+            HStack(spacing: Theme.spacing) {
+                if cursor != nil {
+                    Button("Now") { cursor = nil }
+                        .buttonStyle(.soft)
+                        .frame(maxWidth: 96)
+                }
+                Button { split(at: cursor ?? .now) } label: {
+                    Label(cursor.map { "Mark at \(SleepNow.clock($0))" } ?? "Mark now", systemImage: "hand.tap.fill")
+                }
                 .buttonStyle(.primary)
+            }
         }
         .sheet(item: $editing) { mark in
             MarkEditor(mark: mark, activities: activities) { edited in
@@ -59,37 +76,38 @@ struct WhatDidView: View {
 
     // MARK: Now
 
-    private var hero: some View {
-        let current = log.current
-        let activity = Activity.of(current?.tag)
-        let tagsCurrent = current != nil && current?.tag == nil
-        return VStack(spacing: 18) {
-            if let current {
-                VStack(spacing: 6) {
-                    Label(activity.title, systemImage: activity.symbol)
-                        .font(.system(.title3, design: .rounded, weight: .semibold))
-                        .foregroundStyle(tagsCurrent ? .secondary : activity.tint)
-                    ElapsedSince(start: current.time)
-                    TimerCaption(text: "since \(SleepNow.clock(current.time))")
+    /// Live "since" for the open range, the timeline, then tags for the selected range.
+    private func hero(now: Date, spans: [ActivitySpan]) -> some View {
+        let target = target(in: spans)
+        let window = window(now: now, spans: spans)
+        return VStack(alignment: .leading, spacing: 12) {
+            if let open = spans.last {
+                HStack(spacing: 8) {
+                    Image(systemName: open.activity.symbol).foregroundStyle(open.activity.tint)
+                    Text(open.tag == nil ? "Since \(SleepNow.clock(open.start))" : "\(open.activity.title) since \(SleepNow.clock(open.start))")
+                    Spacer()
+                    ElapsedSince(start: open.start)
                 }
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-                .onTapGesture { editing = current }
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
             } else {
-                Text("Tap Mark now or an activity whenever you start something. Each one runs until the next.")
+                Text("Tap Mark now to start splitting your day. Tap the timeline anywhere to add a pin there; tap a History row to tag it.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.vertical, 24)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                Text(tagsCurrent ? "What are you doing?" : "Start something now")
-                    .font(.label)
-                    .foregroundStyle(.secondary)
+            ActivityTimeline(spans: spans, start: window.start, now: now, selected: target?.id,
+                             cursor: $cursor, focus: $focus) { split(at: $0) }
+                .padding(.horizontal, -Theme.padding)
+            VStack(alignment: .leading, spacing: 8) {
+                if let target {
+                    Text("\(SleepNow.clock(target.start)) – \(target.isOpen ? "now" : SleepNow.clock(target.end)) · \(ActivityLog.duration(target.duration))")
+                        .font(.label)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
                 FlowLayout(spacing: 8) {
                     ForEach(activities) { item in
-                        ActivityChip(activity: item, isOn: item.id == current?.tag) {
-                            if tagsCurrent, let current { retag(current, item) } else { mark(item) }
+                        ActivityChip(activity: item, isOn: target != nil && item.id == target?.tag) {
+                            if let target { tag(target, item) }
                         }
                         .contextMenu { chipMenu(item) }
                     }
@@ -102,15 +120,36 @@ struct WhatDidView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .disabled(target == nil)
+                if let target {
+                    Button("Edit or remove this pin", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == target.id } }
+                        .buttonStyle(.borderless)
+                        .font(.label)
+                }
             }
         }
         .padding(.vertical, 8)
     }
 
+    /// The tapped range, else the last closed one (the one Mark just made), else the open one.
+    private func target(in spans: [ActivitySpan]) -> ActivitySpan? {
+        spans.first { $0.id == selected } ?? (spans.count > 1 ? spans[spans.count - 2] : spans.last)
+    }
+
+    /// Whole days from the first pin (at most two weeks back) through today.
+    private func window(now: Date, spans: [ActivitySpan]) -> (start: Date, days: Int) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        let earliest = calendar.date(byAdding: .day, value: -14, to: today) ?? today
+        let first = spans.first.map { calendar.startOfDay(for: $0.start) } ?? today
+        let start = max(earliest, min(first, today))
+        return (start, (calendar.dateComponents([.day], from: start, to: today).day ?? 0) + 1)
+    }
+
     @ViewBuilder
     private func chipMenu(_ activity: Activity) -> some View {
         ForEach([5, 15, 30, 60], id: \.self) { minutes in
-            Button("Started \(minutes) min ago") { mark(activity, at: .now.addingTimeInterval(-Double(minutes) * 60)) }
+            Button("Started \(minutes) min ago") { marks.append(ActivityMark(time: .now.addingTimeInterval(-Double(minutes) * 60), tag: activity.id)) }
         }
         if customTags.contains(activity.id) {
             Button("Remove from list", systemImage: "minus.circle", role: .destructive) {
@@ -172,8 +211,7 @@ struct WhatDidView: View {
     // MARK: History
 
     private func history(spans: [ActivitySpan]) -> some View {
-        let byDay = Dictionary(grouping: spans.reversed()) { Calendar.current.startOfDay(for: $0.start) }
-        let days = byDay.keys.sorted(by: >)
+        let recent = Array(spans.reversed())
         return Section {
             if spans.isEmpty {
                 Text("Nothing marked yet.")
@@ -181,41 +219,42 @@ struct WhatDidView: View {
                     .foregroundStyle(.secondary)
                     .whatDidRow()
             }
-            ForEach(days.prefix(shownDays), id: \.self) { day in
-                Text(day, format: .dateTime.weekday(.wide).month(.abbreviated).day())
-                    .font(.label)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 6)
+            ForEach(showsAllHistory ? recent : Array(recent.prefix(Self.foldedHistory))) { span in
+                Button {
+                    selected = span.id
+                    focus = span.start.addingTimeInterval(span.duration / 2)
+                } label: { SpanRow(span: span, isOn: span.id == target(in: spans)?.id) }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button("Edit pin", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == span.id } }
+                    }
                     .whatDidRow()
-                ForEach(byDay[day] ?? []) { span in
-                    Button { editing = marks.first { $0.id == span.id } } label: { SpanRow(span: span) }
-                        .buttonStyle(.plain)
-                        .whatDidRow()
-                        .swipeActions {
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                marks.removeAll { $0.id == span.id }
-                            }
-                        }
-                }
             }
-            if days.count > shownDays {
-                Button("Show older") { shownDays += 14 }
+            if recent.count > Self.foldedHistory {
+                Button(showsAllHistory ? "Show less" : "Show all \(recent.count)") { showsAllHistory.toggle() }
                     .font(.label)
                     .whatDidRow()
             }
         } header: {
-            SectionLabel("History").textCase(nil)
+            SectionLabel("History").textCase(nil).padding(.horizontal, Theme.padding).padding(.top, 14)
         }
     }
 
+    private static let foldedHistory = 3
+
     // MARK: Changes
 
-    private func mark(_ activity: Activity?, at time: Date = .now) {
-        marks.append(ActivityMark(time: time, tag: activity?.id))
+    /// A new pin at `time`; the range it closes becomes the one the tags apply to.
+    private func split(at time: Date) {
+        let before = log.spans(at: .now).last { $0.start < time }
+        marks.append(ActivityMark(time: time, tag: nil))
+        selected = before?.id
     }
 
-    private func retag(_ mark: ActivityMark, _ activity: Activity) {
-        marks = marks.map { $0.id == mark.id ? ActivityMark(id: mark.id, time: mark.time, tag: activity.id) : $0 }
+    /// Tapping the range's own tag clears it.
+    private func tag(_ span: ActivitySpan, _ activity: Activity) {
+        let tag = span.tag == activity.id ? nil : activity.id
+        marks = marks.map { $0.id == span.id ? ActivityMark(id: span.id, time: $0.time, tag: tag) : $0 }
     }
 
     private func addTag() {
@@ -228,7 +267,7 @@ struct WhatDidView: View {
     }
 }
 
-/// Live `h:mm:ss` since the current mark; its own view so only the digits redraw each second.
+/// Live `h:mm:ss` since the last pin; its own view so only the digits redraw each second.
 private struct ElapsedSince: View {
     let start: Date
 
@@ -236,9 +275,8 @@ private struct ElapsedSince: View {
         TimelineView(.periodic(from: start, by: 1)) { context in
             let text = TimeText.clock(max(0, Int(context.date.timeIntervalSince(start))))
             Text(text)
-                .timerDigits(size: 64)
-                .contentTransition(.numericText())
-                .animation(.snappy, value: text)
+                .font(.clock(17, weight: .medium))
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -330,6 +368,7 @@ private struct TotalsList: View {
 
 private struct SpanRow: View {
     let span: ActivitySpan
+    let isOn: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -345,6 +384,9 @@ private struct SpanRow: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 8)
+        .frame(minHeight: 40)
+        .background(isOn ? Color.accentColor.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 10))
         .contentShape(Rectangle())
     }
 }
@@ -367,6 +409,7 @@ private struct MarkEditor: View {
     let onSave: (ActivityMark) -> Void
     let onDelete: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmsDelete = false
 
     var body: some View {
         NavigationStack {
@@ -383,14 +426,18 @@ private struct MarkEditor: View {
                     .padding(.vertical, 4)
                 }
                 Section {
-                    Button("Delete mark", role: .destructive) {
-                        onDelete()
-                        dismiss()
-                    }
+                    Button("Remove pin", role: .destructive) { confirmsDelete = true }
+                        .confirmationDialog("Remove this pin? Its range joins the one before.", isPresented: $confirmsDelete,
+                                            titleVisibility: .visible) {
+                            Button("Remove pin", role: .destructive) {
+                                onDelete()
+                                dismiss()
+                            }
+                        }
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("Edit mark")
+            .navigationTitle("Edit pin")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -408,9 +455,7 @@ private struct MarkEditor: View {
 
 extension View {
     func whatDidRow() -> some View {
-        listRowInsets(EdgeInsets(top: 6, leading: Theme.padding, bottom: 6, trailing: Theme.padding))
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+        padding(.horizontal, Theme.padding).padding(.vertical, 6)
     }
 }
 
