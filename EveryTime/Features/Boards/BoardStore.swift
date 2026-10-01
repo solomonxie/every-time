@@ -84,12 +84,12 @@ final class BoardStore {
     }
 
     private func loadConfigs() {
-        configs = UserDefaults.standard.data(forKey: BoardConfig.storageKey)
+        configs = AppData.defaults.data(forKey: BoardConfig.storageKey)
             .flatMap { try? JSONDecoder().decode([BoardConfig].self, from: $0) } ?? []
     }
 
     private func persistConfigs() {
-        UserDefaults.standard.set(try? JSONEncoder().encode(configs), forKey: BoardConfig.storageKey)
+        AppData.defaults.set(try? JSONEncoder().encode(configs), forKey: BoardConfig.storageKey)
         changed()
     }
 
@@ -293,7 +293,7 @@ enum BoardFlow {
         guard days[key] != today else { return }
         days[key] = today
         all[board] = days.filter { $0.key >= dayKey(date.addingTimeInterval(-366 * 86_400)) }
-        UserDefaults.standard.set(try? JSONEncoder().encode(all), forKey: BoardConfig.flowKey)
+        AppData.defaults.set(try? JSONEncoder().encode(all), forKey: BoardConfig.flowKey)
     }
 
     static func history(board: String) -> [(date: Date, counts: Day)] {
@@ -302,7 +302,7 @@ enum BoardFlow {
     }
 
     private static func load() -> [String: [String: Day]] {
-        UserDefaults.standard.data(forKey: BoardConfig.flowKey)
+        AppData.defaults.data(forKey: BoardConfig.flowKey)
             .flatMap { try? JSONDecoder().decode([String: [String: Day]].self, from: $0) } ?? [:]
     }
 

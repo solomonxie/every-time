@@ -14,7 +14,8 @@ final class GlancePublisher: NSObject, WCSessionDelegate {
 
     @MainActor
     func publish() {
-        let glance = Glance.current()
+        guard AppData.drivesSystem else { return }
+        let glance = Glance.current(defaults: AppData.defaults)
         guard glance != last else { return }
         last = glance
         glance.save()

@@ -1,0 +1,108 @@
+{
+  "calendar.lunar": [
+    {
+      "id": "7C59A5A5-9D5F-5354-B1F9-927D8E77CA15",
+      "name": "Spring Festival",
+      "month": 1,
+      "day": 1,
+      "repeat": "yearly",
+      "created": "@today-200",
+      "notify": true
+    },
+    {
+      "id": "BF004CFE-B0DD-5992-A367-426DD101DE77",
+      "name": "Mid-Autumn dinner",
+      "month": 8,
+      "day": 15,
+      "repeat": "yearly",
+      "created": "@today-200",
+      "notify": true
+    },
+    {
+      "id": "BEFAE2D3-4CBF-59E4-8C93-32BD6AA9FFA3",
+      "name": "Grandma's birthday",
+      "month": 3,
+      "day": 12,
+      "repeat": "yearly",
+      "created": "@today-150",
+      "notify": true
+    },
+    {
+      "id": "FCBCAF90-7384-52B8-BDB0-E67A87CD39AE",
+      "name": "First-day visit",
+      "month": 1,
+      "day": 1,
+      "repeat": "monthly",
+      "created": "@today-60",
+      "notify": false
+    }
+  ],
+  "calendar.since": [
+    {
+      "id": "D1241548-DF90-562F-991C-404D909BAB88",
+      "name": "Mia",
+      "date": "@today-10945",
+      "type": "birthday",
+      "source": {
+        "manual": {}
+      },
+      "notify": true,
+      "hasTime": false
+    },
+    {
+      "id": "57C9EEE8-50DE-5A78-89DC-B224FB809CD0",
+      "name": "Our wedding",
+      "date": "@today-1796",
+      "type": "wedding",
+      "source": {
+        "manual": {}
+      },
+      "notify": true,
+      "hasTime": false
+    },
+    {
+      "id": "60B81521-2E3A-5054-9382-5D7BA080620D",
+      "name": "Started at Acme",
+      "date": "@today-640",
+      "type": "milestone",
+      "source": {
+        "manual": {}
+      },
+      "notify": false,
+      "hasTime": false
+    },
+    {
+      "id": "A4402612-508A-582A-8357-541F7FFE37B5",
+      "name": "Adopted Mochi",
+      "date": "@today-1102",
+      "type": "anniversary",
+      "source": {
+        "manual": {}
+      },
+      "notify": true,
+      "hasTime": false
+    },
+    {
+      "id": "B7FC4166-7741-5C0B-A769-8F01B7C945EC",
+      "name": "Grandpa",
+      "date": "@today-2950",
+      "type": "memorial",
+      "source": {
+        "manual": {}
+      },
+      "notify": true,
+      "hasTime": false
+    },
+    {
+      "id": "98622350-F1D6-5D8C-9A97-AFA34C678125",
+      "name": "Moving day",
+      "date": "@today+17 08:00",
+      "type": "milestone",
+      "source": {
+        "manual": {}
+      },
+      "notify": true,
+      "hasTime": true
+    }
+  ]
+}
