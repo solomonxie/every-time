@@ -4,6 +4,7 @@ enum NapKey {
     static let naps = "sleep.naps"
     static let active = "sleep.nap.active"
     static let night = "sleep.nap.night"
+    static let caffeine = "sleep.caffeine"
 }
 
 /// Tonight's bedtime and tomorrow's wake, when they differ from usual; only counts on `day`.
@@ -43,8 +44,26 @@ struct Nap: Identifiable, Codable, Hashable {
     var night: Night?
     /// That night's planned bedtime, if it wasn't the usual one.
     var bed: Date?
+    /// How you felt on waking, 1 (drained) to 5 (fresh).
+    var energy: Int?
 
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
+    var duration: TimeInterval { end.timeIntervalSince(start) }
+    /// Three hours or more counts as a night, not a nap.
+    var isNight: Bool { duration >= Nap.nightLength }
+
+    static let nightLength: TimeInterval = 3 * 3600
+    static let energyRange = 1...5
+
+    static func energyTitle(_ level: Int) -> String {
+        switch level {
+        case ...1: "Drained"
+        case 2: "Tired"
+        case 3: "OK"
+        case 4: "Good"
+        default: "Fresh"
+        }
+    }
 }
 
 /// A nap in progress; survives relaunch.

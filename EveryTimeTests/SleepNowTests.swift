@@ -77,27 +77,41 @@ struct SleepNowTests {
     @Test func bedtimePicksLongestWakeBeforePlannedWake() {
         let now = sleepNow(date(2026, 3, 10, 22))
         #expect(now.zone == .bedtime)
-        #expect(now.sleepOptions.map(\.id) == ["night6", "night5", "night4", "night3"])
+        #expect(now.sleepOptions.map(\.id) == ["night6", "night5", "night4", "night3", "bed"])
         #expect(now.sleepOptions.map(\.time) == [date(2026, 3, 11, 7, 15), date(2026, 3, 11, 5, 45),
-                                                 date(2026, 3, 11, 4, 15), date(2026, 3, 11, 2, 45)])
+                                                 date(2026, 3, 11, 4, 15), date(2026, 3, 11, 2, 45), date(2026, 3, 10, 23, 15)])
         #expect(recommended(now.sleepOptions) == ["night5"])
-        #expect(now.sleepOptions[0].detail.hasSuffix("after your \(SleepNow.clock(date(2026, 3, 11, 7))) wake"))
+        #expect(now.sleepOptions[0].detail == "6 full cycles")
+        #expect(now.sleepOptions[1].sleepMinutes(from: now.start) == 465)
+        #expect(now.sleepOptions[4].sleepMinutes(from: now.start) == nil)
         #expect(recommended(now.napOptions).isEmpty)
         #expect(now.napVerdict.headline == "Bedtime, not nap time")
     }
 
-    @Test func lateNightAllowsShortCycles() {
+    @Test func shortWaitForAWholeExtraCycleWins() {
+        // 22:50: sleeping now ends 5 cycles at 06:35; waiting 25 min ends them right at 07:00.
+        let now = sleepNow(date(2026, 3, 10, 22, 50))
+        #expect(now.sleepOptions.map(\.id) == ["night6", "night5", "night4", "night3", "bed"])
+        #expect(now.sleepOptions[4].time == date(2026, 3, 10, 23, 15))
+        #expect(recommended(now.sleepOptions) == ["bed"])
+        #expect(now.sleepVerdict.headline == "Worth a short wait")
+        // 23:40: waiting for 4 cycles at 00:45 is over an hour; sleep now instead.
+        #expect(recommended(sleepNow(date(2026, 3, 10, 23, 40)).sleepOptions) == ["night4"])
+    }
+
+    @Test func lateNightAllowsShortCyclesAndSleepingIn() {
         let now = sleepNow(date(2026, 3, 11, 2))
-        #expect(now.sleepOptions.map(\.id) == ["night3", "night2", "night1"])
+        #expect(now.sleepOptions.map(\.id) == ["night6", "night5", "night4", "night3", "night2", "night1", "bed"])
         #expect(recommended(now.sleepOptions) == ["night3"])
-        #expect(now.sleepOptions.map(\.level) == [.some, .high, .high])
+        #expect(now.sleepOptions.map(\.level) == [.low, .low, .some, .some, .high, .high, .some])
+        #expect(now.sleepOptions[0].detail.hasSuffix("after your \(SleepNow.clock(date(2026, 3, 11, 7))) wake"))
         #expect(now.sleepVerdict.headline == "Past bedtime")
         #expect(now.tip != nil)
     }
 
     @Test func underACycleLeftFallsBackToNap() {
         let now = sleepNow(date(2026, 3, 11, 6))
-        #expect(now.sleepOptions.isEmpty)
+        #expect(recommended(now.sleepOptions).isEmpty)
         #expect(now.sleepVerdict.reason.hasPrefix("Under a cycle left"))
         #expect(recommended(now.napOptions) == ["nap20"])
         #expect(now.napVerdict.headline == "Short on time")
@@ -118,15 +132,16 @@ struct SleepNowTests {
         #expect(now.verdict.headline == "Risk of a split night")
     }
 
-    @Test func bedtimeAnswersWithNightsOnly() {
+    @Test func bedtimeAnswersWithNightsThenAWait() {
         let now = sleepNow(date(2026, 3, 10, 22))
-        #expect(now.options.map(\.id) == ["night6", "night5", "night4", "night3"])
-        #expect(now.options.map(\.caption).allSatisfy { $0 == "Wake at" })
+        #expect(now.options.map(\.id) == ["night6", "night5", "night4", "night3", "bed"])
+        #expect(now.options.dropLast().map(\.caption).allSatisfy { $0 == "Wake at" })
+        #expect(now.options.last?.caption == "Bed at")
     }
 
     @Test func lateNightWithNoCycleLeftAnswersWithAShortNap() {
         let now = sleepNow(date(2026, 3, 11, 6))
         #expect(recommended(now.options) == ["nap20"])
-        #expect(now.options.allSatisfy { $0.level != .high })
+        #expect(now.options.filter { $0.level != .high }.count >= 3)
     }
 }

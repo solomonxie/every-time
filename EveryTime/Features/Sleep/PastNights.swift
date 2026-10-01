@@ -1,13 +1,31 @@
+import Charts
 import HealthKit
 import SwiftUI
 
-/// One night of sleep read from Health: first to last asleep, with overlapping sources merged.
+/// One night of sleep: from Health (first to last asleep, sources merged) or logged here.
 struct PastNight: Identifiable, Equatable {
     let start: Date
     let end: Date
     let asleep: TimeInterval
+    var energy: Int? = nil
 
     var id: Date { start }
+
+    /// Logged nights, stretches with under half an hour awake between joined; Health fills the other days.
+    static func merged(logged: [Nap], health: [PastNight], calendar: Calendar = .current) -> [PastNight] {
+        var nights: [PastNight] = []
+        for nap in logged.sorted(by: { $0.start < $1.start }) {
+            if let last = nights.last, nap.start.timeIntervalSince(last.end) < 30 * 60 {
+                nights[nights.count - 1] = PastNight(start: last.start, end: nap.end, asleep: last.asleep + nap.duration,
+                                                     energy: nap.energy ?? last.energy)
+            } else {
+                nights.append(PastNight(start: nap.start, end: nap.end, asleep: nap.duration, energy: nap.energy))
+            }
+        }
+        let own = nights.filter { $0.asleep >= Nap.nightLength }
+        let days = Set(own.map { calendar.startOfDay(for: $0.end) })
+        return (own + health.filter { !days.contains(calendar.startOfDay(for: $0.end)) }).sorted { $0.end > $1.end }
+    }
 }
 
 enum PastNights {
@@ -66,72 +84,38 @@ enum PastNights {
     }
 }
 
-/// Recent nights from the Health app, once the user lets us read sleep.
-struct PastNightsSection: View {
-    @AppStorage(PastNights.key) private var asked = false
-    @State private var nights: [PastNight] = []
-    @State private var loaded = false
+/// Score per night, latest on the right.
+struct ScoreChart: View {
+    let nights: [PastNight]
+    let usualHours: Double
 
     var body: some View {
-        if PastNights.isAvailable {
-            Section {
-                if !asked {
-                    Button {
-                        Task {
-                            asked = await PastNights.requestAccess()
-                            await reload()
-                        }
-                    } label: {
-                        Label("Show past nights from Health", systemImage: "heart.text.square")
-                            .font(.subheadline.weight(.semibold))
-                    }
-                    .buttonStyle(.borderless)
-                    .napRow()
-                } else if loaded && nights.isEmpty {
-                    Text("No sleep in Health for the last two weeks. Check Settings › Health › Data Access › Every Time.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .napRow()
-                } else {
-                    if nights.count >= 3 { average.napRow() }
-                    ForEach(nights) { PastNightRow(night: $0).napRow() }
-                }
-            } header: {
-                SectionLabel(title: "Past nights") {
-                    InfoButton(label: "About past nights", text: Self.info)
-                }
-                .textCase(nil)
-            }
-            .task { await reload() }
+        Chart(nights.prefix(14).reversed()) { night in
+            let score = SleepScore.score(asleep: night.asleep, usualHours: usualHours, energy: night.energy)
+            BarMark(x: .value("Night", night.end, unit: .day), y: .value("Score", score))
+                .foregroundStyle(SleepScore.level(score).tint)
+                .cornerRadius(3)
         }
+        .chartYScale(domain: 0...100)
+        .chartYAxis { AxisMarks(values: [0, 50, 100]) }
+        .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)) } }
+        .frame(height: 90)
+        .accessibilityLabel("Sleep score, last \(min(14, nights.count)) nights")
     }
-
-    private var average: some View {
-        let mean = nights.map(\.asleep).reduce(0, +) / Double(nights.count)
-        return HStack {
-            Text("Average asleep").font(.subheadline)
-            Spacer()
-            Text(NapAdvice.hours((mean / 60).rounded() / 60))
-                .font(.label).monospacedDigit().foregroundStyle(.secondary)
-        }
-    }
-
-    private func reload() async {
-        guard asked else { return }
-        nights = await PastNights.load()
-        loaded = true
-    }
-
-    private static let info = "Last two weeks of sleep from the Health app, as recorded by your Watch, iPhone or another sleep app. Naps are left out. Nothing leaves your phone."
 }
 
 struct PastNightRow: View {
     let night: PastNight
+    let usualHours: Double
 
     var body: some View {
         let fit = SleepSuggestion.fit(minutesInBed: Int((night.end.timeIntervalSince(night.start) + SleepSuggestion.fallAsleepTime) / 60))
+        let score = SleepScore.score(asleep: night.asleep, usualHours: usualHours, energy: night.energy)
         HStack(spacing: 12) {
+            Text("\(score)")
+                .font(.clock(18, weight: .semibold))
+                .foregroundStyle(SleepScore.level(score).tint)
+                .frame(width: 34, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
                 Text(night.end, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
                     .font(.system(.body, design: .rounded))
@@ -141,6 +125,9 @@ struct PastNightRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if let energy = night.energy {
+                Text(Nap.energyTitle(energy)).font(.label).foregroundStyle(.secondary)
+            }
             Text(NapAdvice.hours((night.asleep / 60).rounded() / 60))
                 .font(.clock(20, weight: .regular))
         }
