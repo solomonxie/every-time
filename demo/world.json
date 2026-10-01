@@ -1,0 +1,51 @@
+{
+  "world.cities": [
+    {
+      "name": "San Francisco",
+      "timeZoneIdentifier": "America/Los_Angeles"
+    },
+    {
+      "name": "New York",
+      "timeZoneIdentifier": "America/New_York"
+    },
+    {
+      "name": "London",
+      "timeZoneIdentifier": "Europe/London"
+    },
+    {
+      "name": "Berlin",
+      "timeZoneIdentifier": "Europe/Berlin"
+    },
+    {
+      "name": "Beijing",
+      "timeZoneIdentifier": "Asia/Shanghai"
+    },
+    {
+      "name": "Tokyo",
+      "timeZoneIdentifier": "Asia/Tokyo"
+    },
+    {
+      "name": "UTC",
+      "timeZoneIdentifier": "GMT"
+    }
+  ],
+  "world.recentCities": [
+    {
+      "name": "Sydney",
+      "timeZoneIdentifier": "Australia/Sydney"
+    },
+    {
+      "name": "Dubai",
+      "timeZoneIdentifier": "Asia/Dubai"
+    },
+    {
+      "name": "CET",
+      "timeZoneIdentifier": "GMT+0100"
+    }
+  ],
+  "world.localIndex": 0,
+  "world.targetHours": {
+    "start": 9,
+    "end": 18
+  }
+}

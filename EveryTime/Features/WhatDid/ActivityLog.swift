@@ -172,13 +172,13 @@ struct ActivityLog {
 
 /// Writes from other pages (the nap alarm), outside SwiftUI views.
 extension ActivityLog {
-    static func record(_ activity: Activity, at time: Date = .now, in defaults: UserDefaults = .standard) {
+    static func record(_ activity: Activity, at time: Date = .now, in defaults: UserDefaults = AppData.defaults) {
         var marks: [ActivityMark] = defaults.decoded(key) ?? []
         marks.append(ActivityMark(time: time, tag: activity.id))
         defaults.encode(marks, key)
     }
 
-    static func remove(_ activity: Activity, at time: Date, in defaults: UserDefaults = .standard) {
+    static func remove(_ activity: Activity, at time: Date, in defaults: UserDefaults = AppData.defaults) {
         var marks: [ActivityMark] = defaults.decoded(key) ?? []
         marks.removeAll { $0.tag == activity.id && $0.time == time }
         defaults.encode(marks, key)

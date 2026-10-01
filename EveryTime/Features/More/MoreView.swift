@@ -31,7 +31,9 @@ struct MoreView: View {
 
                 tabBarSection
 
-                SettingsSections()
+                DemoSection()
+
+                if !AppData.isDemo { SettingsSections() }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)

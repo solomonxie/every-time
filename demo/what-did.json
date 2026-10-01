@@ -1,0 +1,563 @@
+{
+  "timers.activityLog": [
+    {
+      "id": "C7CD5787-26FC-5BB0-B0DF-C333A6A74094",
+      "time": "@today-1 23:20",
+      "tag": "sleep"
+    },
+    {
+      "id": "798CA5FD-88A8-5000-BE9D-A6BC89D18B27",
+      "time": "@today 07:05",
+      "tag": "wake"
+    },
+    {
+      "id": "46DB6D2C-C78B-5B5F-940C-87E591859949",
+      "time": "@today-2 23:45",
+      "tag": "sleep"
+    },
+    {
+      "id": "45234E30-DEF7-583A-8C9B-8D878EA7E576",
+      "time": "@today-1 07:15",
+      "tag": "wake"
+    },
+    {
+      "id": "F02E39D8-F9DE-5C4A-9637-8C0C7C1B2BF2",
+      "time": "@today-2 00:10",
+      "tag": "sleep"
+    },
+    {
+      "id": "CC733C64-E4B7-5C44-942A-734821DEC347",
+      "time": "@today-2 07:40",
+      "tag": "wake"
+    },
+    {
+      "id": "C23C5BF3-9E55-54B0-BE28-57B366987748",
+      "time": "@today-4 23:05",
+      "tag": "sleep"
+    },
+    {
+      "id": "75C94206-7D5F-5C9A-A22E-A9EAE7440245",
+      "time": "@today-3 06:55",
+      "tag": "wake"
+    },
+    {
+      "id": "9E9CAAD5-FB7A-56DA-BB06-189753864913",
+      "time": "@today-5 22:50",
+      "tag": "sleep"
+    },
+    {
+      "id": "BEBE083E-BB5C-5E40-BEA8-E95572CBD2A0",
+      "time": "@today-4 06:45",
+      "tag": "wake"
+    },
+    {
+      "id": "F2475379-1043-5563-ACD0-3A7B377C2527",
+      "time": "@today-6 23:35",
+      "tag": "sleep"
+    },
+    {
+      "id": "28A5C6A4-054D-5967-9CE2-711AB6EEC627",
+      "time": "@today-5 07:10",
+      "tag": "wake"
+    },
+    {
+      "id": "D757E017-E331-5EF6-8EF6-EC3A90408A8D",
+      "time": "@today-6 01:05",
+      "tag": "sleep"
+    },
+    {
+      "id": "42FA5250-1186-586D-8651-E676A41E34FE",
+      "time": "@today-6 08:20",
+      "tag": "wake"
+    },
+    {
+      "id": "75A37A60-0BA8-567F-AACC-1F0C3977B07F",
+      "time": "@today-8 23:25",
+      "tag": "sleep"
+    },
+    {
+      "id": "877E0BA3-4334-50D3-B395-5B256BB0300C",
+      "time": "@today-7 07:00",
+      "tag": "wake"
+    },
+    {
+      "id": "C628DF6D-CA23-5BF3-8161-01FB277D528F",
+      "time": "@today-9 23:15",
+      "tag": "sleep"
+    },
+    {
+      "id": "EA4DB9C2-02A4-5B56-85A1-D1A6A68A6B2F",
+      "time": "@today-8 07:05",
+      "tag": "wake"
+    },
+    {
+      "id": "825C9825-507F-5DC9-B37F-DFA3DABB9D45",
+      "time": "@today-10 23:50",
+      "tag": "sleep"
+    },
+    {
+      "id": "A8CD8267-B5D4-5E94-A40A-410F6D68C885",
+      "time": "@today-9 07:30",
+      "tag": "wake"
+    },
+    {
+      "id": "6D646FAC-A3CC-5A81-938B-49761CBFC175",
+      "time": "@today-11 22:40",
+      "tag": "sleep"
+    },
+    {
+      "id": "C4EA5EDD-3C53-5E9A-9526-E0600DBA02AA",
+      "time": "@today-10 06:50",
+      "tag": "wake"
+    },
+    {
+      "id": "C80D3793-6848-523A-9463-0DBAE6D1EE70",
+      "time": "@today-12 23:30",
+      "tag": "sleep"
+    },
+    {
+      "id": "DD707ECA-459A-529A-8B13-8E2DFBF72915",
+      "time": "@today-11 07:10",
+      "tag": "wake"
+    },
+    {
+      "id": "348F2BBE-027B-5143-9EEC-BB4FB97A10F7",
+      "time": "@today-12 00:20",
+      "tag": "sleep"
+    },
+    {
+      "id": "31856EF5-249D-5AC0-B55F-B2D3F2F4FE81",
+      "time": "@today-12 08:05",
+      "tag": "wake"
+    },
+    {
+      "id": "CADCAA88-041B-50B7-8460-59613988A36E",
+      "time": "@today-14 23:20",
+      "tag": "sleep"
+    },
+    {
+      "id": "20D22C08-9EB2-5123-9E9A-0195D21CFBDD",
+      "time": "@today-13 07:05",
+      "tag": "wake"
+    },
+    {
+      "id": "CF1C425D-AD75-57F6-BE13-B3E8C10CF7D2",
+      "time": "@today-1 14:40",
+      "tag": "nap"
+    },
+    {
+      "id": "1ECF64F1-CA69-5C88-A477-18FE9AE0BB65",
+      "time": "@today-1 15:02",
+      "tag": "work"
+    },
+    {
+      "id": "AF024D40-D270-56F9-8FF3-7BA5F7F4C78B",
+      "time": "@today-2 13:35",
+      "tag": "nap"
+    },
+    {
+      "id": "7F2FDB6D-44FB-50DB-BEDB-3DF5FBDFEBD8",
+      "time": "@today-2 13:57",
+      "tag": "work"
+    },
+    {
+      "id": "E6A6C5A2-86EA-507B-A37D-5988675DDF5F",
+      "time": "@today-5 14:10",
+      "tag": "nap"
+    },
+    {
+      "id": "70F34CBB-E88D-5637-AD79-28B85655A317",
+      "time": "@today-5 14:38",
+      "tag": "work"
+    },
+    {
+      "id": "58DC266B-4E16-5C87-B435-1F559EFE0D24",
+      "time": "@today-9 15:20",
+      "tag": "nap"
+    },
+    {
+      "id": "4ED5B13A-8582-551A-BBFE-C3E691A3A5AE",
+      "time": "@today-9 16:45",
+      "tag": "rest"
+    },
+    {
+      "id": "A9B711B9-2875-52E2-9FF2-8C341759DF8C",
+      "time": "@today-7 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "0096F061-D832-5DB0-A892-4A8BE6EADDFF",
+      "time": "@today-7 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "55739CC7-4D9C-5C8B-A5D2-D56841EAF859",
+      "time": "@today-7 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "6DB2A76B-17E4-568A-84A9-D80918CBF2A8",
+      "time": "@today-7 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "3BD20E56-A99A-5DB9-9CA4-F56F2A8969E4",
+      "time": "@today-7 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "4CB4A53E-FCBD-5343-8CC5-779C32DEF347",
+      "time": "@today-7 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "CE271615-9CBA-5269-82A3-C42BFEF7C73F",
+      "time": "@today-7 18:40",
+      "tag": "workout"
+    },
+    {
+      "id": "5C7C79CD-5D15-5966-A4C4-9CA43AAD9335",
+      "time": "@today-7 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "766CEEF2-8286-5AF0-B4A6-E0F6364D95B7",
+      "time": "@today-7 20:30",
+      "tag": "fun"
+    },
+    {
+      "id": "E1D2B53B-226A-5CEF-8420-8D94745D6F27",
+      "time": "@today-7 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "DAE6DD38-4F6C-527A-9DE1-DDC3F7F6E850",
+      "time": "@today-6 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "1F3617DC-564E-5F4E-AB03-52D5AC2C3EBF",
+      "time": "@today-6 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "1FFB10B0-0C80-5F37-8711-FDE311026E2D",
+      "time": "@today-6 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "C489D4BA-7D8A-55D9-A2C4-4FE628549E89",
+      "time": "@today-6 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "2CC3E36B-2CA2-5EAA-A79E-FDAF206255BE",
+      "time": "@today-6 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "6D211D7F-167A-57E8-98BD-BEADE0D90FBE",
+      "time": "@today-6 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "5E275FCA-9629-5862-B374-DDAEE5B74B09",
+      "time": "@today-6 18:40",
+      "tag": "chores"
+    },
+    {
+      "id": "0596DBBD-7C1A-593C-88A2-424CF40DACAE",
+      "time": "@today-6 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "C3F15DFB-9D33-5B92-941D-2C8A99C3F5DE",
+      "time": "@today-6 20:30",
+      "tag": "Guitar"
+    },
+    {
+      "id": "0B3D2224-5DC4-5A15-B9D1-42065D7B99D5",
+      "time": "@today-6 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "635F5900-A714-5ED6-B2F3-6BE93FB63E0A",
+      "time": "@today-5 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "F516A562-1D22-5CD2-A0FA-D9DFC7CF8858",
+      "time": "@today-5 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "17E32DF1-86DA-5C22-8683-0CC93DD9997C",
+      "time": "@today-5 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "94FAB623-CF43-5E17-AFDE-D6E9F1FC0A52",
+      "time": "@today-5 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "02296508-D239-5025-B282-E3DC4A6054E1",
+      "time": "@today-5 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "869A9573-8F91-5A4A-A92F-036A63F526A3",
+      "time": "@today-5 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "56D19800-0807-51E2-B37D-3A8AF402AAA1",
+      "time": "@today-5 18:40",
+      "tag": "workout"
+    },
+    {
+      "id": "5E892C52-0AF6-533F-B924-130456E96ED9",
+      "time": "@today-5 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "FB377E98-1BD9-54CD-92AE-D1D39149576F",
+      "time": "@today-5 20:30",
+      "tag": "fun"
+    },
+    {
+      "id": "BEC397DD-AE40-5482-824C-4903C38EAE08",
+      "time": "@today-5 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "59C677E7-5D74-5407-8F21-005B5EA44158",
+      "time": "@today-4 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "8B2936CE-7181-5287-8BC2-5CF8934BE72B",
+      "time": "@today-4 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "823AD61F-2294-52C8-BCDB-829B9406A89E",
+      "time": "@today-4 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "17CEE971-1850-5DB2-98AC-8D8D47C5348D",
+      "time": "@today-4 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "2CEA3687-870E-5336-873A-F09EC7D63C46",
+      "time": "@today-4 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "33F21277-FF79-5A1E-9BBF-804E27117377",
+      "time": "@today-4 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "0077122C-3EA3-51DE-B4DD-7B50C78448EA",
+      "time": "@today-4 18:40",
+      "tag": "chores"
+    },
+    {
+      "id": "5A3D15FA-DD5C-5C87-BCB0-C0F1C8989496",
+      "time": "@today-4 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "150C8211-A1FB-5FA9-B174-D2C85798573E",
+      "time": "@today-4 20:30",
+      "tag": "fun"
+    },
+    {
+      "id": "AB6B4561-636B-5607-91F9-0EA43A259C45",
+      "time": "@today-4 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "B366AF58-D99C-5E14-8324-9F988B37AC7F",
+      "time": "@today-3 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "68BC23FD-B83D-5F2E-B025-66641D60A129",
+      "time": "@today-3 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "ABC403DA-2C9E-5A26-B3BE-5EAB3DAFEE8C",
+      "time": "@today-3 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "C6C045DF-B663-5C70-92C9-6FD02D65E409",
+      "time": "@today-3 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "4F39160F-CFA1-53A1-B939-9FE40CCE29F5",
+      "time": "@today-3 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "B9063840-EF58-5E20-BC4F-ECB0A45B0D68",
+      "time": "@today-3 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "7BC76AD6-6A76-538A-9E93-F2EA95D8AEC8",
+      "time": "@today-3 18:40",
+      "tag": "workout"
+    },
+    {
+      "id": "7B64F578-9144-5F93-BE80-0BC028F0FEB0",
+      "time": "@today-3 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "A70585DF-93A8-563F-8F28-9A8F23AB03EE",
+      "time": "@today-3 20:30",
+      "tag": "Guitar"
+    },
+    {
+      "id": "8E6AC99E-6BE7-59D6-A6DA-301D7EC7567F",
+      "time": "@today-3 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "3D18366E-2785-5564-9CCD-D578A04990CF",
+      "time": "@today-2 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "D1C19798-F4EA-5E2C-9ECF-FCA31B81830F",
+      "time": "@today-2 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "A4A010F6-3E61-50F3-A08C-6DE23F0A0D21",
+      "time": "@today-2 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "B4BDECED-B6E6-5022-9CDD-8C4F337124ED",
+      "time": "@today-2 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "5631F372-1BD6-5958-A253-CD99BFD3B33D",
+      "time": "@today-2 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "F7FC5430-01C7-5D37-873F-8975D8D3174C",
+      "time": "@today-2 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "2448F1C5-77FF-5613-9ADC-3299EEB83884",
+      "time": "@today-2 18:40",
+      "tag": "chores"
+    },
+    {
+      "id": "57D0D8FA-7E4E-5DD3-AA14-39754073C0F0",
+      "time": "@today-2 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "2B737A8A-CAED-5006-9383-7F66B24789DB",
+      "time": "@today-2 20:30",
+      "tag": "fun"
+    },
+    {
+      "id": "721F0235-F469-5D89-A6B9-6F0E53A15AFA",
+      "time": "@today-2 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "AA837C31-C19F-5549-A129-A299F6760145",
+      "time": "@today-1 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "3618EFF1-D859-51B7-B2F6-AA2FC16AF6BF",
+      "time": "@today-1 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "3BDB6188-DACC-5775-A5FD-E75F92E98BC5",
+      "time": "@today-1 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "6843A541-9F3A-5F64-9EFB-071CBAE7A017",
+      "time": "@today-1 12:30",
+      "tag": "eat"
+    },
+    {
+      "id": "A27A14F8-8FC2-55FA-9FE7-A2013CBDD2B2",
+      "time": "@today-1 13:20",
+      "tag": "work"
+    },
+    {
+      "id": "D3F24430-87D4-59CE-86BA-8644611FAD55",
+      "time": "@today-1 18:00",
+      "tag": "commute"
+    },
+    {
+      "id": "C94FCF8B-2FD8-5FF1-83C7-FF55F598F50F",
+      "time": "@today-1 18:40",
+      "tag": "workout"
+    },
+    {
+      "id": "3D256927-74E6-52F8-BAA7-6B7E12272429",
+      "time": "@today-1 19:30",
+      "tag": "eat"
+    },
+    {
+      "id": "02DF10C7-37B3-578F-86F7-5A1C8F108C15",
+      "time": "@today-1 20:30",
+      "tag": "fun"
+    },
+    {
+      "id": "65F4927E-FFF1-50BB-BD59-6931F0B684CD",
+      "time": "@today-1 21:30",
+      "tag": "study"
+    },
+    {
+      "id": "C20C23A5-F69F-50E8-A0EB-60351BE07E34",
+      "time": "@today 07:35",
+      "tag": "eat"
+    },
+    {
+      "id": "F5F6E21D-83C5-5013-9D03-84497952259F",
+      "time": "@today 08:25",
+      "tag": "commute"
+    },
+    {
+      "id": "CB6EC6FA-AA51-5156-A883-F6294F72642B",
+      "time": "@today 09:10",
+      "tag": "work"
+    },
+    {
+      "id": "AEC13177-322E-5427-A7E2-8AE0133B6C0D",
+      "time": "@now-50m",
+      "tag": "eat"
+    },
+    {
+      "id": "8D703B5A-8959-5DA5-A3E8-CF9FA2E9766D",
+      "time": "@now-15m",
+      "tag": "work"
+    }
+  ],
+  "timers.activityTags": [
+    "Guitar",
+    "Reading"
+  ]
+}

@@ -10,6 +10,7 @@ enum CountdownNotifications {
 
     @MainActor
     static func reschedule(requestingAuthorization: Bool = false) {
+        guard AppData.drivesSystem else { return }
         let previous = queue
         queue = Task {
             await previous?.value
@@ -42,7 +43,7 @@ enum CountdownNotifications {
 
     private static func upcomingRequests(now: Date) -> [UNNotificationRequest] {
         let calendar = Calendar.current
-        let countdowns = UserDefaults.standard.data(forKey: Countdown.storageKey)
+        let countdowns = AppData.defaults.data(forKey: Countdown.storageKey)
             .flatMap { try? JSONDecoder().decode([Countdown].self, from: $0) } ?? []
         return countdowns
             .filter { $0.notification && $0.target > now }

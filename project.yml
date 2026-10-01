@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     iOS: "18.0"
     watchOS: "10.0"
+# Store region per install: `make <target> STORE=cn` (default us = Canada/US). Read via StoreRegion.current.
+settings:
+  base:
+    STORE: us
 targets:
   EveryTime:
     type: application
@@ -15,10 +19,15 @@ targets:
           - "Info.plist"
           - "EveryTime.entitlements"
       - Glance
+      # Demo mode's preset data (More → Demo).
+      - path: demo
+        type: folder
+        buildPhase: resources
     info:
       path: EveryTime/Info.plist
       properties:
         CFBundleDisplayName: Every Time
+        AppStoreRegion: $(STORE)
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.

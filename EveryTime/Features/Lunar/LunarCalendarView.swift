@@ -56,6 +56,10 @@ struct LunarCalendarView: View {
     }
 
     private func export(_ event: LunarEvent) async {
+        guard !AppData.isDemo else {
+            calendarMessage = "Demo mode doesn't add events to your Calendar."
+            return
+        }
         do {
             let ids = try await LunarCalendarExport.add(event)
             guard let index = events.firstIndex(where: { $0.id == event.id }) else { return }
