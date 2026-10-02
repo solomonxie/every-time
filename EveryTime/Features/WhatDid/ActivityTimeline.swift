@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// Full-width strip of time under a fixed center cursor. Drag to move through past days; tap anywhere to add a pin.
+/// Full-width strip of time under a fixed cursor near the right edge, so most of it shows the past. Drag to move through past days; long-press a pin for its options.
 /// One canvas, redrawn only by its own drag; the page hears the cursor only when the drag ends.
 struct ActivityTimeline: View {
-    static let hourWidth: CGFloat = 120
     static let height: CGFloat = 76
 
     let spans: [ActivitySpan]
@@ -15,12 +14,18 @@ struct ActivityTimeline: View {
     @Binding var cursor: Date?
     /// Jumps here when set, e.g. a range picked from History.
     @Binding var focus: Date?
-    let onTap: (Date) -> Void
+    var hourWidth: CGFloat = 48
+    /// Cursor position as a fraction of the width.
+    var anchor: CGFloat = 0.9
+    static let snap: TimeInterval = 5 * 60
+    let onHoldPin: (UUID) -> Void
     @GestureState private var drag: CGFloat = 0
+    @State private var width: CGFloat = 0
+    @State private var holding = false
 
     private var center: Date {
         let base = cursor ?? now
-        let moved = base.addingTimeInterval(-Double(drag / Self.hourWidth) * 3600)
+        let moved = base.addingTimeInterval(-Double(drag / hourWidth) * 3600)
         return min(now, max(start, moved))
     }
 
@@ -36,14 +41,20 @@ struct ActivityTimeline: View {
                 .updating($drag) { value, state, _ in state = value.translation.width }
                 .onEnded { value in
                     let base = cursor ?? now
-                    let moved = min(now, max(start, base.addingTimeInterval(-Double(value.translation.width / Self.hourWidth) * 3600)))
-                    cursor = now.timeIntervalSince(moved) < 60 ? nil : moved
+                    let moved = min(now, max(start, base.addingTimeInterval(-Double(value.translation.width / hourWidth) * 3600)))
+                    let snapped = Date(timeIntervalSinceReferenceDate: (moved.timeIntervalSinceReferenceDate / Self.snap).rounded() * Self.snap)
+                    cursor = now.timeIntervalSince(moved) < Self.snap / 2 ? nil : min(now, snapped)
                 }
         )
         .simultaneousGesture(
-            SpatialTapGesture().onEnded { tap in
-                onTap(min(now, center.addingTimeInterval(Double((tap.location.x - width / 2) / Self.hourWidth) * 3600)))
-            }
+            LongPressGesture(minimumDuration: 0.5)
+                .sequenced(before: DragGesture(minimumDistance: 0))
+                .onChanged { value in
+                    guard case .second(true, let touch?) = value, !holding else { return }
+                    holding = true
+                    if let pin = pin(near: touch.location.x, center: center) { onHoldPin(pin) }
+                }
+                .onEnded { _ in holding = false }
         )
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
         .onChange(of: focus) {
@@ -56,14 +67,22 @@ struct ActivityTimeline: View {
         .accessibilityLabel("Timeline at \(SleepNow.clock(center))")
     }
 
-    @State private var width: CGFloat = 0
+    private func pin(near x: CGFloat, center: Date) -> UUID? {
+        let time = center.addingTimeInterval(Double((x - width * anchor) / hourWidth) * 3600)
+        let tolerance = 20 / hourWidth * 3600
+        return spans
+            .map { ($0.id, abs($0.start.timeIntervalSince(time))) }
+            .filter { $0.1 <= tolerance }
+            .min { $0.1 < $1.1 }?.0
+    }
 
     private func draw(_ context: inout GraphicsContext, size: CGSize, center: Date) {
-        let hour = Self.hourWidth
-        let mid = size.width / 2
+        let hour = hourWidth
+        let mid = size.width * anchor
         func x(_ date: Date) -> CGFloat { mid + CGFloat(date.timeIntervalSince(center) / 3600) * hour }
         let from = center.addingTimeInterval(-Double(mid / hour) * 3600 - 3600)
-        let to = center.addingTimeInterval(Double(mid / hour) * 3600 + 3600)
+        let to = center.addingTimeInterval(Double((size.width - mid) / hour) * 3600 + 3600)
+        let labelEvery = hour < 30 ? 6 : hour < 60 ? 2 : 1
 
         // Hour ticks and labels.
         let calendar = Calendar.current
@@ -73,9 +92,11 @@ struct ActivityTimeline: View {
             context.fill(Path(CGRect(x: x(tick), y: 16, width: isMidnight ? 1.5 : 1, height: 56)),
                          with: .color(.secondary.opacity(isMidnight ? 0.6 : 0.3)))
             let label = isMidnight ? tick.formatted(.dateTime.weekday(.abbreviated).day()) : tick.formatted(.dateTime.hour())
-            context.draw(Text(label).font(.caption2.monospacedDigit().weight(isMidnight ? .semibold : .regular))
-                .foregroundStyle(isMidnight ? Color.primary : Color.secondary),
-                         at: CGPoint(x: x(tick) + 3, y: 7), anchor: .leading)
+            if isMidnight || calendar.component(.hour, from: tick) % labelEvery == 0 {
+                context.draw(Text(label).font(.caption2.monospacedDigit().weight(isMidnight ? .semibold : .regular))
+                    .foregroundStyle(isMidnight ? Color.primary : Color.secondary),
+                             at: CGPoint(x: x(tick) + 3, y: 7), anchor: .leading)
+            }
             tick = tick.addingTimeInterval(3600)
         }
 
