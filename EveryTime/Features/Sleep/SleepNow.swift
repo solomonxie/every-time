@@ -54,8 +54,8 @@ struct SleepNow {
     private static let splitHours = 3.0
     private static let bedtimeLead: TimeInterval = 90 * 60
     private static let lateAfterBed: TimeInterval = 2 * 3600
-    private static let cycle = SleepSuggestion.cycleLength
-    private static let fallAsleep = SleepSuggestion.fallAsleepTime
+    private static var cycle: TimeInterval { SleepSuggestion.cycleLength }
+    private static var fallAsleep: TimeInterval { SleepSuggestion.fallAsleepTime }
 
     let advice: NapAdvice
     let start: Date

@@ -6,6 +6,7 @@ struct JetLagProfileSheet: View {
     let onSave: (JetLagProfile) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var open: Field?
+    @State private var cycle = SleepCycle.current
 
     private enum Field { case bedtime, wake, age }
 
@@ -70,7 +71,7 @@ struct JetLagProfileSheet: View {
                 }
                 .listRowBackground(Theme.cardFill)
 
-                if showsAdvice { adviceSection }
+                if showsAdvice { adviceSection } else { cycleSection }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Your sleep")
@@ -81,12 +82,39 @@ struct JetLagProfileSheet: View {
             .bottomBar {
                 Button("Save") {
                     onSave(profile)
+                    if !showsAdvice { SleepCycle.current = cycle }
                     dismiss()
                 }
                 .buttonStyle(.primary)
             }
             .sensoryFeedback(.selection, trigger: profile)
         }
+    }
+
+    private var cycleSection: some View {
+        Section {
+            Stepper(value: $cycle.fallAsleepMinutes, in: SleepCycle.fallAsleepRange, step: 5) {
+                LabeledContent("Fall asleep in", value: "\(cycle.fallAsleepMinutes) min")
+            }
+            Toggle(isOn: $cycle.usesHealth) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Cycle length from Health")
+                    Text(cycle.healthMinutes.map { "\($0) min, from \(cycle.healthCount) cycles your Watch recorded" }
+                         ?? "Not enough Watch sleep stages yet")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            LabeledContent("Cycle length", value: "\(cycle.minutes) min")
+        } header: {
+            SectionLabel(title: "Sleep cycles") {
+                InfoButton(label: "About sleep cycles", text: """
+                    Suggested times are lights-out plus your fall-asleep time, then whole cycles. \
+                    Most people take 10–20 min to drift off. A cycle averages 90 min but runs 70–120 \
+                    from person to person; with an Apple Watch, yours is measured from REM to REM.
+                    """)
+            }
+        }
+        .listRowBackground(Theme.cardFill)
     }
 
     private var adviceSection: some View {

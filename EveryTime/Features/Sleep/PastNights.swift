@@ -41,15 +41,44 @@ enum PastNights {
         (try? await store.requestAuthorization(toShare: [], read: [type])) != nil
     }
 
-    static func load(days: Int = 14, now: Date = .now) async -> [PastNight] {
+    private static func samples(days: Int, now: Date) async -> [HKCategorySample] {
         let from = now.addingTimeInterval(-Double(days + 1) * 86_400)
         let descriptor = HKSampleQueryDescriptor(
             predicates: [.categorySample(type: type, predicate: HKQuery.predicateForSamples(withStart: from, end: now))],
             sortDescriptors: [SortDescriptor(\.startDate)])
-        guard let samples = try? await descriptor.result(for: store) else { return [] }
+        return (try? await descriptor.result(for: store)) ?? []
+    }
+
+    static func load(days: Int = 14, now: Date = .now) async -> [PastNight] {
+        let samples = await samples(days: days, now: now)
         let asleep = samples.filter { HKCategoryValueSleepAnalysis.allAsleepValues.map(\.rawValue).contains($0.value) }
         let inBed = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
         return nights(from: merge((asleep.isEmpty ? inBed : asleep).map { ($0.startDate, $0.endDate) }))
+    }
+
+    /// Typical cycle length: median time between one REM spell's start and the next, from Watch sleep stages.
+    static func cycleEstimate(days: Int = 30, now: Date = .now) async -> (minutes: Int, count: Int)? {
+        let rem = await samples(days: days, now: now)
+            .filter { $0.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue }
+            .map { ($0.startDate, $0.endDate) }
+        return cycleEstimate(rem: rem)
+    }
+
+    /// REM bits under 20 min apart are one spell; gaps outside 60–150 min aren't one cycle.
+    static func cycleEstimate(rem: [(Date, Date)], minCount: Int = 10) -> (minutes: Int, count: Int)? {
+        let spells = rem.sorted { $0.0 < $1.0 }.reduce(into: [(Date, Date)]()) { out, next in
+            if let last = out.last, next.0.timeIntervalSince(last.1) < 20 * 60 {
+                out[out.count - 1].1 = max(last.1, next.1)
+            } else {
+                out.append(next)
+            }
+        }
+        let gaps = zip(spells, spells.dropFirst())
+            .map { $1.0.timeIntervalSince($0.0) / 60 }
+            .filter { (60...150).contains($0) }
+            .sorted()
+        guard gaps.count >= minCount else { return nil }
+        return (Int(gaps[gaps.count / 2].rounded()), gaps.count)
     }
 
     /// Overlapping intervals (Watch + iPhone) joined so no minute counts twice.
