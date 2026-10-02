@@ -5,6 +5,7 @@ struct WhatDidView: View {
     @Stored(ActivityLog.key) private var marks: [ActivityMark] = []
     @Stored(ActivityLog.tagsKey) private var customTags: [String] = []
     @State private var editing: ActivityMark?
+    @State private var held: ActivityMark?
     @State private var addsTag = false
     @State private var newTag = ""
     @State private var showsAllHistory = false
@@ -12,9 +13,30 @@ struct WhatDidView: View {
     @State private var cursor: Date?
     @State private var selected: UUID?
     @State private var focus: Date?
+    @State private var isFullScreen = false
+    /// The tile whose Start/End choice is showing, as "section:id".
+    @State private var choosing: String?
 
     private var log: ActivityLog { ActivityLog(marks: marks) }
-    private var activities: [Activity] { Activity.builtIn + customTags.map { Activity.of($0) } }
+    @Stored(ActivityLog.orderKey) private var tagOrder: [String] = []
+
+    /// Your drag-and-drop order; tags not placed yet follow in their default order.
+    private var activities: [Activity] {
+        let all = Activity.builtIn + customTags.map { Activity.of($0) }
+        let rank = Dictionary(tagOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+        return all.enumerated()
+            .sorted { (rank[$0.element.id] ?? tagOrder.count + $0.offset) < (rank[$1.element.id] ?? tagOrder.count + $1.offset) }
+            .map(\.element)
+    }
+
+    /// Drops `id` into `target`'s place.
+    private func move(_ id: String, to target: String) {
+        var ids = activities.map(\.id)
+        guard id != target, let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target) else { return }
+        ids.remove(at: from)
+        ids.insert(id, at: to)
+        withAnimation(.snappy) { tagOrder = ids }
+    }
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -41,23 +63,30 @@ struct WhatDidView: View {
                 }
                 }
                 .padding(.vertical, 8)
+                .background {
+                    if choosing != nil {
+                        Color.clear.contentShape(Rectangle()).onTapGesture { withAnimation(.snappy) { choosing = nil } }
+                    }
+                }
             }
+            .onScrollPhaseChange { _, phase in if phase != .idle { choosing = nil } }
         }
+        .onChange(of: cursor) { choosing = nil }
+        .onChange(of: selected) { choosing = nil }
         .animation(.snappy, value: marks.count)
         .sensoryFeedback(.impact(weight: .medium), trigger: marks.count)
         .navigationTitle("What did I do?")
         .navigationBarTitleDisplayMode(.inline)
-        .bottomBar {
-            HStack(spacing: Theme.spacing) {
-                if cursor != nil {
-                    Button("Now") { cursor = nil }
-                        .buttonStyle(.soft)
-                        .frame(maxWidth: 96)
-                }
-                Button { split(at: cursor ?? .now) } label: {
-                    Label(cursor.map { "Mark at \(SleepNow.clock($0))" } ?? "Mark now", systemImage: "hand.tap.fill")
-                }
-                .buttonStyle(.primary)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Full screen", systemImage: "arrow.up.left.and.arrow.down.right") { isFullScreen = true }
+            }
+        }
+        .fullScreenCover(isPresented: $isFullScreen) {
+            FullTimeline(marks: $marks, cursor: $cursor, focus: $focus, activities: activities,
+                         selected: selectedSpan, ends: endingRange, record: record) { id in
+                isFullScreen = false
+                held = marks.first { $0.id == id }
             }
         }
         .sheet(item: $editing) { mark in
@@ -66,6 +95,12 @@ struct WhatDidView: View {
             } onDelete: {
                 marks.removeAll { $0.id == mark.id }
             }
+        }
+        .confirmationDialog("Pin at \(held.map { SleepNow.clock($0.time) } ?? "")",
+                            isPresented: Binding { held != nil } set: { if !$0 { held = nil } },
+                            titleVisibility: .visible, presenting: held) { mark in
+            Button("Edit") { editing = mark }
+            Button("Delete", role: .destructive) { marks.removeAll { $0.id == mark.id } }
         }
         .alert("New activity", isPresented: $addsTag) {
             TextField("Name", text: $newTag)
@@ -90,38 +125,20 @@ struct WhatDidView: View {
                 }
                 .font(.system(.subheadline, design: .rounded, weight: .semibold))
             } else {
-                Text("Tap Mark now to start splitting your day. Tap the timeline anywhere to add a pin there; tap a History row to tag it.")
+                Text("Tap a tag when you finish something: the time since your last tap becomes that.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             ActivityTimeline(spans: spans, start: window.start, now: now, selected: target?.id,
-                             cursor: $cursor, focus: $focus) { split(at: $0) }
+                             cursor: $cursor, focus: $focus) { id in held = marks.first { $0.id == id } }
                 .padding(.horizontal, -Theme.padding)
             VStack(alignment: .leading, spacing: 8) {
-                if let target {
-                    Text("\(SleepNow.clock(target.start)) – \(target.isOpen ? "now" : SleepNow.clock(target.end)) · \(ActivityLog.duration(target.duration))")
-                        .font(.label)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-                FlowLayout(spacing: 8) {
-                    ForEach(activities) { item in
-                        ActivityChip(activity: item, isOn: target != nil && item.id == target?.tag) {
-                            if let target { tag(target, item) }
-                        }
-                        .contextMenu { chipMenu(item) }
-                    }
-                    Button { addsTag = true } label: {
-                        Label("New", systemImage: "plus")
-                            .font(.system(.subheadline, design: .rounded))
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: 36)
-                            .overlay(Capsule().strokeBorder(Theme.hairline))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .disabled(target == nil)
-                if let target {
+                Text(recordHint(spans: spans))
+                    .font(.label)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                tagGrid(activities, target: target, section: "all", showsNew: true)
+                if let target = selectedSpan {
                     Button("Edit or remove this pin", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == target.id } }
                         .buttonStyle(.borderless)
                         .font(.label)
@@ -131,9 +148,25 @@ struct WhatDidView: View {
         .padding(.vertical, 8)
     }
 
-    /// The tapped range, else the last closed one (the one Mark just made), else the open one.
+    /// The range a History tap picked, if any.
     private func target(in spans: [ActivitySpan]) -> ActivitySpan? {
-        spans.first { $0.id == selected } ?? (spans.count > 1 ? spans[spans.count - 2] : spans.last)
+        spans.first { $0.id == selected }
+    }
+
+    private var selectedSpan: ActivitySpan? { target(in: log.spans(at: .now)) }
+
+    /// What a tag tap will name.
+    private func recordHint(spans: [ActivitySpan]) -> String {
+        if let span = target(in: spans) {
+            return "Retag \(SleepNow.clock(span.start)) – \(span.isOpen ? "now" : SleepNow.clock(span.end))"
+        }
+        return "Tap a tag, then Start or End at \(SleepNow.clock(ActivityLog.rounded(cursor ?? .now)))"
+    }
+
+    /// The range an End tap would name: last pin up to the cursor or now.
+    private var endingRange: (start: Date, end: Date)? {
+        let end = ActivityLog.rounded(cursor ?? .now)
+        return log.spans(at: .now).last { $0.start < end }.map { ($0.start, end) }
     }
 
     /// Whole days from the first pin (at most two weeks back) through today.
@@ -149,7 +182,7 @@ struct WhatDidView: View {
     @ViewBuilder
     private func chipMenu(_ activity: Activity) -> some View {
         ForEach([5, 15, 30, 60], id: \.self) { minutes in
-            Button("Started \(minutes) min ago") { marks.append(ActivityMark(time: .now.addingTimeInterval(-Double(minutes) * 60), tag: activity.id)) }
+            Button("Started \(minutes) min ago") { marks.append(ActivityMark(time: ActivityLog.rounded(.now.addingTimeInterval(-Double(minutes) * 60)), tag: activity.id)) }
         }
         if customTags.contains(activity.id) {
             Button("Remove from list", systemImage: "minus.circle", role: .destructive) {
@@ -208,6 +241,71 @@ struct WhatDidView: View {
         SleepNow.clock(Calendar.current.clockTime(minutes: minutes, of: .now))
     }
 
+    /// Plain rows, not a lazy grid: the Start/End card overlaps neighbours and needs zIndex to sit on top.
+    private func tagGrid(_ items: [Activity], target: ActivitySpan?, section: String, showsNew: Bool = false) -> some View {
+        let cells: [Activity?] = items + (showsNew ? [nil] : [])
+        let rows = stride(from: 0, to: cells.count, by: 4).map { Array(cells[$0..<min($0 + 4, cells.count)]) }
+        return VStack(spacing: 8) {
+            ForEach(rows.indices, id: \.self) { r in
+                let isChoosing = rows[r].contains { $0.map { choosing == "\(section):\($0.id)" } ?? false }
+                HStack(spacing: 8) {
+                    ForEach(0..<4, id: \.self) { column in
+                        if column < rows[r].count, let item = rows[r][column] {
+                            tagCell(item, column: column, target: target, section: section)
+                        } else if column < rows[r].count {
+                            newTagTile
+                        } else {
+                            Color.clear.frame(maxWidth: .infinity, minHeight: 58)
+                        }
+                    }
+                }
+                .zIndex(isChoosing ? 1 : 0)
+            }
+        }
+    }
+
+    private func tagCell(_ item: Activity, column: Int, target: ActivitySpan?, section: String) -> some View {
+        let key = "\(section):\(item.id)"
+        return TagTile(activity: item, isOn: item.id == target?.tag || choosing == key) {
+            if target != nil { record(item, starts: false) } else { withAnimation(.snappy) { choosing = choosing == key ? nil : key } }
+        }
+        .contextMenu { chipMenu(item) }
+        .draggable(item.id) { TagTile(activity: item, isOn: true) {}.frame(width: 80) }
+        .dropDestination(for: String.self) { ids, _ in
+            guard let id = ids.first else { return false }
+            move(id, to: item.id)
+            return true
+        }
+        // Floats above the tile, kept on screen at the row's edges; a popover sometimes opened as a sheet.
+        .overlay(alignment: column == 0 ? .topLeading : column == 3 ? .topTrailing : .top) {
+            if choosing == key {
+                StartEndChoice(activity: item, ends: endingRange, at: ActivityLog.rounded(cursor ?? .now)) { starts in
+                    choosing = nil
+                    record(item, starts: starts)
+                }
+                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
+                .fixedSize()
+                .alignmentGuide(.top) { $0[.bottom] + 6 }
+                .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+            }
+        }
+        .zIndex(choosing == key ? 1 : 0)
+    }
+
+    private var newTagTile: some View {
+        Button { addsTag = true } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "plus").font(.title3)
+                Text("New").font(.caption2)
+            }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline))
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: History
 
     private func history(spans: [ActivitySpan]) -> some View {
@@ -221,12 +319,18 @@ struct WhatDidView: View {
             }
             ForEach(showsAllHistory ? recent : Array(recent.prefix(Self.foldedHistory))) { span in
                 Button {
-                    selected = span.id
-                    focus = span.start.addingTimeInterval(span.duration / 2)
+                    if selected == span.id {
+                        selected = nil
+                        cursor = nil
+                    } else {
+                        selected = span.id
+                        focus = span.start.addingTimeInterval(span.duration / 2)
+                    }
                 } label: { SpanRow(span: span, isOn: span.id == target(in: spans)?.id) }
                     .buttonStyle(.plain)
                     .contextMenu {
-                        Button("Edit pin", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == span.id } }
+                        Button("Edit", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == span.id } }
+                        Button("Delete", systemImage: "trash", role: .destructive) { marks.removeAll { $0.id == span.id } }
                     }
                     .whatDidRow()
             }
@@ -244,17 +348,35 @@ struct WhatDidView: View {
 
     // MARK: Changes
 
-    /// A new pin at `time`; the range it closes becomes the one the tags apply to.
-    private func split(at time: Date) {
-        let before = log.spans(at: .now).last { $0.start < time }
-        marks.append(ActivityMark(time: time, tag: nil))
-        selected = before?.id
+    /// One tap: retags a picked range; otherwise pins `cursor` or now and tags the range it starts or ends.
+    /// A pin at the same time is reused, so a wrong tap is fixed by tapping the right tag.
+    private func record(_ activity: Activity, starts: Bool) {
+        let spans = log.spans(at: .now)
+        if let span = target(in: spans) {
+            setTag(span.id, activity.id)
+            selected = nil
+            return
+        }
+        let time = ActivityLog.rounded(cursor ?? .now)
+        let near = marks.first { abs($0.time.timeIntervalSince(time)) < 120 }
+        if starts {
+            if let near { setTag(near.id, activity.id) } else { marks.append(ActivityMark(time: time, tag: activity.id)) }
+            return
+        }
+        guard let ending = spans.last(where: { $0.start < time }) else {
+            marks.append(ActivityMark(time: time, tag: activity.id))
+            return
+        }
+        if let near, let before = spans.last(where: { $0.start < near.time }) {
+            setTag(before.id, activity.id)
+        } else {
+            marks.append(ActivityMark(time: time, tag: nil))
+            setTag(ending.id, activity.id)
+        }
     }
 
-    /// Tapping the range's own tag clears it.
-    private func tag(_ span: ActivitySpan, _ activity: Activity) {
-        let tag = span.tag == activity.id ? nil : activity.id
-        marks = marks.map { $0.id == span.id ? ActivityMark(id: span.id, time: $0.time, tag: tag) : $0 }
+    private func setTag(_ id: UUID, _ tag: String?) {
+        marks = marks.map { $0.id == id ? ActivityMark(id: id, time: $0.time, tag: tag) : $0 }
     }
 
     private func addTag() {
@@ -264,6 +386,86 @@ struct WhatDidView: View {
             || $0.title.caseInsensitiveCompare(name) == .orderedSame })
         else { return }
         customTags.append(name)
+    }
+}
+
+/// The timeline alone, zoomable, to see whole days at once.
+private struct FullTimeline: View {
+    @Binding var marks: [ActivityMark]
+    @Binding var cursor: Date?
+    @Binding var focus: Date?
+    let activities: [Activity]
+    let selected: ActivitySpan?
+    let ends: (start: Date, end: Date)?
+    let record: (Activity, Bool) -> Void
+    @State private var open: String?
+    let onHoldPin: (UUID) -> Void
+    @State private var hourWidth: CGFloat = 40
+
+    private static let zoom: [CGFloat] = [10, 20, 40, 80, 120]
+
+    var body: some View {
+        SidewaysScreen(horizontalPadding: 36) {
+            TimelineView(.everyMinute) { context in
+                let now = max(context.date, .now)
+                let spans = ActivityLog(marks: marks).spans(at: now)
+                let start = Calendar.current.date(byAdding: .day, value: -14, to: Calendar.current.startOfDay(for: now)) ?? now
+                VStack(alignment: .leading, spacing: 12) {
+                    header
+                    Spacer(minLength: 0)
+                    ActivityTimeline(spans: spans, start: start, now: now, selected: selected?.id,
+                                     cursor: $cursor, focus: $focus, hourWidth: hourWidth, onHoldPin: onHoldPin)
+                    Spacer(minLength: 0)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(activities) { item in
+                                ActivityChip(activity: item, isOn: item.id == selected?.tag || item.id == open) {
+                                    if selected != nil { record(item, false) } else { withAnimation(.snappy) { open = open == item.id ? nil : item.id } }
+                                }
+                                if open == item.id {
+                                    StartEndChoice(activity: item, ends: ends, at: ActivityLog.rounded(cursor ?? .now), isCompact: true) { starts in
+                                        open = nil
+                                        record(item, starts)
+                                    }
+                                    .transition(.scale.combined(with: .opacity))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .gesture(MagnifyGesture().onEnded { value in step(value.magnification > 1 ? 1 : -1) })
+        .sensoryFeedback(.selection, trigger: hourWidth)
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            SidewaysCloseButton()
+            Text(cursor.map { $0.formatted(.dateTime.weekday(.abbreviated).hour().minute()) } ?? "Now")
+                .font(.clock(28))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            Spacer()
+            Group {
+                Button("Zoom out", systemImage: "minus.magnifyingglass") { step(-1) }
+                    .disabled(hourWidth == Self.zoom.first)
+                Button("Zoom in", systemImage: "plus.magnifyingglass") { step(1) }
+                    .disabled(hourWidth == Self.zoom.last)
+            }
+            .labelStyle(.iconOnly)
+            .font(.title3)
+            if cursor != nil {
+                Button("Now") { cursor = nil }
+                    .buttonStyle(.soft)
+                    .fixedSize()
+            }
+        }
+    }
+
+    private func step(_ by: Int) {
+        guard let i = Self.zoom.firstIndex(of: hourWidth) else { return }
+        withAnimation(.snappy) { hourWidth = Self.zoom[min(Self.zoom.count - 1, max(0, i + by))] }
     }
 }
 
@@ -278,6 +480,63 @@ private struct ElapsedSince: View {
                 .font(.clock(17, weight: .medium))
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Same-size square per tag: icon over name, so tags line up in a grid.
+struct TagTile: View {
+    let activity: Activity
+    let isOn: Bool
+    let select: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            VStack(spacing: 4) {
+                Image(systemName: activity.symbol).font(.title3)
+                Text(activity.title).font(.caption2.weight(isOn ? .semibold : .regular)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .padding(.horizontal, 4)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .foregroundStyle(isOn ? Color.white : activity.tint)
+            .background(isOn ? AnyShapeStyle(activity.tint) : AnyShapeStyle(activity.tint.opacity(0.12)),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(activity.title)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+/// After tapping a tag: did it start now, or end now (naming the range since the last pin)?
+struct StartEndChoice: View {
+    let activity: Activity
+    let ends: (start: Date, end: Date)?
+    let at: Date
+    var isCompact = false
+    let pick: (Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            option("Start", "play.fill", detail: "from \(SleepNow.clock(at))", starts: true)
+            if let ends {
+                option("End", "stop.fill", detail: "\(SleepNow.clock(ends.start))–\(SleepNow.clock(ends.end))", starts: false)
+            }
+        }
+        .padding(isCompact ? 0 : 8)
+    }
+
+    private func option(_ title: String, _ symbol: String, detail: String, starts: Bool) -> some View {
+        Button { pick(starts) } label: {
+            VStack(spacing: 2) {
+                Label(title, systemImage: symbol).font(.subheadline.weight(.semibold))
+                if !isCompact { Text(detail).font(.caption2.monospacedDigit()).opacity(0.8) }
+            }
+            .padding(.horizontal, 14)
+            .frame(minWidth: isCompact ? 70 : 96, minHeight: isCompact ? 36 : 54)
+            .foregroundStyle(starts ? Color.white : Color(.systemBackground))
+            .background(starts ? activity.tint : Color.primary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -443,7 +702,7 @@ private struct MarkEditor: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(mark)
+                        onSave(ActivityMark(id: mark.id, time: ActivityLog.rounded(mark.time), tag: mark.tag))
                         dismiss()
                     }
                 }
