@@ -2,8 +2,8 @@ import Foundation
 
 /// Where a sleep that started at `start` stands at `now`: whole cycles done, and whether this is a good moment to get up.
 struct WakeCheck: Equatable {
-    static let cycle = SleepSuggestion.cycleLength
-    static let fallAsleep = SleepSuggestion.fallAsleepTime
+    static var cycle: TimeInterval { SleepSuggestion.cycleLength }
+    static var fallAsleep: TimeInterval { SleepSuggestion.fallAsleepTime }
     /// Within this of a cycle's end counts as at the end.
     static let slack: TimeInterval = 15 * 60
 
@@ -34,6 +34,30 @@ struct WakeCheck: Equatable {
         if isFirstMinutes { return "Not asleep long enough to count." }
         if isAtCycleEnd { return "\(cyclesText) · a good moment to get up" }
         return "\(cyclesText) done · \(Int(toCycleEnd / 60)) min to the next end, ~\(SleepNow.clock(nextCycleEnd))"
+    }
+}
+
+/// Personal cycle timing: fall-asleep time you set, cycle length from Health once there's enough Watch data.
+struct SleepCycle: Codable, Equatable {
+    static let key = "sleep.cycle"
+    static let defaultMinutes = 90
+    static let fallAsleepRange = 5...45
+
+    var fallAsleepMinutes = 15
+    var usesHealth = true
+    var healthMinutes: Int?
+    var healthCount = 0
+
+    var minutes: Int { usesHealth ? healthMinutes ?? Self.defaultMinutes : Self.defaultMinutes }
+
+    static var current: SleepCycle {
+        get { AppData.defaults.decoded(key) ?? SleepCycle() }
+        set { AppData.defaults.encode(newValue, key); newValue.apply() }
+    }
+
+    func apply() {
+        SleepSuggestion.cycleLength = Double(minutes) * 60
+        SleepSuggestion.fallAsleepTime = Double(fallAsleepMinutes) * 60
     }
 }
 
