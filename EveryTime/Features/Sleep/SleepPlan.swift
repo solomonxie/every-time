@@ -30,8 +30,9 @@ enum SleepPlan {
         }
     }
 
-    static let cycle = SleepSuggestion.cycleLength
-    static let fallAsleep = SleepSuggestion.fallAsleepTime
+    static var cycle: TimeInterval { SleepSuggestion.cycleLength }
+    static var fallAsleep: TimeInterval { SleepSuggestion.fallAsleepTime }
+    static let allowanceNote = "Counted from lights out, not from falling asleep: \(Int(fallAsleep / 60)) min to drift off, then whole \(Int(cycle / 60))-min cycles."
     /// A bedtime this close counts as now.
     static let nowSlack: TimeInterval = 10 * 60
 
@@ -46,11 +47,17 @@ enum SleepPlan {
     }
 
     /// Bedtimes that end whole cycles at `wake`, latest first.
-    static func bedtimes(for wake: Date) -> [Row] {
-        (3...6).map { n in
+    static func bedtimes(for wake: Date, cycles: ClosedRange<Int> = 3...6) -> [Row] {
+        cycles.map { n in
             let length = fallAsleep + Double(n) * cycle
             return Row(cycles: n, time: wake.addingTimeInterval(-length), length: length)
         }
+    }
+
+    /// Woken early: falling asleep again from `now`, the last whole cycle ending by `alarm`.
+    static func backToSleep(now: Date, alarm: Date) -> (cycles: Int, time: Date)? {
+        let cycles = Int((alarm.timeIntervalSince(now) - fallAsleep) / cycle)
+        return cycles > 0 ? (cycles, now.addingTimeInterval(fallAsleep + Double(cycles) * cycle)) : nil
     }
 
     struct Answer: Equatable {

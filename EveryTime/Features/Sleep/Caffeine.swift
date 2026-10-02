@@ -52,12 +52,18 @@ struct CoffeeTile: View {
         let status = caffeine.status(now: now, bed: bed)
         let today = caffeine.today(now)
         let value = switch status.level {
-        case .low: "Till \(SleepNow.clock(Caffeine.cutoff(bed: bed)))"
-        case .some: "Wait"
-        case .high: "Stop"
+        case .low: "OK now"
+        case .some: "Not yet"
+        case .high: "Done today"
+        }
+        let cutoff = SleepNow.clock(Caffeine.cutoff(bed: bed))
+        let detail = switch status.level {
+        case .low: "Fine until \(cutoff)"
+        case .some: "Last cup under \(Int(Caffeine.minGap / 60)) min ago"
+        case .high: "Past \(cutoff) cutoff"
         }
         StatTile(symbol: "cup.and.saucer.fill", title: "Coffee", value: value, tint: status.level.tint,
-                 detail: today.last.map { "\(today.count) today · last \(SleepNow.clock($0))" } ?? "None today") {
+                 detail: detail + (today.isEmpty ? "" : " · \(today.count) today"), info: Self.info) {
             Button { drinks = caffeine.adding(now).drinks } label: {
                 Label("Log a cup", systemImage: "plus")
                     .font(.caption.weight(.semibold))
@@ -74,6 +80,12 @@ struct CoffeeTile: View {
         .accessibilityHint(status.text)
         .sensoryFeedback(.selection, trigger: drinks.count)
     }
+
+    static let info = """
+        Can I have a coffee now? Tap Log a cup when you drink one.
+        Cutoff is \(Int(Caffeine.hoursBeforeBed)) h before bed so it's mostly gone by night. \
+        Cups under \(Int(Caffeine.minGap / 60)) min apart add jitters, not alertness. Long-press to undo.
+        """
 }
 
 /// Small square on the Today row: a big value with a line under it.
@@ -83,13 +95,30 @@ struct StatTile<Footer: View>: View {
     let value: String
     let tint: Color
     let detail: String
+    let info: String
     @ViewBuilder var footer: Footer
+    @State private var showsInfo = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: symbol)
+            Button { showsInfo = true } label: {
+                HStack(spacing: 4) {
+                    Label(title, systemImage: symbol).foregroundStyle(tint)
+                    Spacer(minLength: 0)
+                    Image(systemName: "info.circle").foregroundStyle(.tertiary)
+                }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(tint)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showsInfo) {
+                Text(info)
+                    .font(.subheadline)
+                    .padding()
+                    .frame(idealWidth: 280)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .presentationCompactAdaptation(.popover)
+            }
             Text(value)
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .lineLimit(1)
@@ -109,7 +138,7 @@ struct StatTile<Footer: View>: View {
 }
 
 extension StatTile where Footer == EmptyView {
-    init(symbol: String, title: String, value: String, tint: Color, detail: String) {
-        self.init(symbol: symbol, title: title, value: value, tint: tint, detail: detail) { EmptyView() }
+    init(symbol: String, title: String, value: String, tint: Color, detail: String, info: String) {
+        self.init(symbol: symbol, title: title, value: value, tint: tint, detail: detail, info: info) { EmptyView() }
     }
 }

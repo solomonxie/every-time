@@ -112,11 +112,13 @@ struct SleepTimeView: View {
                 StatTile(symbol: "bolt.fill", title: "Energy",
                          value: energy.map { $0.formatted(.number.precision(.fractionLength(1))) + " / 5" } ?? "–",
                          tint: energy.map { EnergyChart.tint(Int($0.rounded())) } ?? .secondary,
-                         detail: energy == nil ? "Rate how you feel when you wake" : "Average on waking")
+                         detail: energy == nil ? "Rate how you feel after waking" : "How you felt waking, recently",
+                         info: Self.energyInfo)
                 StatTile(symbol: "bed.double.fill", title: "Sleep debt",
                          value: nights.isEmpty ? "–" : debt < 15 * 60 ? "None" : ActivityLog.duration(debt),
                          tint: debt >= 3 * 3600 ? Theme.Tone.bad : debt >= 3600 ? Theme.Tone.warn : Theme.Tone.good,
-                         detail: nights.isEmpty ? "Sleep or connect Health" : "Last 7 nights · \(streak)-day steady wake")
+                         detail: nights.isEmpty ? "Sleep or connect Health" : "Short of \(Int(profile.sleepHours)) h/night, last 7",
+                         info: Self.debtInfo(streak: streak))
             }
         }
     }
@@ -180,6 +182,11 @@ struct SleepTimeView: View {
     private func loadHealth() async {
         guard healthAsked else { return }
         health = await PastNights.load()
+        var cycle = SleepCycle.current
+        let estimate = await PastNights.cycleEstimate()
+        cycle.healthMinutes = estimate?.minutes
+        cycle.healthCount = estimate?.count ?? 0
+        if cycle != SleepCycle.current { SleepCycle.current = cycle }
         healthLoaded = true
     }
 
@@ -263,11 +270,24 @@ struct SleepTimeView: View {
         .padding(.top, 8)
     }
 
-    private static let howItWorks = """
-        A sleep cycle is about 90 minutes, plus ~15 to fall asleep; waking at a cycle's end feels easier. \
+    private static var howItWorks: String { """
+        A sleep cycle is about \(SleepCycle.current.minutes) minutes, plus ~\(SleepCycle.current.fallAsleepMinutes) to fall asleep; waking at a cycle's end feels easier. \
         Green: 5–6 cycles or a short nap. Orange: 3–4. Red: 1–2. Coffee cutoff is 8 h before your usual bed; \
         under 90 min since the last cup is too soon. A rough guide, not medical advice.
+        """ }
+
+    private static let energyInfo = """
+        How rested you've been. After each sleep or nap, rate how you feel 1–5; this averages your recent ratings.
+        Low? Try waking at a cycle's end or a shorter nap. The Energy trend shows which sleeps worked.
         """
+
+    private static func debtInfo(streak: Int) -> String {
+        """
+        Hours you slept under your usual amount over the last 7 nights. Under 1 h is fine; 3 h+ is worth catching up.
+        Pay it back with an earlier bedtime or a nap, not a long lie-in — waking at a steady time helps most \
+        (\(streak) \(streak == 1 ? "day" : "days") in a row so far).
+        """
+    }
 
     private static let nightsInfo = """
         Nights slept from here, plus the Health app's on days with nothing logged. Score 0–100: up to 60 for \

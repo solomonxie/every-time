@@ -11,7 +11,6 @@ struct SleepPlanner: View {
     /// Nil = now.
     @State private var bedAt: Date?
     @State private var editsTime = false
-    @State private var reminder: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -28,8 +27,6 @@ struct SleepPlanner: View {
             }
         }
         .sensoryFeedback(.selection, trigger: mode)
-        .sensoryFeedback(.success, trigger: reminder)
-        .task { reminder = await WindDown.pending() }
     }
 
     /// Tapping the chosen tile again opens its time.
@@ -75,24 +72,19 @@ struct SleepPlanner: View {
                         ?? (answer.nowWake == nil ? "Under a cycle left" : "Sleep now"),
                     detail: verdictDetail(answer, wake: wake))
             VStack(spacing: 6) {
-                ForEach(SleepPlan.bedtimes(for: wake).sorted { $0.time < $1.time }) { row in
-                    let isPast = row.time < now.addingTimeInterval(-SleepPlan.nowSlack)
-                    LadderRow(row: row, caption: "Fall asleep", status: isPast ? nil : SleepPlan.relative(row.time, now: now),
-                              note: nil, isPick: row == answer.wait, isDim: isPast) {
-                        if !isPast, row.time.addingTimeInterval(-WindDown.lead) > now { bell(for: row.time) }
+                ForEach(upcomingBedtimes(for: wake)) { row in
+                    Button { NapSession.plan(bed: row.time, wake: wake) } label: {
+                        LadderRow(row: row, caption: "In bed", status: SleepPlan.relative(row.time, now: now),
+                                  note: nil, isPick: row == answer.wait, isDim: false) {}
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            if let nowWake = answer.nowWake {
-                Button { NapSession.start(minutes: Self.minutes(until: nowWake)) } label: {
-                    Label("Sleep now · alarm \(SleepNow.clock(nowWake))", systemImage: "moon.zzz.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.primary)
-                .opacity(answer.sleepsNow ? 1 : 0.85)
-            } else {
-                napButton
-            }
+            Text(SleepPlan.allowanceNote).font(.footnote).foregroundStyle(.secondary)
+            Text("Tap a bedtime to set the \(SleepNow.clock(wake)) alarm and a wind-down reminder.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if answer.nowWake == nil { napButton }
         }
     }
 
@@ -105,18 +97,12 @@ struct SleepPlanner: View {
         return "\(answer.nowCycles) \(answer.nowCycles == 1 ? "cycle" : "cycles"), up at \(SleepNow.clock(nowWake))."
     }
 
-    private func bell(for bed: Date) -> some View {
-        let isSet = reminder == bed
-        return Button {
-            reminder = isSet ? nil : bed
-            Task { isSet ? WindDown.cancel() : await WindDown.schedule(bed: bed) }
-        } label: {
-            Image(systemName: isSet ? "bell.fill" : "bell")
-                .font(.subheadline)
-                .frame(width: 36, height: 36)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(isSet ? "Cancel wind-down reminder" : "Remind me to wind down 30 minutes before")
+    /// The 5 longest nights whose bedtime is still ahead, earliest first.
+    private func upcomingBedtimes(for wake: Date) -> [SleepPlan.Row] {
+        SleepPlan.bedtimes(for: wake, cycles: 1...8)
+            .filter { $0.time >= now.addingTimeInterval(-SleepPlan.nowSlack) }
+            .suffix(5)
+            .sorted { $0.time < $1.time }
     }
 
     // MARK: Sleep first
@@ -135,21 +121,17 @@ struct SleepPlanner: View {
             }
             VStack(spacing: 6) {
                 ForEach(rows) { row in
-                    let ladder = LadderRow(row: row, caption: "Wake up", status: isNow ? "alarm" : nil,
-                                           note: note(row, bed: bed, usualWake: usualWake), isPick: row == pick, isDim: false) {}
-                    if isNow {
-                        Button { NapSession.start(minutes: Self.minutes(until: row.time)) } label: { ladder }
-                            .buttonStyle(.plain)
-                    } else {
-                        ladder
+                    Button { NapSession.plan(bed: bed, wake: row.time) } label: {
+                        LadderRow(row: row, caption: "Wake up", status: "alarm",
+                                  note: note(row, bed: bed, usualWake: usualWake), isPick: row == pick, isDim: false) {}
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            if isNow {
-                Text("Tap a time to sleep now with that alarm.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            Text(SleepPlan.allowanceNote).font(.footnote).foregroundStyle(.secondary)
+            Text(isNow ? "Tap a time to sleep now with that alarm." : "Tap a time to set that alarm and a wind-down reminder.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -252,7 +234,7 @@ struct LadderRow<Accessory: View>: View {
             RoundedRectangle(cornerRadius: 2).fill(row.level.tint).frame(width: 4, height: 34)
             VStack(alignment: .leading, spacing: 3) {
                 Text(SleepNow.clock(row.time))
-                    .font(.clock(22, weight: isPick ? .bold : .regular))
+                    .font(.clock(22))
                 HStack(spacing: 6) {
                     CycleDots(count: row.cycles, tint: row.level.tint)
                     Text(row.cycles == 0 ? "\(NapAdvice.suggestedMinutes) min" : NapAdvice.hours(row.length / 3600))
@@ -280,8 +262,7 @@ struct LadderRow<Accessory: View>: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(isPick ? Color.indigo.opacity(0.12) : Theme.cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(isPick ? Color.indigo.opacity(0.5) : .clear))
+        .background(Theme.cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .opacity(isDim ? 0.4 : 1)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -318,10 +299,37 @@ struct AsleepCard: View {
     let now: Date
 
     var body: some View {
+        Group {
+            if now < nap.start { beforeBed } else { asleep }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.indigo.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .sensoryFeedback(.warning, trigger: now >= nap.alarm)
+    }
+
+    private var beforeBed: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("In bed at \(SleepNow.clock(nap.start))").font(.system(.title2, design: .rounded, weight: .bold))
+                Text("in \(ActivityLog.duration(nap.start.timeIntervalSince(now)))"
+                     + (nap.start.addingTimeInterval(-WindDown.lead) > now ? " · wind-down reminder at \(SleepNow.clock(nap.start.addingTimeInterval(-WindDown.lead)))" : ""))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            alarmLine(isUp: false)
+            Button { NapSession.inBedNow() } label: {
+                Label("I'm in bed now", systemImage: "moon.zzz.fill").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.primary)
+        }
+    }
+
+    private var asleep: some View {
         let check = WakeCheck(start: nap.start, now: now)
         let isUp = now >= nap.alarm
         let ends = (1...3).map { check.nextCycleEnd.addingTimeInterval(Double($0 - 1) * WakeCheck.cycle) }
-        VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(isUp ? "Time to get up" : check.isAtCycleEnd ? "Good moment to get up" : "Asleep")
                     .font(.system(.title2, design: .rounded, weight: .bold))
@@ -335,13 +343,8 @@ struct AsleepCard: View {
                           tint: .indigo, done: Double(check.cycles) + check.intoCycle / WakeCheck.cycle)
                 Text(check.detail).font(.footnote).foregroundStyle(.secondary)
             }
-            HStack(spacing: 8) {
-                Image(systemName: "alarm.fill").foregroundStyle(Color.indigo)
-                Text(SleepNow.clock(nap.alarm)).font(.clock(22, weight: .semibold))
-                if !isUp {
-                    Text("in \(ActivityLog.duration(nap.alarm.timeIntervalSince(now)))").font(.subheadline).foregroundStyle(.secondary)
-                }
-            }
+            alarmLine(isUp: isUp)
+            if !isUp, !check.isFirstMinutes { rightNow(check) }
             if !isUp {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Move the alarm to a cycle's end").font(.label).foregroundStyle(.secondary)
@@ -362,10 +365,36 @@ struct AsleepCard: View {
                 }
             }
         }
-        .padding(18)
+    }
+
+    private func alarmLine(isUp: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "alarm.fill").foregroundStyle(Color.indigo)
+            Text(SleepNow.clock(nap.alarm)).font(.clock(22, weight: .semibold))
+            if !isUp {
+                Text("in \(ActivityLog.duration(nap.alarm.timeIntervalSince(now)))").font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Woke before the alarm: get up now, or how much more sleep still ends on a cycle.
+    private func rightNow(_ check: WakeCheck) -> some View {
+        let back = SleepPlan.backToSleep(now: now, alarm: nap.alarm)
+        let upNow = check.isAtCycleEnd ? "Between cycles — getting up now should feel OK."
+            : "Mid-cycle — getting up now will likely feel groggy."
+        let more = back.map { "Back to sleep: \($0.cycles) more \($0.cycles == 1 ? "cycle" : "cycles") fit — up at \(SleepNow.clock($0.time))." }
+            ?? "Under a full cycle left before the alarm — better to get up now, or rest until it rings."
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Awake now?").font(.label).foregroundStyle(.secondary)
+            Text(upNow + " " + more).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            if let back, abs(back.time.timeIntervalSince(nap.alarm)) >= 120 {
+                Button("Set alarm to \(SleepNow.clock(back.time))") { NapSession.moveAlarm(to: back.time) }
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.indigo.opacity(0.08), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .sensoryFeedback(.warning, trigger: isUp)
+        .background(Theme.cardFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -440,7 +469,7 @@ enum WindDown {
         guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
         let content = UNMutableNotificationContent()
         content.title = "Time to wind down"
-        content.body = "Lights low, screens off — asleep by \(SleepNow.clock(bed))."
+        content.body = "Lights low, screens off — in bed by \(SleepNow.clock(bed))."
         content.userInfo = ["bed": bed.timeIntervalSince1970]
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, bed.addingTimeInterval(-lead).timeIntervalSinceNow), repeats: false)
         try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
