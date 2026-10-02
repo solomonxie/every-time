@@ -31,7 +31,7 @@ struct SleepTimeView: View {
             let nights = PastNight.merged(logged: naps, health: health)
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
-                    hero(now: now, naps: naps, profile: profile, advice: advice)
+                    hero(now: now, naps: naps, profile: profile)
                     if active == nil {
                         today(now: now, naps: naps, nights: nights, profile: profile, advice: advice)
                     }
@@ -47,7 +47,7 @@ struct SleepTimeView: View {
             }
             // Only while asleep: an empty bottomBar still draws its padded backing.
             .safeAreaInset(edge: .bottom) {
-                if active != nil {
+                if let active, active.start <= now {
                     asleepControls
                         .padding(.horizontal, Theme.padding)
                         .padding(.top, 10)
@@ -75,14 +75,14 @@ struct SleepTimeView: View {
     // MARK: Hero
 
     @ViewBuilder
-    private func hero(now: Date, naps: [Nap], profile: JetLagProfile, advice: NapAdvice) -> some View {
+    private func hero(now: Date, naps: [Nap], profile: JetLagProfile) -> some View {
         if let active {
             AsleepCard(nap: active, now: now)
             NapAlarmStatus()
         } else if let woke = naps.first(where: { $0.energy == nil && $0.end <= now && now.timeIntervalSince($0.end) < 2 * 3600 }) {
             WokeCard(nap: woke)
         } else {
-            SleepPlanner(now: now, profile: profile, advice: advice)
+            SleepRing(now: now, profile: profile)
         }
     }
 
