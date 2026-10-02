@@ -17,6 +17,18 @@ enum WakeFit: Equatable {
         return .okay
     }
 
+    /// Naps stay short of a full cycle: best before deep sleep starts, worst in the middle of it.
+    static func nap(length: TimeInterval, fallAsleep: TimeInterval = SleepSuggestion.fallAsleepTime,
+                    cycle: TimeInterval = SleepSuggestion.cycleLength) -> WakeFit {
+        let phase = max(0, length - fallAsleep) / cycle
+        if phase <= deep.lowerBound { return .good }
+        return deep.contains(phase) ? .poor : .okay
+    }
+
+    func text(isNap: Bool) -> String {
+        isNap && self == .good ? "Wakes before deep sleep" : text
+    }
+
     var color: Color {
         switch self {
         case .good: Theme.Tone.good
@@ -34,7 +46,7 @@ enum WakeFit: Equatable {
     }
 }
 
-/// A 24-hour ring with now at the top: drag the night (and an optional nap) to see cycles and how waking would feel.
+/// A 24-hour ring like a clock, midnight at the top, with a pin at now: drag the night (and any naps) to see cycles and how waking would feel.
 struct SleepRing: View {
     let now: Date
     var profile = JetLagProfile()
@@ -48,17 +60,32 @@ struct SleepRing: View {
         var length: Int { end - start }
     }
 
-    private enum Part: Equatable { case night, nap }
-    private enum Grab: Equatable { case start(Part), end(Part), whole(Part, at: Int) }
+    private enum Part: Equatable { case night, nap(Int) }
+    private enum Grab: Equatable {
+        case start(Part), end(Part), whole(Part, at: Int), pin
 
-    @State private var night: Span?
-    @State private var nap: Span?
+        var part: Part? {
+            switch self {
+            case .start(let p), .end(let p), .whole(let p, _): p
+            case .pin: nil
+            }
+        }
+    }
+
+    @Stored("sleep.ring.night") private var storedNight: DateInterval? = nil
+    @Stored("sleep.ring.naps") private var storedNaps: [DateInterval] = []
     @State private var grab: Grab?
+    /// Whose length and cycles show under the ring: the last one touched.
+    @State private var focus = Part.night
+    /// Where the pin was dragged to plan from; nil = now.
+    @State private var cursor: Int?
+    /// One bright blink when a hold takes hold.
+    @State private var flash = false
 
     static let step = 10
     private static let day = 24 * 60
     private static let nightLengths = 20 ... 14 * 60
-    private static let napLengths = 10 ... 3 * 60
+    private static let napLengths = 10 ... 90
 
     /// The ring's top: now, floored to `step`.
     private var top: Date {
@@ -69,20 +96,29 @@ struct SleepRing: View {
     var body: some View {
         let night = plan.map(span) ?? night ?? usualNight
         VStack(spacing: 16) {
-            header(night: night)
+            let shown = plan == nil ? focusedNap : nil
+            header(night: shown ?? night, isNap: shown != nil)
             ring(night: night)
-            readout(night: night, side: 260)
+            readout(night: shown ?? night, isNap: shown != nil, side: 260)
             if let plan { waiting(plan) } else {
                 summary(night: night)
                 actions(night: night)
             }
         }
         .sensoryFeedback(.selection, trigger: night)
-        .sensoryFeedback(.selection, trigger: nap)
+        .sensoryFeedback(.selection, trigger: naps)
+        .sensoryFeedback(trigger: grab == nil) { _, released in released ? nil : .impact(weight: .medium) }
+        .onChange(of: grab == nil) { _, released in
+            guard !released else { return }
+            flash = true
+            withAnimation(.easeOut(duration: 0.35).delay(0.08)) { flash = false }
+        }
         .onChange(of: top) { (old: Date, new: Date) in
             let d = Int(new.timeIntervalSince(old) / 60)
-            self.night = self.night.flatMap { Self.elapse($0, by: d) }
-            nap = nap.flatMap { Self.elapse($0, by: d) }
+            // Once the night starts a new day begins: the day's naps are done.
+            if let bed = storedNight?.start, bed <= new { storedNaps.removeAll { $0.start < bed } }
+            if focusedNap == nil { focus = .night }
+            cursor = cursor.flatMap { $0 - d > 0 ? $0 - d : nil }
         }
     }
 
@@ -100,6 +136,24 @@ struct SleepRing: View {
         return Span(start: max(0, offset(plan.start)), end: min(Self.day, offset(plan.alarm)))
     }
 
+    /// Kept as clock times so they survive relaunches; past ones drop off.
+    private var night: Span? {
+        get { storedNight.flatMap { $0.end > top ? span($0) : nil } }
+        nonmutating set { storedNight = newValue.map(interval) }
+    }
+
+    private var naps: [Span] {
+        get { storedNaps.filter { $0.end > top }.map(span) }
+        nonmutating set { storedNaps = newValue.map(interval) }
+    }
+
+    private func span(_ interval: DateInterval) -> Span {
+        let offset = { (d: Date) in Int((d.timeIntervalSince(top) / 60).rounded()) }
+        return Span(start: max(0, offset(interval.start)), end: min(Self.day, offset(interval.end)))
+    }
+
+    private func interval(_ span: Span) -> DateInterval { DateInterval(start: date(span.start), end: date(span.end)) }
+
     private func date(_ offset: Int) -> Date { top.addingTimeInterval(Double(offset) * 60) }
 
     private func minutesOfDay(_ date: Date) -> Int {
@@ -107,7 +161,14 @@ struct SleepRing: View {
         return (c.hour ?? 0) * 60 + (c.minute ?? 0)
     }
 
-    private func fit(_ span: Span) -> WakeFit { WakeFit.of(length: Double(span.length) * 60) }
+    private func fit(_ span: Span, isNap: Bool = false) -> WakeFit {
+        isNap ? WakeFit.nap(length: Double(span.length) * 60) : WakeFit.of(length: Double(span.length) * 60)
+    }
+
+    private var focusedNap: Span? {
+        if case .nap(let i) = focus, naps.indices.contains(i) { return naps[i] }
+        return nil
+    }
 
     // MARK: Ring
 
@@ -115,32 +176,38 @@ struct SleepRing: View {
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
             let track = side * 0.17
-            let radius = (side - track) / 2
+            // Room outside the track for the pin's knob.
+            let radius = (side - track) / 2 - 18
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-            let point = { (offset: Double, r: CGFloat) in Self.point(offset, radius: r, center: center) }
+            let point = { (offset: Double, r: CGFloat) in self.point(offset, radius: r, center: center) }
             ZStack {
                 Circle().stroke(Color.primary.opacity(0.08), lineWidth: track)
                     .frame(width: radius * 2, height: radius * 2).position(center)
                 Circle().fill(Theme.cardFill).frame(width: (radius - track / 2 - 6) * 2, height: (radius - track / 2 - 6) * 2).position(center)
                 face(radius: radius - track / 2 - 14, point: point)
                 cycles(night, radius: radius, track: track, center: center)
-                arc(night, color: fit(night).color, width: track - 6, radius: radius, center: center)
-                if let nap {
-                    arc(nap, color: fit(nap).color.opacity(0.7), width: track * 0.55, radius: radius, center: center)
-                    handle("cup.and.saucer.fill", size: track * 0.62, isGrabbed: grab == .start(.nap))
+                arc(night, color: fit(night).color, width: track - 6, radius: radius, center: center, lit: lit(.night))
+                ForEach(Array((plan == nil ? naps : []).enumerated()), id: \.offset) { i, nap in
+                    arc(nap, color: fit(nap, isNap: true).color.opacity(0.7), width: track * 0.55, radius: radius, center: center, lit: lit(.nap(i)))
+                    handle("cup.and.saucer.fill", size: track * 0.62, isGrabbed: held(.start(.nap(i)), .nap(i)))
                         .position(point(Double(nap.start), radius))
-                    handle("alarm", size: track * 0.62, isGrabbed: grab == .end(.nap))
+                    handle("alarm", size: track * 0.62, isGrabbed: held(.end(.nap(i)), .nap(i)))
                         .position(point(Double(nap.end), radius))
                 }
-                handle("bed.double.fill", size: track - 10, isGrabbed: grab == .start(.night))
+                handle("bed.double.fill", size: track - 10, isGrabbed: held(.start(.night), .night))
                     .position(point(Double(night.start), radius))
-                handle("alarm.fill", size: track - 10, isGrabbed: grab == .end(.night))
+                handle("alarm.fill", size: track - 10, isGrabbed: held(.end(.night), .night))
                     .position(point(Double(night.end), radius))
-                Capsule().fill(.primary).frame(width: 3, height: track + 6).position(point(0, radius))
-                if let plan { countdown(to: plan.start, side: side).position(center) }
+                Capsule().fill(.primary.opacity(cursor == nil ? 1 : 0.35)).frame(width: 3, height: track + 6)
+                    .rotationEffect(.degrees(degrees(0))).position(point(0, radius))
+                if plan == nil { pin(radius: radius, track: track, point: point) }
+                if let plan { countdown(to: plan.start, side: side).position(center) } else { pinTime(side: side).position(center) }
             }
             .contentShape(Rectangle())
             .gesture(drag(night: night, center: center, radius: radius, track: track), including: plan == nil ? .all : .subviews)
+            .simultaneousGesture(SpatialTapGesture().onEnded { tap in
+                if plan == nil, let part = pick(tap.location, night: night, center: center, radius: radius, track: track)?.part { focus = part }
+            })
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityElement(children: .ignore)
@@ -148,11 +215,27 @@ struct SleepRing: View {
         .accessibilityValue("\(SleepNow.clock(date(night.start))) to \(SleepNow.clock(date(night.end))), \(fit(night).text)")
     }
 
-    private func arc(_ span: Span, color: Color, width: CGFloat, radius: CGFloat, center: CGPoint) -> some View {
+    private func lit(_ part: Part) -> Bool { flash && grab?.part == part }
+
+    /// That handle, or its whole range, is held.
+    private func held(_ handle: Grab, _ part: Part) -> Bool {
+        if grab == handle { return true }
+        if case .whole(let p, _) = grab { return p == part }
+        return false
+    }
+
+    private func arc(_ span: Span, color: Color, width: CGFloat, radius: CGFloat, center: CGPoint, lit: Bool) -> some View {
         Circle()
             .trim(from: Double(span.start) / Double(Self.day), to: Double(span.end) / Double(Self.day))
             .stroke(color.gradient, style: StrokeStyle(lineWidth: width, lineCap: .round))
-            .rotationEffect(.degrees(-90))
+            .overlay {
+                Circle()
+                    .trim(from: Double(span.start) / Double(Self.day), to: Double(span.end) / Double(Self.day))
+                    .stroke(.white, style: StrokeStyle(lineWidth: width, lineCap: .round))
+                    .opacity(lit ? 0.85 : 0)
+            }
+            .shadow(color: lit ? .white.opacity(0.8) : .clear, radius: lit ? 12 : 0)
+            .rotationEffect(.degrees(-90 + degrees(0)))
             .frame(width: radius * 2, height: radius * 2)
             .position(center)
     }
@@ -167,15 +250,15 @@ struct SleepRing: View {
                 let to = min(Double(Self.day), s + cycle * WakeFit.deep.upperBound)
                 Circle()
                     .trim(from: from / Double(Self.day), to: to / Double(Self.day))
-                    .stroke(Color.indigo.opacity(i < 3 ? 0.35 : 0.15), lineWidth: track * 0.3)
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: (radius + track * 0.5) * 2, height: (radius + track * 0.5) * 2)
+                    .stroke(Color.indigo.opacity(i < 3 ? 0.45 : 0.2), lineWidth: track * 0.2)
+                    .rotationEffect(.degrees(-90 + degrees(0)))
+                    .frame(width: (radius + track * 0.38) * 2, height: (radius + track * 0.38) * 2)
                     .position(center)
                 if s + cycle < Double(Self.day) {
                     Capsule().fill(.primary.opacity(0.6))
-                        .frame(width: 2, height: track * 0.5)
-                        .rotationEffect(.degrees((s + cycle) / Double(Self.day) * 360))
-                        .position(Self.point(s + cycle, radius: radius + track * 0.5, center: center))
+                        .frame(width: 2, height: track * 0.24)
+                        .rotationEffect(.degrees(degrees(s + cycle)))
+                        .position(self.point(s + cycle, radius: radius + track * 0.38, center: center))
                 }
             }
         }
@@ -191,7 +274,7 @@ struct SleepRing: View {
                 Capsule()
                     .fill(Color.primary.opacity(isMajor ? 0.35 : 0.15))
                     .frame(width: isMajor ? 2 : 1.5, height: isMajor ? 8 : 5)
-                    .rotationEffect(.degrees(offset / Double(Self.day) * 360))
+                    .rotationEffect(.degrees(degrees(offset)))
                     .position(point(offset, radius))
                 if isMajor {
                     Text(Self.hourText(hour))
@@ -208,6 +291,40 @@ struct SleepRing: View {
         }
     }
 
+    /// Hold and drag along the rim to plan from a later time.
+    private func pin(radius: CGFloat, track: CGFloat, point: (Double, CGFloat) -> CGPoint) -> some View {
+        let at = Double(cursor ?? 0)
+        let isHeld = grab == .pin, isLit = flash && grab == .pin
+        return ZStack {
+            Capsule().fill(Color.orange.gradient).frame(width: 4, height: track + 10)
+                .shadow(color: .black.opacity(0.4), radius: 2)
+                .rotationEffect(.degrees(degrees(at))).position(point(at, radius))
+            Circle().fill(isLit ? AnyShapeStyle(.white) : AnyShapeStyle(Color.orange.gradient))
+                .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2))
+                .frame(width: 16, height: 16)
+                .shadow(color: isLit ? .orange : .black.opacity(0.3), radius: isLit ? 10 : 2)
+                .scaleEffect(isLit ? 1.6 : isHeld ? 1.3 : 1)
+                .position(point(at, radius + track / 2 + 9))
+        }
+        .animation(.snappy(duration: 0.2), value: isHeld)
+    }
+
+    /// The pin's time in the middle of the face: now, or how far ahead it's been dragged.
+    private func pinTime(side: CGFloat) -> some View {
+        let at = cursor ?? 0
+        return VStack(spacing: 2) {
+            Text(SleepNow.clock(cursor == nil ? now : date(at)))
+                .font(.clock(side * 0.09, weight: .semibold))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .foregroundStyle(cursor == nil ? Color.primary : Color.orange)
+            Text(cursor == nil ? "Now" : "in \(ActivityLog.duration(date(at).timeIntervalSince(now)))")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .animation(.snappy(duration: 0.15), value: at)
+    }
+
     private func handle(_ symbol: String, size: CGFloat, isGrabbed: Bool) -> some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.42, weight: .semibold))
@@ -217,24 +334,27 @@ struct SleepRing: View {
             .animation(.snappy(duration: 0.15), value: isGrabbed)
     }
 
-    private func readout(night: Span, side: CGFloat) -> some View {
-        let fit = fit(night)
+    private func readout(night: Span, isNap: Bool, side: CGFloat) -> some View {
+        let fit = fit(night, isNap: isNap)
         let cycles = max(0, Double(night.length) * 60 - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
         return VStack(spacing: 4) {
+            Label(isNap ? "Nap" : "Sleep", systemImage: isNap ? "cup.and.saucer.fill" : "bed.double.fill")
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             Text(NapAdvice.hours(Double(night.length) / 60))
                 .font(.clock(side * 0.11, weight: .regular))
                 .contentTransition(.numericText())
-            Text("\(cycles.formatted(.number.precision(.fractionLength(1)))) cycles")
+            Text(isNap ? "~\(max(0, night.length - Int(SleepSuggestion.fallAsleepTime / 60))) min asleep"
+                 : "\(cycles.formatted(.number.precision(.fractionLength(1)))) cycles")
                 .font(.subheadline).foregroundStyle(.secondary)
-            Label(fit.text, systemImage: fit == .good ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+            Label(fit.text(isNap: isNap), systemImage: fit == .good ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                 .font(.caption).foregroundStyle(fit == .poor ? Theme.Tone.bad : fit == .good ? Theme.Tone.good : .orange)
         }
     }
 
-    private func header(night: Span) -> some View {
+    private func header(night: Span, isNap: Bool) -> some View {
         HStack {
-            end("bed.double.fill", "Bedtime", night.start)
-            end("alarm.fill", "Wake up", night.end)
+            end(isNap ? "cup.and.saucer.fill" : "bed.double.fill", isNap ? "Nap" : "Bedtime", night.start)
+            end(isNap ? "alarm" : "alarm.fill", "Wake up", night.end)
         }
     }
 
@@ -290,67 +410,112 @@ struct SleepRing: View {
     private func summary(night: Span) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             row("bed.double.fill", "Sleep", night)
-            if let nap { row("cup.and.saucer.fill", "Nap", nap) }
-            if let nap, nap.end > night.start, nap.start < night.end {
-                Text("Nap overlaps the night").font(.footnote).foregroundStyle(Theme.Tone.warn)
-            } else if let nap, nap.end <= night.start {
+            ForEach(naps.sorted { $0.start < $1.start }, id: \.start) { row("cup.and.saucer.fill", "Nap", $0, isNap: true) }
+            if naps.contains(where: { $0.end > night.start && $0.start < night.end }) {
+                Text("A nap overlaps the night").font(.footnote).foregroundStyle(Theme.Tone.warn)
+            } else if let nap = naps.filter({ $0.end <= night.start }).max(by: { $0.end < $1.end }) {
                 let gap = night.start - nap.end
                 Text("Nap ends \(ActivityLog.duration(Double(gap) * 60)) before bed\(gap < 6 * 60 ? " — may delay falling asleep" : "")")
                     .font(.footnote).foregroundStyle(gap < 6 * 60 ? Theme.Tone.warn : .secondary)
             }
-            Text("Shaded: each cycle's deep sleep. Drag a handle to resize, the arc to move. \(Int(SleepSuggestion.fallAsleepTime / 60)) min to drift off.")
+            Text("Shaded: each cycle's deep sleep. Hold a handle to resize, or the arc to move. \(Int(SleepSuggestion.fallAsleepTime / 60)) min to drift off.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func row(_ symbol: String, _ title: String, _ span: Span) -> some View {
+    private func row(_ symbol: String, _ title: String, _ span: Span, isNap: Bool = false) -> some View {
         HStack {
             Label(title, systemImage: symbol).font(.subheadline.weight(.semibold))
             Spacer()
             Text("\(SleepNow.clock(date(span.start))) → \(SleepNow.clock(date(span.end)))").monospacedDigit()
-            Circle().fill(fit(span).color).frame(width: 10, height: 10)
+            Circle().fill(fit(span, isNap: isNap).color).frame(width: 10, height: 10)
         }
     }
 
     private func actions(night: Span) -> some View {
-        HStack(spacing: Theme.spacing) {
-            Button {
-                withAnimation(.snappy) { nap = nap == nil ? freeNap(night: night) : nil }
-            } label: {
-                Label(nap == nil ? "Add nap" : "Remove nap", systemImage: nap == nil ? "plus" : "minus")
+        VStack(spacing: 10) {
+        if let cursor {
+            HStack(spacing: Theme.spacing) {
+                Button("Now", systemImage: "arrow.uturn.backward") { withAnimation(.snappy) { self.cursor = nil } }
+                    .buttonStyle(.soft)
+                Button("Sleep here", systemImage: "bed.double.fill") {
+                    withAnimation(.snappy) {
+                        self.night = Span(start: cursor, end: min(Self.day, cursor + night.length))
+                        focus = .night
+                    }
+                }
+                .buttonStyle(.soft)
             }
-            .buttonStyle(.soft)
-            .frame(maxWidth: 150)
-            Button { commit(nap.map { $0.start < night.start ? $0 : night } ?? night) } label: {
+        }
+        HStack(spacing: Theme.spacing) {
+            if case .nap(let i) = focus, focusedNap != nil {
+                Button {
+                    withAnimation(.snappy) { naps.remove(at: i); focus = .night }
+                } label: { Label("Remove nap", systemImage: "minus") }
+                .buttonStyle(.soft)
+            } else {
+                Button {
+                    withAnimation(.snappy) {
+                        naps.append(freeNap(night: night))
+                        focus = .nap(naps.count - 1)
+                    }
+                } label: { Label(cursor == nil ? "Add nap" : "Nap here", systemImage: "plus") }
+                .buttonStyle(.soft)
+            }
+            Button { commit((naps + [night]).min { $0.start < $1.start } ?? night) } label: {
                 Label("Set alarm", systemImage: "alarm.fill").frame(maxWidth: .infinity)
             }
             .buttonStyle(.primary)
         }
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
     }
 
     /// The first thing ahead gets the alarm: a nap before the night, else the night.
+    /// A nap leaves the ring once it's the one being slept.
     private func commit(_ span: Span) {
+        if let i = naps.firstIndex(of: span) { naps.remove(at: i); focus = .night }
         if span.start == 0 { NapSession.start(minutes: span.length) } else { NapSession.plan(bed: date(span.start), wake: date(span.end)) }
     }
 
-    /// 20 min from now if that's clear of the night, else 20 min after it.
+    /// The earliest gap from now that fits a nap clear of the night and other naps.
     private func freeNap(night: Span) -> Span {
-        let start = night.start >= 20 + 60 ? 0 : min(Self.day - 20, night.end + Self.step)
-        return Span(start: start, end: start + 20)
+        let length = Self.napLength
+        let taken = (naps + [night]).sorted { $0.start < $1.start }
+        var start = cursor ?? 0
+        for span in taken where span.start < start + length + Self.step {
+            start = max(start, span.end + Self.step)
+        }
+        start = min(start, Self.day - length)
+        return Span(start: start, end: start + length)
+    }
+
+    /// At least 25 min with 10+ min actually asleep, waking before deep sleep.
+    static var napLength: Int {
+        stride(from: 25, through: napLengths.upperBound, by: 5)
+            .first { Double($0) * 60 - SleepSuggestion.fallAsleepTime >= 10 * 60 && WakeFit.nap(length: Double($0) * 60) == .good } ?? 25
     }
 
     // MARK: Dragging
 
+    /// Hold to grab, then drag: a plain tap only picks which range the stats show.
     private func drag(night: Span, center: CGPoint, radius: CGFloat, track: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                let offset = Self.offset(at: value.location, center: center)
-                if grab == nil { grab = pick(value.startLocation, night: night, center: center, radius: radius, track: track) }
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
+            .sequenced(before: DragGesture(minimumDistance: 0))
+            .onChanged { sequence in
+                guard case .second(true, let value?) = sequence else { return }
+                let offset = self.offset(at: value.location, center: center)
+                if grab == nil {
+                    grab = pick(value.startLocation, night: night, center: center, radius: radius, track: track)
+                    if let part = grab?.part { focus = part }
+                }
                 guard let grab else { return }
                 switch grab {
                 case .start(let part): update(part) { Self.resize($0, start: offset > $0.end ? 0 : offset, lengths: lengths(part)) }
                 case .end(let part): update(part) { Self.resize($0, end: offset < $0.start ? Self.day : offset, lengths: lengths(part)) }
+                case .pin: cursor = offset == 0 || offset >= Self.day - Self.step ? nil : offset
                 case .whole(let part, let from):
                     update(part) { Self.shift($0, by: Self.wrap(offset - from + Self.day / 2) - Self.day / 2) }
                     self.grab = .whole(part, at: offset)
@@ -364,20 +529,22 @@ struct SleepRing: View {
     private func update(_ part: Part, _ change: (Span) -> Span) {
         switch part {
         case .night: night = change(night ?? usualNight)
-        case .nap: if let nap { self.nap = change(nap) }
+        case .nap(let i): if naps.indices.contains(i) { naps[i] = change(naps[i]) }
         }
     }
 
     /// Nearest handle, else the arc under the touch; the nap wins ties since it's smaller.
     private func pick(_ location: CGPoint, night: Span, center: CGPoint, radius: CGFloat, track: CGFloat) -> Grab? {
         let distance = hypot(location.x - center.x, location.y - center.y)
-        guard abs(distance - radius) < track / 2 + 16 else { return nil }
-        let gap = { (offset: Int) in Self.gap(location, Self.point(Double(offset), radius: radius, center: center)) }
+        guard abs(distance - radius) < track / 2 + 24 else { return nil }
+        let gap = { (offset: Int) in Self.gap(location, self.point(Double(offset), radius: radius, center: center)) }
+        let pinKnob = self.point(Double(cursor ?? 0), radius: radius + track / 2 + 9, center: center)
+        if Self.gap(location, pinKnob) < 24 { return .pin }
         var handles: [(Grab, CGFloat)] = [(.start(.night), gap(night.start)), (.end(.night), gap(night.end))]
-        if let nap { handles += [(.start(.nap), gap(nap.start)), (.end(.nap), gap(nap.end))] }
+        for (i, nap) in naps.enumerated() { handles += [(.start(.nap(i)), gap(nap.start)), (.end(.nap(i)), gap(nap.end))] }
         if let nearest = handles.min(by: { $0.1 < $1.1 }), nearest.1 < track * 0.8 { return nearest.0 }
-        let offset = Self.offset(at: location, center: center)
-        if let nap, (nap.start...nap.end).contains(offset) { return .whole(.nap, at: offset) }
+        let offset = self.offset(at: location, center: center)
+        if let i = naps.firstIndex(where: { ($0.start...$0.end).contains(offset) }) { return .whole(.nap(i), at: offset) }
         return (night.start...night.end).contains(offset) ? .whole(.night, at: offset) : nil
     }
 
@@ -398,25 +565,24 @@ struct SleepRing: View {
         return Span(start: span.start + d, end: span.end + d)
     }
 
-    /// Keeps a span on the same clock times as the top moves on; gone once it's over.
-    static func elapse(_ span: Span, by minutes: Int) -> Span? {
-        let end = span.end - minutes
-        return end > 0 ? Span(start: max(0, span.start - minutes), end: end) : nil
-    }
-
     static func wrap(_ minutes: Int) -> Int { (minutes % day + day) % day }
 
-    private static func point(_ offset: Double, radius: CGFloat, center: CGPoint) -> CGPoint {
-        let angle = offset / Double(day) * 2 * .pi
+    /// Clock face: midnight at the top, so an offset from now sits at its clock time.
+    private var rotation: Int { minutesOfDay(top) }
+
+    private func degrees(_ offset: Double) -> Double { (offset + Double(rotation)) / Double(Self.day) * 360 }
+
+    private func point(_ offset: Double, radius: CGFloat, center: CGPoint) -> CGPoint {
+        let angle = degrees(offset) * .pi / 180
         return CGPoint(x: center.x + radius * sin(angle), y: center.y - radius * cos(angle))
     }
 
     /// Clockwise from the top, snapped to `step`.
-    private static func offset(at location: CGPoint, center: CGPoint) -> Int {
+    private func offset(at location: CGPoint, center: CGPoint) -> Int {
         var angle = atan2(location.x - center.x, center.y - location.y)
         if angle < 0 { angle += 2 * .pi }
-        let raw = angle / (2 * .pi) * Double(day)
-        return min(day, Int((raw / Double(step)).rounded()) * step)
+        let raw = angle / (2 * .pi) * Double(Self.day) - Double(rotation)
+        return Self.wrap(Int((raw / Double(Self.step)).rounded()) * Self.step)
     }
 
     private static func gap(_ a: CGPoint, _ b: CGPoint) -> CGFloat { hypot(a.x - b.x, a.y - b.y) }
