@@ -1,8 +1,9 @@
 import Foundation
 
 struct SleepSuggestion: Identifiable, Equatable {
-    static let cycleLength: TimeInterval = 90 * 60
-    static let fallAsleepTime: TimeInterval = 15 * 60
+    /// Set by the app from the user's settings and Health.
+    nonisolated(unsafe) static var cycleLength: TimeInterval = 90 * 60
+    nonisolated(unsafe) static var fallAsleepTime: TimeInterval = 15 * 60
     static let cycleCounts = [6, 5, 4, 3]
     static let recommendedCycles = 5...6
 

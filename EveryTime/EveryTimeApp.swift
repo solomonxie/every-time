@@ -9,6 +9,7 @@ struct EveryTimeApp: App {
     init() {
         if AppData.isDemo { DemoSeed.seedIfNeeded() }
         NapAlarm.register()
+        SleepCycle.current.apply()
     }
 
     var body: some Scene {
