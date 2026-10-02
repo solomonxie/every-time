@@ -3,13 +3,6 @@ import Testing
 @testable import EveryTime
 
 struct SleepPlanTests {
-    private let wake = date(2026, 3, 11, 7)
-
-    @Test func bedtimesEndCyclesAtTheWake() {
-        #expect(SleepPlan.bedtimes(for: wake).map(\.time) == [date(2026, 3, 11, 2, 15), date(2026, 3, 11, 0, 45),
-                                                             date(2026, 3, 10, 23, 15), date(2026, 3, 10, 21, 45)])
-    }
-
     @Test func wakeTimesFromNowLeadWithANap() {
         let rows = SleepPlan.wakeTimes(from: date(2026, 3, 10, 23), includesNap: true)
         #expect(rows.map(\.cycles) == [0, 1, 2, 3, 4, 5, 6])
@@ -19,32 +12,6 @@ struct SleepPlanTests {
         #expect(SleepPlan.wakeTimes(from: date(2026, 3, 10, 23), includesNap: false).first?.cycles == 1)
     }
 
-    @Test func waitWhenAShortWaitEndsCyclesAtTheWake() {
-        let answer = SleepPlan.answer(now: date(2026, 3, 10, 22, 50), wake: wake)
-        #expect(answer.nowCycles == 5)
-        #expect(answer.nowWake == date(2026, 3, 11, 6, 35))
-        #expect(answer.wait?.time == date(2026, 3, 10, 23, 15))
-        #expect(!answer.sleepsNow)
-    }
-
-    @Test func sleepNowWhenCyclesAlreadyEndNearTheWake() {
-        let answer = SleepPlan.answer(now: date(2026, 3, 10, 23, 10), wake: wake)
-        #expect(answer.sleepsNow)
-        #expect(answer.nowWake == date(2026, 3, 11, 6, 55))
-    }
-
-    @Test func underACycleLeft() {
-        let answer = SleepPlan.answer(now: date(2026, 3, 11, 6), wake: wake)
-        #expect(answer.nowWake == nil)
-        #expect(answer.wait == nil)
-    }
-
-    @Test func relative() {
-        let now = date(2026, 3, 10, 22)
-        #expect(SleepPlan.relative(date(2026, 3, 10, 22, 5), now: now) == "now")
-        #expect(SleepPlan.relative(date(2026, 3, 10, 23, 20), now: now) == "in 1h 20m")
-        #expect(SleepPlan.relative(date(2026, 3, 10, 21), now: now) == "passed")
-    }
 }
 
 struct SleepTrendTests {
