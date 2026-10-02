@@ -15,20 +15,21 @@ struct Activity: Hashable, Identifiable {
     let tint: Color
 
     static let sleep = Activity(id: "sleep", title: "Sleep", symbol: "bed.double.fill", tint: .indigo)
-    static let wake = Activity(id: "wake", title: "Wake up", symbol: "sun.horizon.fill", tint: .orange)
+    static let wake = Activity(id: "wake", title: "Wake up", symbol: "sunrise.fill", tint: .orange)
     static let eat = Activity(id: "eat", title: "Eat", symbol: "fork.knife", tint: .green)
     static let nap = Activity(id: "nap", title: "Nap", symbol: "moon.zzz.fill", tint: .purple)
+    static let coffee = Activity(id: "coffee", title: "Coffee", symbol: "cup.and.saucer.fill", tint: .brown)
     static let untagged = Activity(id: "", title: "Untagged", symbol: "questionmark.circle", tint: .gray)
 
     static let builtIn: [Activity] = [
-        sleep, wake, eat, nap,
-        Activity(id: "work", title: "Work", symbol: "briefcase.fill", tint: .blue),
-        Activity(id: "rest", title: "Rest", symbol: "cup.and.saucer.fill", tint: .brown),
+        sleep, wake, nap, eat, coffee,
+        Activity(id: "work", title: "Work", symbol: "laptopcomputer", tint: .blue),
+        Activity(id: "study", title: "Study", symbol: "book.fill", tint: .cyan),
         Activity(id: "workout", title: "Workout", symbol: "figure.run", tint: .red),
         Activity(id: "commute", title: "Commute", symbol: "car.fill", tint: .teal),
-        Activity(id: "study", title: "Study", symbol: "book.fill", tint: .cyan),
+        Activity(id: "chores", title: "Chores", symbol: "bubbles.and.sparkles.fill", tint: .yellow),
+        Activity(id: "rest", title: "Rest", symbol: "sofa.fill", tint: .mint),
         Activity(id: "fun", title: "Fun", symbol: "gamecontroller.fill", tint: .pink),
-        Activity(id: "chores", title: "Chores", symbol: "house.fill", tint: .mint),
     ]
 
     static func of(_ tag: String?) -> Activity {
@@ -74,6 +75,7 @@ struct ActivityTypical: Equatable {
 struct ActivityLog {
     static let key = "timers.activityLog"
     static let tagsKey = "timers.activityTags"
+    static let orderKey = "timers.activityOrder"
     /// Shorter sleep than this is a nap, not a night.
     static let minNight: TimeInterval = 3 * 3600
 
@@ -172,15 +174,20 @@ struct ActivityLog {
 
 /// Writes from other pages (the nap alarm), outside SwiftUI views.
 extension ActivityLog {
+    /// Pins sit on 5-minute steps, rounded down so a new one is never in the future.
+    static func rounded(_ time: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: (time.timeIntervalSinceReferenceDate / 300).rounded(.down) * 300)
+    }
+
     static func record(_ activity: Activity, at time: Date = .now, in defaults: UserDefaults = AppData.defaults) {
         var marks: [ActivityMark] = defaults.decoded(key) ?? []
-        marks.append(ActivityMark(time: time, tag: activity.id))
+        marks.append(ActivityMark(time: rounded(time), tag: activity.id))
         defaults.encode(marks, key)
     }
 
     static func remove(_ activity: Activity, at time: Date, in defaults: UserDefaults = AppData.defaults) {
         var marks: [ActivityMark] = defaults.decoded(key) ?? []
-        marks.removeAll { $0.tag == activity.id && $0.time == time }
+        marks.removeAll { $0.tag == activity.id && ($0.time == time || $0.time == rounded(time)) }
         defaults.encode(marks, key)
     }
 }
