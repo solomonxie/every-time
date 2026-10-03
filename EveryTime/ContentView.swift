@@ -22,7 +22,7 @@ struct ContentView: View {
         }
         .onAppear {
             pinWhatDidOnce()
-            tab = savedTab
+            tab = ScreenshotHook.tab(pins: pins) ?? savedTab
             keepSelectionValid(fallback: pins[0].rawValue)
         }
         .onChange(of: tab) { savedTab = tab }

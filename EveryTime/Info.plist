@@ -19,21 +19,21 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Wakes you at the end of a nap, even in silent mode.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Finds events in your calendar to mark as important, adds lunar events, and shows board milestones.</string>
+	<string>Finds events in your calendar to mark as important and adds lunar events.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Adds your lunar events to the iPhone Calendar.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Shows your past nights of sleep from the Health app.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Boards show your Reminders lists as project boards; moving a card edits its reminder.</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.com.solomonxie.everytime</key>
