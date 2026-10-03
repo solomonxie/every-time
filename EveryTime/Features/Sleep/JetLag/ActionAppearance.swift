@@ -54,7 +54,7 @@ extension ActionKind {
         case .sleep: "Dark, cool, quiet room — keep this window even if you're not tired."
         case .sleepIfYouCan: "Try to sleep on the plane — eye mask and earplugs help."
         case .nap: "Keep it to 20–30 minutes to avoid grogginess."
-        case .melatonin: "0.5 mg. Not medical advice — check with a doctor."
+        case .melatonin: "Suggested timing only, not a dose. Not medical advice — ask a doctor or pharmacist first."
         case .flight: "In the air."
         }
     }

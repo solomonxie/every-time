@@ -71,7 +71,7 @@ enum JetLagNotifications {
         case .sleep: return ("🌙 Time to sleep", "Wake at \(end)")
         case .sleepIfYouCan: return ("🌙 Sleep if you can", "Until \(end)")
         case .nap: return ("😴 Nap if you can", "20–30 minutes")
-        case .melatonin: return ("💊 Melatonin", "0.5 mg now")
+        case .melatonin: return ("💊 Melatonin", "Suggested time, if your doctor agrees")
         case .caffeineOK, .flight: return (action.kind.title, "")
         }
     }
