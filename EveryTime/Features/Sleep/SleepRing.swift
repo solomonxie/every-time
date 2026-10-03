@@ -502,7 +502,7 @@ struct SleepRing: View {
 
     /// Hold to grab, then drag: a plain tap only picks which range the stats show.
     private func drag(night: Span, center: CGPoint, radius: CGFloat, track: CGFloat) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
+        LongPressGesture(minimumDuration: 0.15, maximumDistance: 12)
             .sequenced(before: DragGesture(minimumDistance: 0))
             .onChanged { sequence in
                 guard case .second(true, let value?) = sequence else { return }
