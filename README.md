@@ -1,6 +1,6 @@
 # Every Time
 
-> 🚧 Work in progress — iPhone app, widget and watch functional (Wait times is sample data). Docs: `docs/design/iphone-v1/`, `docs/design/boards/`.
+> 🚧 Work in progress — iPhone app, widget and watch functional. Docs: `docs/design/iphone-v1/`, `docs/design/boards/`.
 
 Everything about time, in one free iPhone app.
 
@@ -28,7 +28,7 @@ Everything about time, in one free iPhone app.
 - **Countdown** — count down to any date/time; the biggest remaining unit
   is the hero (days, then hours, minutes, seconds), sideways full screen,
   and fireworks or confetti, sound, vibration and a notification when it ends.
-- **Boards** (coming soon — code kept, page shows a placeholder) — ZenHub-style project boards stored in Reminders: a list is a
+- **Boards** (on hold for 1.0 — code kept, excluded from the build in `project.yml`) — ZenHub-style project boards stored in Reminders: a list is a
   board, a reminder is a card, completed is Done. Kanban columns with drag &
   drop, a roadmap of due dates and calendar milestones, and insights
   (burn-up, velocity, flow). Nothing leaves the phone (`docs/design/boards/`).
@@ -36,7 +36,7 @@ Everything about time, in one free iPhone app.
   timer, LeetCode timer with session history, work timer (clock in/out,
   breaks, daily history, CSV export), important events (from the
   iPhone Calendar or by hand: time since, next anniversary, yearly reminder), on this day
-  (Wikipedia events, births, deaths, holidays for any date), wait times,
+  (Wikipedia events, births, deaths, holidays for any date),
   Unix timestamp, timestamp converter, cron parser. Timers open a full-screen
   sideways clock. Settings: iCloud Drive and local zip backups
   (`EveryTime/Backup/README.md`).
@@ -86,6 +86,8 @@ project templates set up single-target watch apps.
 
 ## Screenshots
 
-| World | Sleep | Nap alarm | Lunar | More |
-|---|---|---|---|---|
-| <img src="docs/screenshots/world.png" width="160"> | <img src="docs/screenshots/sleep.png" width="160"> | <img src="docs/screenshots/nap.png" width="160"> | <img src="docs/screenshots/lunar.png" width="160"> | <img src="docs/screenshots/more.png" width="160"> |
+| | | |
+|:-:|:-:|:-:|
+| **World**<br><img src="docs/release/screenshots/6.9/01-world.jpg" width="250"> | **Sleep ring**<br><img src="docs/release/screenshots/6.9/02-sleep.jpg" width="250"> | **Nap alarm**<br><img src="docs/release/screenshots/6.9/03-nap.jpg" width="250"> |
+| **What did**<br><img src="docs/release/screenshots/6.9/04-what-did.jpg" width="250"> | **Jet lag planner**<br><img src="docs/release/screenshots/6.9/05-jet-lag.jpg" width="250"> | **Lunar**<br><img src="docs/release/screenshots/6.9/06-lunar.jpg" width="250"> |
+| **Countdowns**<br><img src="docs/release/screenshots/6.9/07-countdown.jpg" width="250"> | **More**<br><img src="docs/release/screenshots/6.9/08-more.jpg" width="250"> |  |
