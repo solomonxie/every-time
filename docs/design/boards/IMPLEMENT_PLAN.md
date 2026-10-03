@@ -17,7 +17,7 @@ Disjoint files over the store.
 - [x] T2.3 Roadmap + Insights (Swift Charts) — see `UIUX_DESIGN.md → Roadmap/Insights` — depends: T1.2
 
 ## Status
-On hold: More → Boards shows "Coming soon" (`ComingSoonView`); swap back to `BoardsListView()` in `AppTool.destination` to re-enable.
+On hold for 1.0: `Features/Boards` and `Board*` tests are excluded in `project.yml`, and the Reminders usage string is removed. To re-enable: drop those excludes, re-add `NSRemindersFullAccessUsageDescription`, and add `AppTool.boards` (title "Boards", symbol `rectangle.split.3x1`, destination `BoardsListView()`).
 
 ## Phase 3: Finish
 - [ ] T3.1 Docs (README, iphone-v1 DESIGN features, more.md), device install, walkthrough — depends: T2.*
