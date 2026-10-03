@@ -50,9 +50,25 @@ struct SleepCycle: Codable, Equatable {
 
     var minutes: Int { usesHealth ? healthMinutes ?? Self.defaultMinutes : Self.defaultMinutes }
 
+    /// Health-derived values live under a key outside `BackupSnapshot.keyPrefixes`, so they never reach iCloud Drive.
+    static let healthKey = "health.sleepCycle"
+    private enum CodingKeys: String, CodingKey { case fallAsleepMinutes, usesHealth }
+    private struct FromHealth: Codable { var minutes: Int?; var count: Int }
+
     static var current: SleepCycle {
-        get { AppData.defaults.decoded(key) ?? SleepCycle() }
-        set { AppData.defaults.encode(newValue, key); newValue.apply() }
+        get {
+            var cycle: SleepCycle = AppData.defaults.decoded(key) ?? SleepCycle()
+            if let health: FromHealth = AppData.defaults.decoded(healthKey) {
+                cycle.healthMinutes = health.minutes
+                cycle.healthCount = health.count
+            }
+            return cycle
+        }
+        set {
+            AppData.defaults.encode(newValue, key)
+            AppData.defaults.encode(FromHealth(minutes: newValue.healthMinutes, count: newValue.healthCount), healthKey)
+            newValue.apply()
+        }
     }
 
     func apply() {
