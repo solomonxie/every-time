@@ -8,7 +8,7 @@ APP     := EveryTime.app
 APP_ID  := com.example.everytime
 SIM     ?= iPhone 18 Pro
 
-.PHONY: project device sim
+.PHONY: project device sim build release screenshots
 
 project:
 	xcodegen generate
@@ -27,3 +27,18 @@ sim: project
 	open -a Simulator
 	xcrun simctl install "$(SIM)" $(DERIVED)/Build/Products/Debug-iphonesimulator/$(APP)
 	xcrun simctl launch "$(SIM)" $(APP_ID)
+
+# Compile check for a generic iPhone (app + widget + watch); no install.
+build: project
+	xcodebuild -scheme $(SCHEME) -destination 'generic/platform=iOS' -derivedDataPath $(DERIVED) \
+		-allowProvisioningUpdates -quiet build
+
+# Archive, sign for the App Store and upload — no Xcode Organizer.
+# Needs Local.xcconfig (Team ID) and the app record in App Store Connect. BUILD= pins the build number.
+release:
+	@git diff --quiet HEAD -- || echo "warning: uncommitted changes are going into this build"
+	scripts/release-ios.sh $(BUILD)
+
+# Resize iPhone shots to the App Store slots: make screenshots SHOTS=<dir>
+screenshots:
+	scripts/store-screenshots.sh $(SHOTS)

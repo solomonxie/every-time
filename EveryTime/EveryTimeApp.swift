@@ -7,6 +7,7 @@ struct EveryTimeApp: App {
     @AppStorage(AppData.demoKey, store: .standard) private var demoOn = false
 
     init() {
+        ScreenshotHook.apply()
         if AppData.isDemo { DemoSeed.seedIfNeeded() }
         NapAlarm.register()
         SleepCycle.current.apply()

@@ -6,3 +6,4 @@ xcuserdata/
 .swiftpm/
 .claude/worktrees/
 .env
+Local.xcconfig

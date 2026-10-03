@@ -5,9 +5,16 @@ options:
     iOS: "18.0"
     watchOS: "10.0"
 # Store region per install: `make <target> STORE=cn` (default us = Canada/US). Read via StoreRegion.current.
+# DEVELOPMENT_TEAM: gitignored Local.xcconfig via Signing.xcconfig (see Local.xcconfig.example). Never set it here.
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 settings:
   base:
     STORE: us
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
 targets:
   EveryTime:
     type: application
@@ -18,6 +25,8 @@ targets:
           - "**/README.md"
           - "Info.plist"
           - "EveryTime.entitlements"
+          # Boards on hold for 1.0 (Reminders access); drop this line, the test excludes and re-add AppTool.boards to ship it.
+          - "Features/Boards/**"
       - Glance
       # Demo mode's preset data (More → Demo).
       - path: demo
@@ -27,12 +36,14 @@ targets:
       path: EveryTime/Info.plist
       properties:
         CFBundleDisplayName: Every Time
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         AppStoreRegion: $(STORE)
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.
-        NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important, adds lunar events, and shows board milestones.
-        NSRemindersFullAccessUsageDescription: Boards show your Reminders lists as project boards; moving a card edits its reminder.
+        NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important and adds lunar events.
         NSHealthShareUsageDescription: Shows your past nights of sleep from the Health app.
         NSAlarmKitUsageDescription: Wakes you at the end of a nap, even in silent mode.
         # Keeps a nap alarm able to ring through the silent switch while the app is in the background.
@@ -52,6 +63,7 @@ targets:
         com.apple.developer.ubiquity-container-identifiers: [iCloud.com.example.everytime]
         com.apple.security.application-groups: [group.com.example.everytime]
         com.apple.developer.healthkit: true
+        com.apple.developer.usernotifications.time-sensitive: true
     dependencies:
       - target: EveryTimeWidgetExtension
         embed: true
@@ -60,8 +72,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: "YES"
@@ -80,6 +90,8 @@ targets:
     platform: iOS
     sources:
       - path: EveryTimeTests
+        excludes:
+          - "Board*.swift"
     dependencies:
       - target: EveryTime
     settings:
@@ -109,8 +121,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime.widget
         PRODUCT_NAME: EveryTimeWidget
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_FILE: EveryTimeWidget/Info.plist
@@ -128,11 +138,10 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime.watch
         PRODUCT_NAME: EveryTimeWatch
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: "YES"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: Every Time
         INFOPLIST_KEY_WKApplication: "YES"
         INFOPLIST_KEY_WKWatchOnly: "NO"
