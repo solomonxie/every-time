@@ -124,8 +124,8 @@ struct JetLagProfileSheet: View {
                         HStack(spacing: 6) {
                             Label("Melatonin", systemImage: "pills")
                             InfoButton(label: "About melatonin", text: """
-                                Not medical advice. Low-dose melatonin (0.5 mg) can help shift the body \
-                                clock earlier. Rules and dosing vary by country — check with a doctor first.
+                                Not medical advice. The plan only suggests when melatonin may help shift the \
+                                body clock earlier, never how much. Ask a doctor or pharmacist before taking it.
                                 """)
                         }
                     }
