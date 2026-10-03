@@ -10,10 +10,12 @@ struct MoreView: View {
     @Stored(WorkLog.key) private var workSpans: [WorkSpan] = []
     @Stored(ActivityLog.key) private var activityMarks: [ActivityMark] = []
 
+    @State private var path: [AppTool] = []
+
     private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 Text("More")
                     .font(.screenTitle)
@@ -42,6 +44,7 @@ struct MoreView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: AppTool.self) { $0.destination }
         }
+        .onAppear { if path.isEmpty { path = ScreenshotHook.morePath(pins: pins) } }
     }
 
     // MARK: Tools
@@ -95,8 +98,6 @@ struct MoreView: View {
             if let current = ActivityLog(marks: activityMarks).current {
                 Text(Activity.of(current.tag).title).font(.subheadline)
             }
-        case .boards:
-            Text("Soon").font(.label)
         default:
             EmptyView()
         }

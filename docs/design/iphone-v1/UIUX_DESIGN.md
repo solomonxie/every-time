@@ -16,8 +16,7 @@ TabView ─┬─ 1–4 pinned tools (default World · Sleep · Lunar; any tool 
                          ├─▶ LeetCode         ┘
                          └─▶ Countdown ── + ──▶ New countdown sheet
               DATES      ├─▶ Important events ── + ──▶ New event sheet
-                         ├─▶ On this day (Wikipedia)
-                         └─▶ Wait times (sample data)
+                         └─▶ On this day (Wikipedia)
               DEVELOPER  ├─▶ Unix timestamp
                          ├─▶ Timestamp converter
                          └─▶ Cron parser
