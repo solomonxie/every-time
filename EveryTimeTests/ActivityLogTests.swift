@@ -43,8 +43,8 @@ struct ActivityLogTests {
         let totals = log.totals(in: log.today(at: now), at: now)
         let sleep = totals.first(where: { $0.tag == "sleep" })?.time
         let untagged = totals.first(where: { $0.tag == nil })?.time
-        #expect(sleep == 7 * 3600)
-        #expect(untagged == 3600)
+        #expect(sleep == TimeInterval(7 * 3600))
+        #expect(untagged == TimeInterval(3600))
     }
 
     @Test func upSinceIsTheEndOfTheNightNotANap() {
