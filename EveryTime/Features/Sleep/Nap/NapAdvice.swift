@@ -3,24 +3,7 @@ import SwiftUI
 enum NapKey {
     static let naps = "sleep.naps"
     static let active = "sleep.nap.active"
-    static let night = "sleep.nap.night"
     static let caffeine = "sleep.caffeine"
-}
-
-/// Tonight's bedtime and tomorrow's wake, when they differ from usual; only counts on `day`.
-struct NightPlan: Codable, Equatable {
-    var day: Date
-    /// Minutes after midnight; before noon means after midnight.
-    var bed: Int
-    var wake: Int
-
-    func bedDate(calendar: Calendar = .current) -> Date {
-        calendar.clockTime(minutes: bed, daysAfter: bed < 12 * 60 ? 1 : 0, of: day)
-    }
-
-    func wakeDate(calendar: Calendar = .current) -> Date {
-        calendar.clockTime(minutes: wake, daysAfter: 1, of: day)
-    }
 }
 
 extension Calendar {
@@ -54,6 +37,8 @@ struct Nap: Identifiable, Codable, Hashable {
 
     static let nightLength: TimeInterval = 3 * 3600
     static let energyRange = 1...5
+    /// The three the page asks for: drained, OK, fresh.
+    static let energyChoices = [1, 3, 5]
 
     static func energyTitle(_ level: Int) -> String {
         switch level {
@@ -70,7 +55,10 @@ struct Nap: Identifiable, Codable, Hashable {
 struct ActiveNap: Codable, Equatable {
     var start: Date
     var minutes: Int
+    /// Alarm turned off part-way: sleep on until "I'm up".
+    var alarmOff: Bool?
     var alarm: Date { start.addingTimeInterval(Double(minutes) * 60) }
+    var ringsAlarm: Bool { alarmOff != true }
 }
 
 /// Rule-of-thumb nap guidance from usual sleep hours and age. A rough guide, not a sleep model.
@@ -85,7 +73,6 @@ struct NapAdvice {
     static let longMinutes = 90
 
     var profile: JetLagProfile
-    var plan: NightPlan?
     var calendar = Calendar.current
 
     private var isOlder: Bool { profile.age >= 60 }
@@ -97,25 +84,19 @@ struct NapAdvice {
 
     struct Day {
         var wake: Date
-        var usualBed: Date
         var bed: Date
         var nextWake: Date
 
-        var lateHours: Double { bed.timeIntervalSince(usualBed) / 3600 }
         var nightHours: Double { nextWake.timeIntervalSince(bed) / 3600 }
     }
 
-    /// This morning's usual wake, then tonight's bed and tomorrow's wake (planned or usual).
+    /// This morning's usual wake, then tonight's bed and tomorrow's wake.
     func day(of date: Date) -> Day {
         let start = calendar.startOfDay(for: date)
         let wake = calendar.clockTime(minutes: profile.usualWake, of: start)
-        var usualBed = calendar.clockTime(minutes: profile.usualBedtime, of: start)
-        if usualBed <= wake { usualBed = calendar.clockTime(minutes: profile.usualBedtime, daysAfter: 1, of: start) }
-        let nextWake = calendar.clockTime(minutes: profile.usualWake, daysAfter: 1, of: start)
-        guard let plan, calendar.isDate(plan.day, inSameDayAs: start) else {
-            return Day(wake: wake, usualBed: usualBed, bed: usualBed, nextWake: nextWake)
-        }
-        return Day(wake: wake, usualBed: usualBed, bed: plan.bedDate(calendar: calendar), nextWake: plan.wakeDate(calendar: calendar))
+        var bed = calendar.clockTime(minutes: profile.usualBedtime, of: start)
+        if bed <= wake { bed = calendar.clockTime(minutes: profile.usualBedtime, daysAfter: 1, of: start) }
+        return Day(wake: wake, bed: bed, nextWake: calendar.clockTime(minutes: profile.usualWake, daysAfter: 1, of: start))
     }
 
     /// The day `date` belongs to: before the planned wake it's still last night.
@@ -124,17 +105,12 @@ struct NapAdvice {
         return date < previous.nextWake ? previous : day(of: date)
     }
 
-    /// A full cycle before a night that runs 2+ h late banks sleep; otherwise a short refresher.
-    func suggestedMinutes(on date: Date) -> Int {
-        day(of: date).lateHours >= 2 ? Self.longMinutes : Self.suggestedMinutes
-    }
-
     /// The post-lunch dip, from about 6 h after waking, cut off so the suggested nap still ends well before bed.
     func window(on date: Date) -> DateInterval {
         let day = day(of: date)
         let start = day.wake.addingTimeInterval(6 * 3600)
-        let cap = day.wake.addingTimeInterval((8.5 + max(0, day.lateHours)) * 3600)
-        let latest = day.bed.addingTimeInterval(-calmHours * 3600 - Double(suggestedMinutes(on: date)) * 60)
+        let cap = day.wake.addingTimeInterval(8.5 * 3600)
+        let latest = day.bed.addingTimeInterval(-calmHours * 3600 - Double(Self.suggestedMinutes) * 60)
         let end = max(start.addingTimeInterval(3600), min(cap, latest))
         return DateInterval(start: start, end: end)
     }
@@ -147,22 +123,6 @@ struct NapAdvice {
         let length = hoursLeft >= calmHours + 3 || minutes <= (isOlder ? 20 : 30) ? 0
             : minutes <= (isOlder ? 60 : 90) ? 1 : 2
         return Level(rawValue: min(2, timing + length)) ?? .high
-    }
-
-    /// One line on how tonight's plan changes the advice, if it does.
-    func nightNote(on date: Date) -> String? {
-        let day = day(of: date)
-        if day.lateHours >= 2 {
-            return "Late night (\(Self.hours(day.nightHours)) of sleep) — a \(Self.longMinutes)-minute nap in the window banks sleep ahead of it."
-        }
-        if profile.sleepHours - day.nightHours >= 0.5 {
-            let bedBy = day.nextWake.addingTimeInterval(-profile.sleepHours * 3600)
-            return "Short night (\(Self.hours(day.nightHours))) — for your usual \(Self.hours(profile.sleepHours)), be in bed by \(bedBy.formatted(date: .omitted, time: .shortened)). Keep any nap short and early."
-        }
-        if day.lateHours <= -1 {
-            return "Early night — keep naps short and early."
-        }
-        return nil
     }
 
     static func hours(_ value: Double) -> String {

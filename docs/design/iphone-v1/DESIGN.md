@@ -26,7 +26,7 @@ or paid. One free app should cover them all.
 | Timers (More) | Stopwatch (laps), Interview countdown, Rehearsal (count down a talk slot, then count up overtime), LeetCode timer + persisted history |
 | Countdown (More) | countdowns to a date/time: focus unit biggest (days → hours → minutes → seconds), sideways full screen, fireworks/confetti + sound + vibration at zero, optional notification |
 | World (tab 1) | World Time Buddy–style (merged world clock + meeting planner): pinned cities, shared horizontal hour scroll across a week, center cursor, now marker, tappable overlap |
-| Sleep | bedtimes for a wake time, and wake times for "sleep now" — 90-min cycles + 15-min fall-asleep |
+| Sleep | one-tap "Sleep now" / "Nap now" with the alarm on a cycle end — `docs/design/sleep/` |
 | Jet lag planner | own tool (was a Sleep segment): per-trip light/sleep/caffeine/melatonin plan — `docs/design/jet-lag/` |
 | On this day (More) | Wikipedia feed per date: selected, events, births, deaths, holidays; tap → article; last copy per MM/DD cached offline |
 | Boards (on hold, not in the 1.0 build) | ZenHub-style boards over Reminders lists + Calendar milestones — `docs/design/boards/` |

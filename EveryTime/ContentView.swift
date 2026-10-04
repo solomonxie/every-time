@@ -22,11 +22,17 @@ struct ContentView: View {
         }
         .onAppear {
             pinWhatDidOnce()
-            tab = ScreenshotHook.tab(pins: pins) ?? savedTab
+            tab = ScreenshotHook.tab(pins: pins) ?? sleepTab ?? savedTab
             keepSelectionValid(fallback: pins[0].rawValue)
         }
         .onChange(of: tab) { savedTab = tab }
         .onChange(of: pinned) { keepSelectionValid(fallback: Self.moreTag) }
+    }
+
+    /// Opened while asleep: straight to the night screen.
+    private var sleepTab: String? {
+        let active: ActiveNap? = AppData.defaults.decoded(NapKey.active)
+        return active != nil && pins.contains(.sleep) ? AppTool.sleep.rawValue : nil
     }
 
     /// Adds What did to an existing tab bar once, if there's room.

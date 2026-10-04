@@ -3,22 +3,17 @@ import Testing
 @testable import EveryTime
 
 /// Usual 23:00 → 07:00, age 35, on 2026-03-10.
-func napAdvice(age: Int = 35, bed: Int = 23 * 60, plan: NightPlan? = nil) -> NapAdvice {
+func napAdvice(age: Int = 35, bed: Int = 23 * 60) -> NapAdvice {
     var profile = JetLagProfile()
     profile.age = age
     profile.usualBedtime = bed
-    return NapAdvice(profile: profile, plan: plan, calendar: gregorian())
+    return NapAdvice(profile: profile, calendar: gregorian())
 }
 
-func tonightPlan(bed: Int, wake: Int) -> NightPlan {
-    NightPlan(day: date(2026, 3, 10), bed: bed, wake: wake)
-}
-
-struct NightPlanTests {
+struct ClockTimeTests {
     @Test func bedBeforeNoonMeansAfterMidnight() {
-        #expect(tonightPlan(bed: 60, wake: 480).bedDate(calendar: gregorian()) == date(2026, 3, 11, 1))
-        #expect(tonightPlan(bed: 23 * 60, wake: 480).bedDate(calendar: gregorian()) == date(2026, 3, 10, 23))
-        #expect(tonightPlan(bed: 60, wake: 480).wakeDate(calendar: gregorian()) == date(2026, 3, 11, 8))
+        #expect(gregorian().clockTime(minutes: 60, daysAfter: 1, of: date(2026, 3, 10)) == date(2026, 3, 11, 1))
+        #expect(gregorian().clockTime(minutes: 23 * 60, of: date(2026, 3, 10)) == date(2026, 3, 10, 23))
     }
 }
 
@@ -38,25 +33,13 @@ struct NapAdviceTests {
         let day = napAdvice().day(of: date(2026, 3, 10, 14))
         #expect(day.wake == date(2026, 3, 10, 7))
         #expect(day.bed == date(2026, 3, 10, 23))
-        #expect(day.usualBed == day.bed)
         #expect(day.nextWake == date(2026, 3, 11, 7))
-        #expect(day.lateHours == 0)
         #expect(day.nightHours == 8)
     }
 
     @Test func bedAfterMidnightRollsToNextDay() {
         let day = napAdvice(bed: 60).day(of: date(2026, 3, 10, 14))
         #expect(day.bed == date(2026, 3, 11, 1))
-    }
-
-    @Test func plannedNightReplacesUsual() {
-        let advice = napAdvice(plan: tonightPlan(bed: 60, wake: 8 * 60))
-        let day = advice.day(of: date(2026, 3, 10, 9))
-        #expect(day.usualBed == date(2026, 3, 10, 23))
-        #expect(day.bed == date(2026, 3, 11, 1))
-        #expect(day.nextWake == date(2026, 3, 11, 8))
-        #expect(day.lateHours == 2)
-        #expect(advice.day(of: date(2026, 3, 11, 9)).bed == date(2026, 3, 11, 23))
     }
 
     @Test func beforeWakeStillBelongsToLastNight() {
@@ -70,15 +53,6 @@ struct NapAdviceTests {
         let window = napAdvice().window(on: date(2026, 3, 10))
         #expect(window.start == date(2026, 3, 10, 13))
         #expect(window.end == date(2026, 3, 10, 15, 30))
-        #expect(napAdvice().suggestedMinutes(on: date(2026, 3, 10)) == NapAdvice.suggestedMinutes)
-    }
-
-    @Test func lateNightStretchesWindowAndSuggestsFullCycle() {
-        let advice = napAdvice(plan: tonightPlan(bed: 60, wake: 8 * 60))
-        #expect(advice.suggestedMinutes(on: date(2026, 3, 10)) == NapAdvice.longMinutes)
-        let window = advice.window(on: date(2026, 3, 10))
-        #expect(window.start == date(2026, 3, 10, 13))
-        #expect(window.end == date(2026, 3, 10, 16, 30))
     }
 
     @Test func earlyBedCutsWindowButKeepsAnHour() {
@@ -106,16 +80,6 @@ struct NapAdviceTests {
     @Test func explicitBedOverridesDay() {
         let start = date(2026, 3, 10, 13)
         #expect(napAdvice().tonight(start: start, minutes: 20, bed: date(2026, 3, 10, 16)) == .high)
-    }
-
-    @Test func nightNotes() {
-        #expect(napAdvice().nightNote(on: date(2026, 3, 10)) == nil)
-        #expect(napAdvice(plan: tonightPlan(bed: 60, wake: 8 * 60)).nightNote(on: date(2026, 3, 10))
-            == "Late night (7h of sleep) — a 90-minute nap in the window banks sleep ahead of it.")
-        let short = napAdvice(plan: tonightPlan(bed: 23 * 60, wake: 6 * 60)).nightNote(on: date(2026, 3, 10))
-        #expect(short?.hasPrefix("Short night (7h) — for your usual 8h, be in bed by ") == true)
-        #expect(napAdvice(plan: tonightPlan(bed: 22 * 60, wake: 7 * 60)).nightNote(on: date(2026, 3, 10))
-            == "Early night — keep naps short and early.")
     }
 
     @Test func grogginess() {
