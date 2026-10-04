@@ -21,7 +21,6 @@ struct EveryTimeApp: App {
                 .defaultAppStorage(AppData.defaults)
                 .id(demoOn)
                 .task { await FirstRunRestore.runIfNeeded() }
-                .task { GlancePublisher.shared.activate() }
         }
         .onChange(of: scenePhase) { _, phase in
             GlancePublisher.shared.publish()

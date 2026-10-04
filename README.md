@@ -1,6 +1,6 @@
 # Every Time
 
-> 🚧 Work in progress — iPhone app, widget and watch functional. Docs: `docs/design/iphone-v1/`, `docs/design/boards/`.
+> 🚧 Work in progress — iPhone app and widget functional. Docs: `docs/design/iphone-v1/`, `docs/design/boards/`.
 
 Everything about time, in one free iPhone app.
 
@@ -42,11 +42,9 @@ Everything about time, in one free iPhone app.
   (`EveryTime/Backup/README.md`).
 
 - **Widgets** — World clock (small, medium, Lock Screen) and next Countdown.
-- **Apple Watch** — World times, upcoming countdowns, sleep-now wake times.
 
 The widget reads a snapshot of cities and countdowns from App Group
-`group.com.example.everytime`; the watch gets the same snapshot over
-WatchConnectivity (`Glance/`). The app publishes it whenever it moves between foreground and background.
+`group.com.example.everytime`(`Glance/`). The app publishes it whenever it moves between foreground and background.
 
 ## Setup
 
@@ -68,26 +66,14 @@ make device STORE=cn    # store region, default us (Canada/US)
 
 ## Demo mode
 
-More → Demo mode: instant switch to a separate store (`<bundle id>.demo-data`); real data, notifications, widget, watch and backups untouched. Doesn't read Health or write to Calendar. Off → back to real data.
+More → Demo mode: instant switch to a separate store (`<bundle id>.demo-data`); real data, notifications, widget and backups untouched. Doesn't read Health or write to Calendar. Off → back to real data.
 
 - Preset data: `demo/*.json`, store key → value (`app-storage.json` = plain `@AppStorage` values). Dates are relative: `"@today-1 23:40"`, `"@now-25m"`, `"@now+3h"`. Re-seeded daily or via More → Demo → Reset demo data.
-
-## Watch target note
-
-The watch app is built as a modern single-target app (`type: application`,
-`platform: watchOS`, `WKApplication = YES`) embedded in the iOS app, rather
-than XcodeGen's `application.watchapp2` product type. On Xcode 26+,
-`application.watchapp2` emits a stale "Embed Watch Content" copy phase that
-collides with Xcode's own product install step and fails the build with
-"Multiple commands produce ...EveryTimeWatch.app/EveryTimeWatch" — a known
-XcodeGen/Xcode incompatibility (yonaskolb/XcodeGen#1613). The plain
-`application` product type sidesteps it and is itself how modern Xcode
-project templates set up single-target watch apps.
 
 ## Screenshots
 
 | | | |
 |:-:|:-:|:-:|
-| **World**<br><img src="docs/release/screenshots/6.9/01-world.jpg" width="250"> | **Sleep ring**<br><img src="docs/release/screenshots/6.9/02-sleep.jpg" width="250"> | **Nap alarm**<br><img src="docs/release/screenshots/6.9/03-nap.jpg" width="250"> |
-| **What did**<br><img src="docs/release/screenshots/6.9/04-what-did.jpg" width="250"> | **Jet lag planner**<br><img src="docs/release/screenshots/6.9/05-jet-lag.jpg" width="250"> | **Lunar**<br><img src="docs/release/screenshots/6.9/06-lunar.jpg" width="250"> |
-| **Countdowns**<br><img src="docs/release/screenshots/6.9/07-countdown.jpg" width="250"> | **More**<br><img src="docs/release/screenshots/6.9/08-more.jpg" width="250"> |  |
+| **World**<br><img src="docs/release/screenshots/01-world.jpg" width="250"> | **Sleep ring**<br><img src="docs/release/screenshots/02-sleep.jpg" width="250"> | **Nap alarm**<br><img src="docs/release/screenshots/03-nap.jpg" width="250"> |
+| **What did**<br><img src="docs/release/screenshots/04-what-did.jpg" width="250"> | **Jet lag planner**<br><img src="docs/release/screenshots/05-jet-lag.jpg" width="250"> | **Lunar**<br><img src="docs/release/screenshots/06-lunar.jpg" width="250"> |
+| **Countdowns**<br><img src="docs/release/screenshots/07-countdown.jpg" width="250"> | **More**<br><img src="docs/release/screenshots/08-more.jpg" width="250"> |  |

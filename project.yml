@@ -3,7 +3,6 @@ options:
   bundleIdPrefix: com.example.everytime
   deploymentTarget:
     iOS: "18.0"
-    watchOS: "10.0"
 # Store region per install: `make <target> STORE=cn` (default us = Canada/US). Read via StoreRegion.current.
 # DEVELOPMENT_TEAM: gitignored Local.xcconfig via Signing.xcconfig (see Local.xcconfig.example). Never set it here.
 configFiles:
@@ -45,6 +44,7 @@ targets:
         NSCalendarsWriteOnlyAccessUsageDescription: Adds your lunar events to the iPhone Calendar.
         NSCalendarsFullAccessUsageDescription: Finds events in your calendar to mark as important and adds lunar events.
         NSHealthShareUsageDescription: Shows your past nights of sleep from the Health app.
+        NSHealthUpdateUsageDescription: Every Time never writes to the Health app. It only reads your sleep.
         NSAlarmKitUsageDescription: Wakes you at the end of a nap, even in silent mode.
         # Keeps a nap alarm able to ring through the silent switch while the app is in the background.
         UIBackgroundModes: [audio]
@@ -66,8 +66,6 @@ targets:
         com.apple.developer.usernotifications.time-sensitive: true
     dependencies:
       - target: EveryTimeWidgetExtension
-        embed: true
-      - target: EveryTimeWatch
         embed: true
     settings:
       base:
@@ -125,25 +123,3 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_FILE: EveryTimeWidget/Info.plist
         SKIP_INSTALL: "YES"
-
-  EveryTimeWatch:
-    type: application
-    platform: watchOS
-    sources:
-      - path: EveryTimeWatch
-      - Glance
-      - EveryTime/Models/WorldCity.swift
-      - EveryTime/Models/SleepSuggestion.swift
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime.watch
-        PRODUCT_NAME: EveryTimeWatch
-        SWIFT_VERSION: "5.0"
-        TARGETED_DEVICE_FAMILY: "4"
-        GENERATE_INFOPLIST_FILE: "YES"
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_CFBundleDisplayName: Every Time
-        INFOPLIST_KEY_WKApplication: "YES"
-        INFOPLIST_KEY_WKWatchOnly: "NO"
-        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.example.everytime
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
