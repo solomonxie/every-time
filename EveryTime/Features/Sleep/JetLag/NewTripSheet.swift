@@ -250,11 +250,10 @@ struct NewTripSheet: View {
             Text(date.wrappedValue.formatted(.dateTime.month(.abbreviated).day().hour().minute(), in: city.timeZone))
                 .monospacedDigit()
         } picker: {
-            DatePicker(title, selection: date)
-                .datePickerStyle(.wheel)
-                .labelsHidden()
+            MinuteWheel(date: date, showsDate: true, timeZone: city.timeZone)
                 .frame(maxWidth: .infinity)
-                .environment(\.timeZone, city.timeZone)
+                .frame(height: 180)
+                .clipped()
         }
     }
 
