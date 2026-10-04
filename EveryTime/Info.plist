@@ -34,6 +34,8 @@
 	<string>Adds your lunar events to the iPhone Calendar.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Shows your past nights of sleep from the Health app.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Every Time never writes to the Health app. It only reads your sleep.</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.com.example.everytime</key>
