@@ -1,10 +1,10 @@
 name: EveryTime
 options:
-  bundleIdPrefix: com.example.everytime
+  bundleIdPrefix: com.example
   deploymentTarget:
     iOS: "18.0"
 # Store region per install: `make <target> STORE=cn` (default us = Canada/US). Read via StoreRegion.current.
-# DEVELOPMENT_TEAM: gitignored Local.xcconfig via Signing.xcconfig (see Local.xcconfig.example). Never set it here.
+# DEVELOPMENT_TEAM and APP_BUNDLE_ID: gitignored Local.xcconfig via Signing.xcconfig (see Local.xcconfig.example). Never set them here.
 configFiles:
   Debug: Signing.xcconfig
   Release: Signing.xcconfig
@@ -48,9 +48,12 @@ targets:
         NSAlarmKitUsageDescription: Wakes you at the end of a nap, even in silent mode.
         # Keeps a nap alarm able to ring through the silent switch while the app is in the background.
         UIBackgroundModes: [audio]
+        # Read at runtime (AppIdentifier) so the source never hardcodes the bundle id.
+        AppGroupIdentifier: group.$(APP_BUNDLE_ID)
+        ICloudContainerIdentifier: iCloud.$(APP_BUNDLE_ID)
         # Makes the iCloud folder visible in Files, so backups there can be got at.
         NSUbiquitousContainers:
-          iCloud.com.example.everytime:
+          iCloud.$(APP_BUNDLE_ID):
             NSUbiquitousContainerIsDocumentScopePublic: true
             NSUbiquitousContainerName: Every Time
             NSUbiquitousContainerSupportedFolderLevels: Any
@@ -58,18 +61,27 @@ targets:
     entitlements:
       path: EveryTime/EveryTime.entitlements
       properties:
-        com.apple.developer.icloud-container-identifiers: [iCloud.com.example.everytime]
+        com.apple.developer.icloud-container-identifiers: [iCloud.$(APP_BUNDLE_ID)]
         com.apple.developer.icloud-services: [CloudDocuments]
-        com.apple.developer.ubiquity-container-identifiers: [iCloud.com.example.everytime]
-        com.apple.security.application-groups: [group.com.example.everytime]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.$(APP_BUNDLE_ID)]
+        com.apple.security.application-groups: [group.$(APP_BUNDLE_ID)]
         com.apple.developer.healthkit: true
         com.apple.developer.usernotifications.time-sensitive: true
     dependencies:
       - target: EveryTimeWidgetExtension
         embed: true
+    # Xcode expands $(…) in plist values but not in dictionary keys; rename the NSUbiquitousContainers key before signing.
+    postBuildScripts:
+      - name: Resolve NSUbiquitousContainers key
+        basedOnDependencyAnalysis: false
+        script: |
+          plist="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+          from='iCloud.$(APP_BUNDLE_ID)'; to="iCloud.$APP_BUNDLE_ID"
+          /usr/libexec/PlistBuddy -c "Print :NSUbiquitousContainers:$from" "$plist" >/dev/null 2>&1 || exit 0
+          /usr/libexec/PlistBuddy -c "Copy :NSUbiquitousContainers:$from :NSUbiquitousContainers:$to" -c "Delete :NSUbiquitousContainers:$from" "$plist"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: "YES"
@@ -94,7 +106,7 @@ targets:
       - target: EveryTime
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).tests
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: "YES"
@@ -114,10 +126,10 @@ targets:
     entitlements:
       path: EveryTimeWidget/EveryTimeWidget.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.example.everytime]
+        com.apple.security.application-groups: [group.$(APP_BUNDLE_ID)]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.everytime.widget
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widget
         PRODUCT_NAME: EveryTimeWidget
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: "YES"

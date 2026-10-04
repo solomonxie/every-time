@@ -6,7 +6,7 @@
 	<true/>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
-		<string>iCloud.com.example.everytime</string>
+		<string>iCloud.$(APP_BUNDLE_ID)</string>
 	</array>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
@@ -14,13 +14,13 @@
 	</array>
 	<key>com.apple.developer.ubiquity-container-identifiers</key>
 	<array>
-		<string>iCloud.com.example.everytime</string>
+		<string>iCloud.$(APP_BUNDLE_ID)</string>
 	</array>
 	<key>com.apple.developer.usernotifications.time-sensitive</key>
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.example.everytime</string>
+		<string>group.$(APP_BUNDLE_ID)</string>
 	</array>
 </dict>
 </plist>
