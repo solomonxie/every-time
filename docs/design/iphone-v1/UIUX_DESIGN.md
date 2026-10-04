@@ -33,7 +33,9 @@ TabView ─┬─ 1–4 pinned tools (default World · Sleep · Lunar; any tool 
 | More | last tab, grouped list → pushed pages; inline Tab bar + Settings | [uiux/more.md](uiux/more.md) |
 | 4 timers | pushed from More or pinned tab | [uiux/timers.md](uiux/timers.md) |
 | Countdown | pushed from More or pinned tab; detail + sideways full screen | [uiux/countdown.md](uiux/countdown.md) |
-| Sleep | tab page | [uiux/sleep.md](uiux/sleep.md) |
+| Sleep | tab page | [../sleep/UIUX_DESIGN.md](../sleep/UIUX_DESIGN.md); jet lag in [uiux/sleep.md](uiux/sleep.md) |
+| What did | tab page | [uiux/what-did.md](uiux/what-did.md) |
+| Feeling | tab page | [uiux/feeling.md](uiux/feeling.md) |
 | Lunar + Important events | tab page / pushed from More | [uiux/calendar.md](uiux/calendar.md) |
 | On this day | pushed from More or pinned tab | [uiux/on-this-day.md](uiux/on-this-day.md) |
 | Dev tools | pushed from More | [uiux/tools.md](uiux/tools.md) |

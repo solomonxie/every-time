@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var tab = ""
     /// Local only, so a restored backup doesn't pin it again.
     @AppStorage("migrated.pinWhatDid") private var pinnedWhatDid = false
+    @AppStorage("migrated.pinFeeling") private var pinnedFeeling = false
 
     private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
@@ -22,6 +23,7 @@ struct ContentView: View {
         }
         .onAppear {
             pinWhatDidOnce()
+            pinFeelingOnce()
             tab = ScreenshotHook.tab(pins: pins) ?? sleepTab ?? savedTab
             keepSelectionValid(fallback: pins[0].rawValue)
         }
@@ -42,6 +44,14 @@ struct ContentView: View {
         if pins.count < AppTool.maxPins, !pins.contains(.whatDid) {
             pinned = (pins + [.whatDid]).map(\.rawValue)
         }
+    }
+
+    /// Adds Feeling to the tab bar once; a full bar gives up its last pin.
+    private func pinFeelingOnce() {
+        guard !pinnedFeeling else { return }
+        pinnedFeeling = true
+        guard !pins.contains(.feeling) else { return }
+        pinned = (Array(pins.prefix(AppTool.maxPins - 1)) + [.feeling]).map(\.rawValue)
     }
 
     /// Unpinning the current tab lands on More, where the change was made.
