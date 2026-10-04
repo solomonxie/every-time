@@ -17,9 +17,9 @@ struct SleepTimeView: View {
     @Stored("sleep.plan.bed") private var storedBed: Date? = nil
     @Stored("sleep.plan.wake") private var storedWake: Date? = nil
     @State private var toast: Toast?
-    @State private var showsAllNights = false
-    @State private var showsAllNaps = false
+    @State private var showsAllHistory = false
     @State private var sheet: SheetKind?
+    @State private var editingNap: Nap?
 
     private enum SheetKind: String, Identifiable {
         case profile, log
@@ -60,15 +60,28 @@ struct SleepTimeView: View {
             ToolbarItem(placement: .topBarTrailing) { InfoButton(label: "How this works", text: Self.howItWorks) }
         }
         .task {
+            SleepCycle.relearn(from: storedNaps)
             await loadHealth()
             if NapAlarm.kind == .app { alarmBlocked = await NapAlarm.notificationsDenied }
         }
+        .onChange(of: storedNaps) { SleepCycle.relearn(from: storedNaps) }
         .sheet(item: $sheet) { kind in
             switch kind {
             case .profile:
                 JetLagProfileSheet(profile: storedProfile ?? JetLagProfile(), showsAdvice: false) { storedProfile = $0 }
             case .log:
                 LogNapSheet { log($0) }
+            }
+        }
+        .sheet(item: $editingNap) { nap in
+            SleepEditor(nap: nap) { edited in
+                storedNaps = storedNaps.map { $0.id == edited.id ? edited : $0 }.sorted { $0.start > $1.start }
+                ActivityLog.remove(.sleep, at: nap.start)
+                ActivityLog.remove(nil, at: nap.end)
+                ActivityLog.record(.sleep, at: edited.start)
+                ActivityLog.record(nil, at: edited.end)
+            } onDelete: {
+                delete(nap)
             }
         }
         .overlay(alignment: .bottom) { toastView }
@@ -97,11 +110,8 @@ struct SleepTimeView: View {
                     }
                     hoursLine(profile, nights: nights)
                 }
-                nightsSection(nights, profile: profile)
-                napsSection(naps, now: now, advice: advice)
-                if !nights.isEmpty || !EnergyChart.rated(naps).isEmpty {
-                    insights(nights: nights, naps: naps, profile: profile)
-                }
+                history(nights: nights, naps: naps, now: now, profile: profile, advice: advice)
+                        insights(nights: nights, naps: naps, profile: profile)
                 footer(profile)
             }
             .padding(.horizontal, Theme.padding)
@@ -235,9 +245,15 @@ struct SleepTimeView: View {
         let debt = SleepTrend.debt(nights, usualHours: profile.sleepHours)
         let energy = EnergyChart.mean(naps)
         let streak = SleepTrend.wakeStreak(nights, usualWake: profile.usualWake)
+        let cycle = SleepCycle.current
         return VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Insights")
             VStack(alignment: .leading, spacing: 14) {
+                Button { sheet = .profile } label: {
+                    insightRow("arrow.triangle.2.circlepath", "Cycle length", value: "\(cycle.minutes) min",
+                               tint: .indigo, detail: cycle.sourceText.prefix(1).uppercased() + cycle.sourceText.dropFirst(), info: Self.cycleInfo)
+                }
+                .buttonStyle(.plain)
                 if !nights.isEmpty {
                     insightRow("bed.double.fill", "Sleep debt",
                                value: debt < 15 * 60 ? "None" : ActivityLog.duration(debt),
@@ -279,24 +295,62 @@ struct SleepTimeView: View {
         }
     }
 
-    // MARK: Nights
+    // MARK: History
 
-    private func nightsSection(_ nights: [PastNight], profile: JetLagProfile) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    /// Every sleep, nights and naps together, newest first; tap a logged one to edit it.
+    private enum Entry: Identifiable {
+        case night(PastNight), nap(Nap)
+        var id: String { switch self { case .night(let n): "n\(n.id.timeIntervalSinceReferenceDate)"; case .nap(let n): n.id.uuidString } }
+        var end: Date { switch self { case .night(let n): n.end; case .nap(let n): n.end } }
+    }
+
+    private func history(nights: [PastNight], naps: [Nap], now: Date, profile: JetLagProfile, advice: NapAdvice) -> some View {
+        let short = naps.filter { !$0.isNight }
+        let entries = (nights.map(Entry.night) + short.map(Entry.nap)).sorted { $0.end > $1.end }
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                SectionLabel(title: "Nights") { InfoButton(label: "About nights", text: Self.nightsInfo) }
+                SectionLabel(title: "History") { InfoButton(label: "About history", text: Self.nightsInfo) }
                 Spacer()
                 Button { sheet = .log } label: { Image(systemName: "plus.circle.fill").font(.title3) }
                     .accessibilityLabel("Log past sleep")
             }
-            if nights.isEmpty {
-                Text("Nights you sleep from here show up with a score.").font(.subheadline).foregroundStyle(.secondary)
+            if entries.isEmpty {
+                Text("Nights and naps you sleep from here show up with a score.").font(.subheadline).foregroundStyle(.secondary)
             }
-            ForEach(showsAllNights ? nights : Array(nights.prefix(3))) { night in
-                PastNightRow(night: night, usualHours: profile.sleepHours)
+            if let nap = short.first(where: { $0.night == nil && !Calendar.current.isDate($0.start, inSameDayAs: now)
+                && now.timeIntervalSince($0.start) < 3 * 86_400 }) {
+                ratePrompt(nap)
             }
-            if nights.count > 3 {
-                Button(showsAllNights ? "Show less" : "Show all \(nights.count)") { showsAllNights.toggle() }.font(.label)
+            ForEach(showsAllHistory ? entries : Array(entries.prefix(5))) { entry in
+                switch entry {
+                case .night(let night):
+                    let own = night.source.flatMap { id in storedNaps.first { $0.id == id } }
+                    PastNightRow(night: night, usualHours: profile.sleepHours)
+                        .contentShape(Rectangle())
+                        .onTapGesture { if let own { editingNap = own } }
+                        .contextMenu {
+                            if let own {
+                                Button("Edit", systemImage: "slider.horizontal.3") { editingNap = own }
+                                Button("Delete", systemImage: "trash", role: .destructive) { delete(own) }
+                            } else {
+                                Text("From Health")
+                            }
+                        }
+                case .nap(let nap):
+                    NapRow(nap: nap, level: advice.tonight(start: nap.start, minutes: nap.minutes, bed: nap.bed))
+                        .contentShape(Rectangle())
+                        .onTapGesture { editingNap = nap }
+                        .contextMenu {
+                            Button("Edit", systemImage: "slider.horizontal.3") { editingNap = nap }
+                            ForEach(Nap.Night.allCases) { night in
+                                Button(night.title, systemImage: night.symbol) { rate(nap, night) }
+                            }
+                            Button("Delete", systemImage: "trash", role: .destructive) { delete(nap) }
+                        }
+                }
+            }
+            if entries.count > 5 {
+                Button(showsAllHistory ? "Show less" : "Show all \(entries.count)") { showsAllHistory.toggle() }.font(.label)
             }
             if PastNights.isAvailable, !healthAsked {
                 Button {
@@ -326,38 +380,6 @@ struct SleepTimeView: View {
         healthLoaded = true
     }
 
-    // MARK: Naps
-
-    @ViewBuilder
-    private func napsSection(_ naps: [Nap], now: Date, advice: NapAdvice) -> some View {
-        let short = naps.filter { !$0.isNight }
-        if !short.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Naps")
-                if let nap = short.first(where: { $0.night == nil && !Calendar.current.isDate($0.start, inSameDayAs: now)
-                    && now.timeIntervalSince($0.start) < 3 * 86_400 }) {
-                    ratePrompt(nap)
-                }
-                ForEach(showsAllNaps ? short : Array(short.prefix(3))) { nap in
-                    NapRow(nap: nap, level: advice.tonight(start: nap.start, minutes: nap.minutes, bed: nap.bed))
-                        .contextMenu {
-                            ForEach(Nap.Night.allCases) { night in
-                                Button(night.title, systemImage: night.symbol) { rate(nap, night) }
-                            }
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                storedNaps.removeAll { $0.id == nap.id }
-                                ActivityLog.remove(.sleep, at: nap.start)
-                                ActivityLog.remove(nil, at: nap.end)
-                            }
-                        }
-                }
-                if short.count > 3 {
-                    Button(showsAllNaps ? "Show less" : "Show all \(short.count)") { showsAllNaps.toggle() }.font(.label)
-                }
-            }
-        }
-    }
-
     private func ratePrompt(_ nap: Nap) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("How was the night after \(nap.start.formatted(.dateTime.weekday(.wide)))'s \(nap.minutes)-min nap?")
@@ -379,6 +401,12 @@ struct SleepTimeView: View {
         }
     }
 
+    private func delete(_ nap: Nap) {
+        storedNaps.removeAll { $0.id == nap.id }
+        ActivityLog.remove(.sleep, at: nap.start)
+        ActivityLog.remove(nil, at: nap.end)
+    }
+
     private func rate(_ nap: Nap, _ night: Nap.Night?) {
         var naps = storedNaps
         guard let i = naps.firstIndex(where: { $0.id == nap.id }) else { return }
@@ -386,7 +414,7 @@ struct SleepTimeView: View {
         storedNaps = naps
     }
 
-    // MARK: Footer
+    // MARK: Usual hours
 
     private func footer(_ profile: JetLagProfile) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -400,7 +428,6 @@ struct SleepTimeView: View {
             }
             .buttonStyle(.borderless)
         }
-        .padding(.top, 8)
     }
 
     private static var howItWorks: String { """
@@ -409,6 +436,12 @@ struct SleepTimeView: View {
         Green: 5–6 cycles or a short nap. Orange: 3–4. Red: 1–2. Coffee cutoff is 8 h before your usual bed; \
         under 90 min since the last cup is too soon. A rough guide, not medical advice.
         """ }
+
+    private static let cycleInfo = """
+        How long one sleep cycle runs for you. Each time you wake before the alarm the app notes how long \
+        you slept; after three such wakes it picks the length (70–120 min) that lands them on cycle ends, \
+        and the ring, chips and "wakes between cycles" use it. Tap to set it yourself instead.
+        """
 
     private static let energyInfo = """
         How rested you've been. After each sleep or nap, rate how you feel; this averages your recent ratings.
@@ -424,7 +457,8 @@ struct SleepTimeView: View {
     }
 
     private static let nightsInfo = """
-        Nights slept from here, plus the Health app's on days with nothing logged. Score 0–100: up to 60 for \
+        Nights and naps slept from here, plus the Health app's nights on days with nothing logged. A sleep \
+        shorter than one cycle is a nap. Score 0–100: up to 60 for \
         length against your usual hours, 20 for waking between cycles, 20 for how you felt. Sleep debt: hours \
         short of your usual over the last 7 nights. Steady wake: nights in a row up within 30 min of your usual time.
         """

@@ -8,6 +8,8 @@ struct PastNight: Identifiable, Equatable {
     let end: Date
     let asleep: TimeInterval
     var energy: Int? = nil
+    /// The logged sleep it comes from; nil for a night read from Health.
+    var source: UUID? = nil
 
     var id: Date { start }
 
@@ -17,9 +19,9 @@ struct PastNight: Identifiable, Equatable {
         for nap in logged.sorted(by: { $0.start < $1.start }) {
             if let last = nights.last, nap.start.timeIntervalSince(last.end) < 30 * 60 {
                 nights[nights.count - 1] = PastNight(start: last.start, end: nap.end, asleep: last.asleep + nap.duration,
-                                                     energy: nap.energy ?? last.energy)
+                                                     energy: nap.energy ?? last.energy, source: last.source)
             } else {
-                nights.append(PastNight(start: nap.start, end: nap.end, asleep: nap.duration, energy: nap.energy))
+                nights.append(PastNight(start: nap.start, end: nap.end, asleep: nap.duration, energy: nap.energy, source: nap.id))
             }
         }
         let own = nights.filter { $0.asleep >= Nap.nightLength }

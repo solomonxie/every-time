@@ -29,13 +29,15 @@ struct Nap: Identifiable, Codable, Hashable {
     var bed: Date?
     /// How you felt on waking, 1 (drained) to 5 (fresh).
     var energy: Int?
+    /// Woke on your own, before the alarm (or with none): these teach your cycle length.
+    var natural: Bool?
 
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
     var duration: TimeInterval { end.timeIntervalSince(start) }
-    /// Three hours or more counts as a night, not a nap.
+    /// A full cycle or more counts as a night; shorter is a nap.
     var isNight: Bool { duration >= Nap.nightLength }
 
-    static let nightLength: TimeInterval = 3 * 3600
+    static var nightLength: TimeInterval { SleepSuggestion.fallAsleepTime + SleepSuggestion.cycleLength }
     static let energyRange = 1...5
     /// The three the page asks for: drained, OK, fresh.
     static let energyChoices = [1, 3, 5]
