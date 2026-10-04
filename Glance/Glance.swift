@@ -11,7 +11,7 @@ struct Glance: Codable, Equatable {
     var cities: [WorldCity] = []
     var countdowns: [Countdown] = []
 
-    static let appGroup = "group.com.example.everytime"
+    static let appGroup = AppIdentifier.appGroup
     static let key = "glance"
 
     static var shared: UserDefaults { UserDefaults(suiteName: appGroup) ?? .standard }

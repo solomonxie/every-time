@@ -20,7 +20,7 @@ enum CloudDriveError: LocalizedError {
 /// Writes and deletes go through NSFileCoordinator so iCloud's daemon never sees a half-written file.
 /// Every call touches the filesystem or iCloud's daemon, so all are nonisolated async (off the main actor).
 enum CloudDrive {
-    static let containerID = "iCloud.com.example.everytime"
+    static let containerID = AppIdentifier.iCloudContainer
     static func status() async -> CloudDriveStatus {
         if documentsURL() != nil { return .ready }
         // Entitlement first: without it ubiquityIdentityToken reads nil, same as signed out.

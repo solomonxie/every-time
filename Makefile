@@ -1,11 +1,11 @@
 # STORE=us|cn (default us = Canada/US) → Info.plist AppStoreRegion.
-# DEVICE_UDID, TEAM_ID from env or a gitignored .env (see .env.example).
+# DEVICE_UDID, TEAM_ID from env or a gitignored .env (see .env.example); APP_ID from Local.xcconfig.
 -include .env
 STORE   ?= us
 SCHEME  := EveryTime
 DERIVED := build
 APP     := EveryTime.app
-APP_ID  := com.example.everytime
+APP_ID  := $(shell sed -n 's/^APP_BUNDLE_ID *= *//p' Local.xcconfig)
 SIM     ?= iPhone 18 Pro
 
 .PHONY: project device sim build release screenshots
