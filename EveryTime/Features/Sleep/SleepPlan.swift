@@ -36,9 +36,11 @@ enum SleepPlan {
         }
     }
 
-    /// Woken early: falling asleep again from `now`, the last whole cycle ending by `alarm`.
-    static func backToSleep(now: Date, alarm: Date) -> (cycles: Int, time: Date)? {
-        let cycles = Int((alarm.timeIntervalSince(now) - fallAsleep) / cycle)
-        return cycles > 0 ? (cycles, now.addingTimeInterval(fallAsleep + Double(cycles) * cycle)) : nil
+    /// Woken early: wake times on whole cycles after falling back asleep from `now`, up to one cycle past `alarm`.
+    static func backToSleepTimes(now: Date, alarm: Date, limit: Int = 4) -> [Row] {
+        wakeTimes(from: now, includesNap: false)
+            .filter { $0.time <= alarm.addingTimeInterval(cycle) }
+            .prefix(limit)
+            .map { $0 }
     }
 }
