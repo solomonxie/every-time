@@ -142,10 +142,10 @@ struct JetLagProfileSheet: View {
         } value: {
             Text(minutes.wrappedValue.timeOfDayText).monospacedDigit()
         } picker: {
-            DatePicker(title, selection: minutes.timeOfDay, displayedComponents: .hourAndMinute)
-                .datePickerStyle(.wheel)
-                .labelsHidden()
+            MinuteWheel(date: minutes.timeOfDay)
                 .frame(maxWidth: .infinity)
+                .frame(height: 180)
+                .clipped()
         }
     }
 
