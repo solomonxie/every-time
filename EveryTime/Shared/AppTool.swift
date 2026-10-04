@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
-    case world, sleep, whatDid, jetLag, lunar
+    case world, sleep, whatDid, feeling, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, work, countdown
     case since, onThisDay, unixTime, converter, cron
 
@@ -23,7 +23,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     var group: Group {
         switch self {
-        case .world, .whatDid, .lunar: .main
+        case .world, .whatDid, .feeling, .lunar: .main
         case .sleep, .jetLag: .sleep
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
         case .since, .onThisDay: .dates
@@ -36,6 +36,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .world: "World"
         case .sleep: "Sleep time"
         case .whatDid: "What did"
+        case .feeling: "Feeling"
         case .jetLag: "Jet lag planner"
         case .lunar: "Lunar"
         case .stopwatch: "Stopwatch"
@@ -72,6 +73,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .world: "globe"
         case .sleep: "moon.stars"
         case .whatDid: "hand.tap"
+        case .feeling: "face.smiling"
         case .jetLag: "airplane"
         case .lunar: "calendar"
         case .stopwatch: "stopwatch"
@@ -95,6 +97,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .world: WorldView()
         case .sleep: SleepTimeView()
         case .whatDid: WhatDidView()
+        case .feeling: FeelingView()
         case .jetLag: JetLagTripsView()
         case .lunar: LunarCalendarView()
         case .stopwatch, .interview, .rehearsal, .leetcode: TimerToolView(tool: self)
