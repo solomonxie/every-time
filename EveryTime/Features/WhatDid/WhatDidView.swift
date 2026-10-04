@@ -4,21 +4,24 @@ import SwiftUI
 struct WhatDidView: View {
     @Stored(ActivityLog.key) private var marks: [ActivityMark] = []
     @Stored(ActivityLog.tagsKey) private var customTags: [String] = []
+    @Stored(ActivityLog.stylesKey) private var tagStyles: [String: TagStyle] = [:]
     @State private var editing: ActivityMark?
     @State private var held: ActivityMark?
-    @State private var addsTag = false
-    @State private var newTag = ""
-    @State private var showsAllHistory = false
+    /// The custom tag being made or restyled; "" = new.
+    @State private var tagEditor: TagTarget?
+    @State private var expandedDays: Set<Date> = []
+
+    private struct TagTarget: Identifiable { let id: String }
     /// Nil while following now.
     @State private var cursor: Date?
     @State private var selected: UUID?
     @State private var focus: Date?
-    @State private var isFullScreen = false
     /// The tile whose Start/End choice is showing, as "section:id".
     @State private var choosing: String?
 
     private var log: ActivityLog { ActivityLog(marks: marks) }
     @Stored(ActivityLog.orderKey) private var tagOrder: [String] = []
+    @Stored(JetLagKey.profile) private var profile: JetLagProfile? = nil
 
     /// Your drag-and-drop order; tags not placed yet follow in their default order.
     private var activities: [Activity] {
@@ -45,10 +48,13 @@ struct WhatDidView: View {
             // Stored decodes on every read; read once per redraw.
             let log = log
             let spans = log.spans(at: now)
+            let moments = log.moments(at: now)
+            let planned = log.planned(at: now)
+            let due = log.dueRepeats(at: now)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                Section { hero(now: now, spans: spans).whatDidRow() }
-                history(spans: spans)
+                Section { hero(now: now, spans: spans, moments: moments, planned: planned).whatDidRow() }
+                activities(spans: spans, moments: moments, planned: planned)
                 if !spans.isEmpty {
                     Section {
                         today(now: now, spans: spans).whatDidRow()
@@ -63,32 +69,28 @@ struct WhatDidView: View {
                 }
                 }
                 .padding(.vertical, 8)
+                // A tap on empty space closes the Start/End card and puts the cursor back on now.
                 .background {
-                    if choosing != nil {
-                        Color.clear.contentShape(Rectangle()).onTapGesture { withAnimation(.snappy) { choosing = nil } }
+                    Color.clear.contentShape(Rectangle()).onTapGesture {
+                        withAnimation(.snappy) {
+                            choosing = nil
+                            cursor = nil
+                        }
                     }
                 }
             }
             .onScrollPhaseChange { _, phase in if phase != .idle { choosing = nil } }
+            // A daily pin whose time has come becomes a real pin.
+            .task(id: now) { if !due.isEmpty { marks += due } }
         }
         .onChange(of: cursor) { choosing = nil }
         .onChange(of: selected) { choosing = nil }
+        .onChange(of: marks) { Task { await ActivityAlarms.sync(marks) } }
+        .task { await ActivityAlarms.sync(marks) }
         .animation(.snappy, value: marks.count)
         .sensoryFeedback(.impact(weight: .medium), trigger: marks.count)
         .navigationTitle("What did I do?")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Full screen", systemImage: "arrow.up.left.and.arrow.down.right") { isFullScreen = true }
-            }
-        }
-        .fullScreenCover(isPresented: $isFullScreen) {
-            FullTimeline(marks: $marks, cursor: $cursor, focus: $focus, activities: activities,
-                         selected: selectedSpan, ends: endingRange, record: record) { id in
-                isFullScreen = false
-                held = marks.first { $0.id == id }
-            }
-        }
         .sheet(item: $editing) { mark in
             MarkEditor(mark: mark, activities: activities) { edited in
                 marks = marks.map { $0.id == edited.id ? edited : $0 }
@@ -102,21 +104,28 @@ struct WhatDidView: View {
             Button("Edit") { editing = mark }
             Button("Delete", role: .destructive) { marks.removeAll { $0.id == mark.id } }
         }
-        .alert("New activity", isPresented: $addsTag) {
-            TextField("Name", text: $newTag)
-            Button("Add") { addTag() }
-            Button("Cancel", role: .cancel) { newTag = "" }
+        .sheet(item: $tagEditor) { target in
+            let id = target.id
+            TagEditor(name: id, style: tagStyles[id] ?? TagStyle(), taken: activities.map(\.id) + activities.map(\.title)) { name, style, _ in
+                if id.isEmpty { customTags.append(name) }
+                tagStyles[name] = style
+                Activity.customStyles = tagStyles
+            }
+        }
+        .onAppear {
+            Activity.customStyles = tagStyles
+            if marks.contains(where: { ActivityLog.oldTags.contains($0.tag ?? "") }) { marks = ActivityLog.migrateTags(marks) }
         }
     }
 
     // MARK: Now
 
-    /// Live "since" for the open range, the timeline, then tags for the selected range.
-    private func hero(now: Date, spans: [ActivitySpan]) -> some View {
+    /// Live "since" for the open range, the ring, then tags for the selected range.
+    private func hero(now: Date, spans: [ActivitySpan], moments: [ActivityMark], planned: [ActivitySpan]) -> some View {
         let target = target(in: spans)
         let window = window(now: now, spans: spans)
         return VStack(alignment: .leading, spacing: 12) {
-            if let open = spans.last {
+            if let open = spans.last, open.isOpen {
                 HStack(spacing: 8) {
                     Image(systemName: open.activity.symbol).foregroundStyle(open.activity.tint)
                     Text(open.tag == nil ? "Since \(SleepNow.clock(open.start))" : "\(open.activity.title) since \(SleepNow.clock(open.start))")
@@ -129,9 +138,10 @@ struct WhatDidView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            ActivityTimeline(spans: spans, start: window.start, now: now, selected: target?.id,
-                             cursor: $cursor, focus: $focus) { id in held = marks.first { $0.id == id } }
-                .padding(.horizontal, -Theme.padding)
+            ActivityRing(spans: spans, moments: moments, planned: planned, start: window.start, now: now, selected: target?.id, noCoffee: noCoffee(now: now),
+                         cursor: $cursor, focus: $focus) { id in held = marks.first { $0.id == id } }
+                .frame(maxWidth: 300)
+                .frame(maxWidth: .infinity)
             VStack(alignment: .leading, spacing: 8) {
                 Text(recordHint(spans: spans))
                     .font(.label)
@@ -148,25 +158,35 @@ struct WhatDidView: View {
         .padding(.vertical, 8)
     }
 
-    /// The range a History tap picked, if any.
+    /// Tonight's coffee cutoff to bedtime, from the usual hours.
+    private func noCoffee(now: Date) -> DateInterval {
+        let bed = NapAdvice(profile: profile ?? JetLagProfile()).current(at: now).bed
+        return DateInterval(start: Caffeine.cutoff(bed: bed), end: bed)
+    }
+
+    /// The range an Activities tap picked, if any.
     private func target(in spans: [ActivitySpan]) -> ActivitySpan? {
         spans.first { $0.id == selected }
     }
 
-    private var selectedSpan: ActivitySpan? { target(in: log.spans(at: .now)) }
+    private var selectedSpan: ActivitySpan? { target(in: log.spans(at: .now) + log.planned(at: .now)) }
+
+    /// The cursor is ahead of now: a tag becomes a plan.
+    private var isPlanning: Bool { cursor.map { $0 > .now } ?? false }
 
     /// What a tag tap will name.
     private func recordHint(spans: [ActivitySpan]) -> String {
         if let span = target(in: spans) {
             return "Retag \(SleepNow.clock(span.start)) – \(span.isOpen ? "now" : SleepNow.clock(span.end))"
         }
-        return "Tap a tag, then Start or End at \(SleepNow.clock(ActivityLog.rounded(cursor ?? .now)))"
+        if let cursor, cursor > .now { return "Tap a tag to plan it for \(SleepNow.clock(ActivityLog.rounded(cursor)))" }
+        return "Tap a tag: it starts at \(SleepNow.clock(ActivityLog.rounded(cursor ?? .now)))"
     }
 
-    /// The range an End tap would name: last pin up to the cursor or now.
+    /// The range an End tap would name: the pin still running at the cursor (or now), up to it.
     private var endingRange: (start: Date, end: Date)? {
         let end = ActivityLog.rounded(cursor ?? .now)
-        return log.spans(at: .now).last { $0.start < end }.map { ($0.start, end) }
+        return log.spans(at: .now).last { $0.start < end && $0.end >= end }.map { ($0.start, end) }
     }
 
     /// Whole days from the first pin (at most two weeks back) through today.
@@ -181,10 +201,14 @@ struct WhatDidView: View {
 
     @ViewBuilder
     private func chipMenu(_ activity: Activity) -> some View {
+        if !activity.isMoment, !activity.asksEnd, endingRange != nil {
+            Button("Ended now — name the stretch since the last pin", systemImage: "stop.fill") { record(activity, starts: false) }
+        }
         ForEach([5, 15, 30, 60], id: \.self) { minutes in
             Button("Started \(minutes) min ago") { marks.append(ActivityMark(time: ActivityLog.rounded(.now.addingTimeInterval(-Double(minutes) * 60)), tag: activity.id)) }
         }
         if customTags.contains(activity.id) {
+            Button("Icon and colour…", systemImage: "paintpalette") { tagEditor = TagTarget(id: activity.id) }
             Button("Remove from list", systemImage: "minus.circle", role: .destructive) {
                 customTags.removeAll { $0 == activity.id }
             }
@@ -267,7 +291,7 @@ struct WhatDidView: View {
     private func tagCell(_ item: Activity, column: Int, target: ActivitySpan?, section: String) -> some View {
         let key = "\(section):\(item.id)"
         return TagTile(activity: item, isOn: item.id == target?.tag || choosing == key) {
-            if target != nil { record(item, starts: false) } else { withAnimation(.snappy) { choosing = choosing == key ? nil : key } }
+            if target != nil || !item.asksEnd || isPlanning { record(item, starts: true) } else { withAnimation(.snappy) { choosing = choosing == key ? nil : key } }
         }
         .contextMenu { chipMenu(item) }
         .draggable(item.id) { TagTile(activity: item, isOn: true) {}.frame(width: 80) }
@@ -294,7 +318,7 @@ struct WhatDidView: View {
     }
 
     private var newTagTile: some View {
-        Button { addsTag = true } label: {
+        Button { tagEditor = TagTarget(id: "") } label: {
             VStack(spacing: 4) {
                 Image(systemName: "plus").font(.title3)
                 Text("New").font(.caption2)
@@ -306,45 +330,86 @@ struct WhatDidView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: History
+    // MARK: Activities
 
-    private func history(spans: [ActivitySpan]) -> some View {
-        let recent = Array(spans.reversed())
+    /// Plans first (with an alarm switch), then today's ranges and moments; earlier days folded into a row each.
+    private func activities(spans: [ActivitySpan], moments: [ActivityMark], planned: [ActivitySpan]) -> some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let dots = moments.map { ActivitySpan(id: $0.id, tag: $0.tag, start: $0.time, end: $0.time, isOpen: false) }
+        let recent = (spans + dots).sorted { $0.start > $1.start }
+        let days = Dictionary(grouping: recent.filter { $0.start < today }) { calendar.startOfDay(for: $0.start) }
+            .sorted { $0.key > $1.key }
         return Section {
-            if spans.isEmpty {
+            if spans.isEmpty, planned.isEmpty {
                 Text("Nothing marked yet.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .whatDidRow()
             }
-            ForEach(showsAllHistory ? recent : Array(recent.prefix(Self.foldedHistory))) { span in
+            ForEach(planned.reversed()) { plan in
                 Button {
-                    if selected == span.id {
+                    if selected == plan.id {
                         selected = nil
                         cursor = nil
                     } else {
-                        selected = span.id
-                        focus = span.start.addingTimeInterval(span.duration / 2)
+                        selected = plan.id
+                        focus = plan.start
                     }
-                } label: { SpanRow(span: span, isOn: span.id == target(in: spans)?.id) }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button("Edit", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == span.id } }
-                        Button("Delete", systemImage: "trash", role: .destructive) { marks.removeAll { $0.id == span.id } }
+                } label: {
+                    let pin = plan.source ?? plan.id
+                    PlanRow(span: plan, isOn: plan.id == selected, hasAlarm: marks.first { $0.id == pin }?.alarm == true) {
+                        marks = marks.map { $0.id == pin ? ActivityMark(id: $0.id, time: $0.time, tag: $0.tag, alarm: $0.alarm != true, repeats: $0.repeats) : $0 }
                     }
-                    .whatDidRow()
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Edit", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == (plan.source ?? plan.id) } }
+                    Button(plan.source == nil ? "Delete" : "Stop repeating", systemImage: "trash", role: .destructive) {
+                        marks.removeAll { $0.id == (plan.source ?? plan.id) }
+                    }
+                }
+                .whatDidRow()
             }
-            if recent.count > Self.foldedHistory {
-                Button(showsAllHistory ? "Show less" : "Show all \(recent.count)") { showsAllHistory.toggle() }
-                    .font(.label)
+            ForEach(recent.filter { $0.start >= today }) { span in spanRow(span, in: spans) }
+            ForEach(days, id: \.key) { day, daySpans in
+                Button {
+                    withAnimation(.snappy) {
+                        if expandedDays.contains(day) { expandedDays.remove(day) } else { expandedDays.insert(day) }
+                    }
+                } label: { DayRow(day: day, spans: daySpans, isOpen: expandedDays.contains(day)) }
+                    .buttonStyle(.plain)
                     .whatDidRow()
+                if expandedDays.contains(day) {
+                    ForEach(daySpans) { span in spanRow(span, in: spans) }
+                }
             }
         } header: {
-            SectionLabel("History").textCase(nil).padding(.horizontal, Theme.padding).padding(.top, 14)
+            SectionLabel("Activities").textCase(nil).padding(.horizontal, Theme.padding).padding(.top, 14)
         }
     }
 
-    private static let foldedHistory = 3
+    private func spanRow(_ span: ActivitySpan, in spans: [ActivitySpan]) -> some View {
+        Button {
+            if selected == span.id {
+                selected = nil
+                cursor = nil
+            } else {
+                selected = span.id
+                focus = span.start.addingTimeInterval(span.duration / 2)
+            }
+        } label: { SpanRow(span: span, isOn: span.id == target(in: spans)?.id) }
+            .buttonStyle(.plain)
+            .contextMenu {
+                if span.tag == Activity.sleep.id {
+                    Text("From the Sleep page")
+                } else {
+                    Button("Edit", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == span.id } }
+                    Button("Delete", systemImage: "trash", role: .destructive) { marks.removeAll { $0.id == span.id } }
+                }
+            }
+            .whatDidRow()
+    }
 
     // MARK: Changes
 
@@ -378,94 +443,97 @@ struct WhatDidView: View {
     private func setTag(_ id: UUID, _ tag: String?) {
         marks = marks.map { $0.id == id ? ActivityMark(id: id, time: $0.time, tag: tag) : $0 }
     }
-
-    private func addTag() {
-        let name = newTag.trimmingCharacters(in: .whitespacesAndNewlines)
-        newTag = ""
-        guard !name.isEmpty, !activities.contains(where: { $0.id.caseInsensitiveCompare(name) == .orderedSame
-            || $0.title.caseInsensitiveCompare(name) == .orderedSame })
-        else { return }
-        customTags.append(name)
-    }
 }
 
-/// The timeline alone, zoomable, to see whole days at once.
-private struct FullTimeline: View {
-    @Binding var marks: [ActivityMark]
-    @Binding var cursor: Date?
-    @Binding var focus: Date?
-    let activities: [Activity]
-    let selected: ActivitySpan?
-    let ends: (start: Date, end: Date)?
-    let record: (Activity, Bool) -> Void
-    @State private var open: String?
-    let onHoldPin: (UUID) -> Void
-    @State private var hourWidth: CGFloat = 40
+/// Name (new tags only), icon and colour for a custom tag; a kind too, when the page sorts tags into kinds.
+struct TagEditor: View {
+    let name: String
+    @State var style: TagStyle
+    let taken: [String]
+    /// Kinds to pick from (Feeling); nil = none.
+    var kinds: [(id: String, title: String)]? = nil
+    @State var kind = ""
+    let onSave: (String, TagStyle, String?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var newName = ""
 
-    private static let zoom: [CGFloat] = [10, 20, 40, 80, 120]
+    private var isNew: Bool { name.isEmpty }
+    private var trimmed: String { newName.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSave: Bool {
+        !isNew || (!trimmed.isEmpty && !taken.contains { $0.caseInsensitiveCompare(trimmed) == .orderedSame })
+    }
 
     var body: some View {
-        SidewaysScreen(horizontalPadding: 36) {
-            TimelineView(.everyMinute) { context in
-                let now = max(context.date, .now)
-                let spans = ActivityLog(marks: marks).spans(at: now)
-                let start = Calendar.current.date(byAdding: .day, value: -14, to: Calendar.current.startOfDay(for: now)) ?? now
-                VStack(alignment: .leading, spacing: 12) {
-                    header
-                    Spacer(minLength: 0)
-                    ActivityTimeline(spans: spans, start: start, now: now, selected: selected?.id,
-                                     cursor: $cursor, focus: $focus, hourWidth: hourWidth, onHoldPin: onHoldPin)
-                    Spacer(minLength: 0)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(activities) { item in
-                                ActivityChip(activity: item, isOn: item.id == selected?.tag || item.id == open) {
-                                    if selected != nil { record(item, false) } else { withAnimation(.snappy) { open = open == item.id ? nil : item.id } }
-                                }
-                                if open == item.id {
-                                    StartEndChoice(activity: item, ends: ends, at: ActivityLog.rounded(cursor ?? .now), isCompact: true) { starts in
-                                        open = nil
-                                        record(item, starts)
-                                    }
-                                    .transition(.scale.combined(with: .opacity))
-                                }
-                            }
+        NavigationStack {
+            Form {
+                Section {
+                    HStack(spacing: 12) {
+                        Image(systemName: style.symbol)
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(style.tint, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        if isNew {
+                            TextField("Name", text: $newName)
+                        } else {
+                            Text(name)
                         }
                     }
                 }
+                if let kinds {
+                    Section {
+                        Picker("Kind", selection: $kind) {
+                            ForEach(kinds, id: \.id) { Text($0.title).tag($0.id) }
+                        }
+                    } footer: {
+                        Text("One feeling of a kind at a time: starting this ends another of the same kind.")
+                    }
+                }
+                Section("Colour") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 12) {
+                        ForEach(TagStyle.colors, id: \.name) { entry in
+                            Button { style.color = entry.name } label: {
+                                Circle().fill(entry.color).frame(width: 34, height: 34)
+                                    .overlay { if style.color == entry.name { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(.white) } }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(entry.name)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                Section("Icon") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
+                        ForEach(TagStyle.symbols, id: \.self) { symbol in
+                            Button { style.symbol = symbol } label: {
+                                Image(systemName: symbol)
+                                    .font(.title3)
+                                    .frame(width: 40, height: 40)
+                                    .foregroundStyle(style.symbol == symbol ? Color.white : style.tint)
+                                    .background(style.symbol == symbol ? AnyShapeStyle(style.tint) : AnyShapeStyle(style.tint.opacity(0.12)),
+                                                in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle(isNew ? "New activity" : name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isNew ? "Add" : "Save") {
+                        onSave(isNew ? trimmed : name, style, kinds == nil ? nil : kind)
+                        dismiss()
+                    }
+                    .disabled(!canSave)
+                }
             }
         }
-        .gesture(MagnifyGesture().onEnded { value in step(value.magnification > 1 ? 1 : -1) })
-        .sensoryFeedback(.selection, trigger: hourWidth)
-    }
-
-    private var header: some View {
-        HStack(spacing: 14) {
-            SidewaysCloseButton()
-            Text(cursor.map { $0.formatted(.dateTime.weekday(.abbreviated).hour().minute()) } ?? "Now")
-                .font(.clock(28))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-            Spacer()
-            Group {
-                Button("Zoom out", systemImage: "minus.magnifyingglass") { step(-1) }
-                    .disabled(hourWidth == Self.zoom.first)
-                Button("Zoom in", systemImage: "plus.magnifyingglass") { step(1) }
-                    .disabled(hourWidth == Self.zoom.last)
-            }
-            .labelStyle(.iconOnly)
-            .font(.title3)
-            if cursor != nil {
-                Button("Now") { cursor = nil }
-                    .buttonStyle(.soft)
-                    .fixedSize()
-            }
-        }
-    }
-
-    private func step(_ by: Int) {
-        guard let i = Self.zoom.firstIndex(of: hourWidth) else { return }
-        withAnimation(.snappy) { hourWidth = Self.zoom[min(Self.zoom.count - 1, max(0, i + by))] }
+        .presentationDetents([.large])
     }
 }
 
@@ -625,7 +693,88 @@ private struct TotalsList: View {
     }
 }
 
-private struct SpanRow: View {
+/// A pin ahead of now: when, what, and whether to be told.
+private struct PlanRow: View {
+    let span: ActivitySpan
+    let isOn: Bool
+    let hasAlarm: Bool
+    let toggleAlarm: () -> Void
+
+    var body: some View {
+        let isToday = Calendar.current.isDateInToday(span.start)
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(SleepNow.clock(span.start))
+                    .font(.clock(17, weight: .regular))
+                if !isToday {
+                    Text(span.start, format: .dateTime.weekday(.abbreviated).day()).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            .frame(minWidth: 64, alignment: .leading)
+            Label(span.activity.title, systemImage: span.activity.symbol)
+                .foregroundStyle(span.tag == nil ? .secondary : .primary)
+                .labelStyle(TintedIconLabelStyle(tint: span.activity.tint))
+            Text(span.isDaily ? "every day" : "planned").font(.caption).foregroundStyle(.tertiary)
+            Spacer()
+            Button(action: toggleAlarm) {
+                Image(systemName: hasAlarm ? "bell.fill" : "bell.slash")
+                    .foregroundStyle(hasAlarm ? Color.accentColor : .secondary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(hasAlarm ? "Alarm on" : "Alarm off")
+        }
+        .padding(.horizontal, 8)
+        .frame(minHeight: 40)
+        .background(isOn ? Color.accentColor.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
+    }
+}
+
+/// One earlier day: its date, how many pins, and where most of it went.
+struct DayRow: View {
+    let day: Date
+    let spans: [ActivitySpan]
+    let isOpen: Bool
+
+    var body: some View {
+        let totals = Dictionary(grouping: spans.filter { $0.tag != nil && !$0.activity.isMoment }) { $0.tag ?? "" }
+            .map { (tag: $0.key, time: $0.value.reduce(0) { $0 + $1.duration }) }
+            .sorted { $0.time > $1.time }
+            .prefix(3)
+        HStack(spacing: 12) {
+            Text(day, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
+                .font(.system(.body, design: .rounded, weight: .semibold))
+                .frame(minWidth: 96, alignment: .leading)
+            HStack(spacing: 10) {
+                ForEach(Array(totals), id: \.tag) { total in
+                    let activity = Activity.of(total.tag)
+                    HStack(spacing: 3) {
+                        Image(systemName: activity.symbol).foregroundStyle(activity.tint)
+                        Text(ActivityLog.duration(total.time)).monospacedDigit()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            Spacer()
+            Text("\(spans.count)").font(.label).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.tertiary)
+                .rotationEffect(.degrees(isOpen ? 90 : 0))
+        }
+        .padding(.horizontal, 8)
+        .frame(minHeight: 40)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct SpanRow: View {
     let span: ActivitySpan
     let isOn: Bool
 
@@ -638,10 +787,12 @@ private struct SpanRow: View {
                 .foregroundStyle(span.tag == nil ? .secondary : .primary)
                 .labelStyle(TintedIconLabelStyle(tint: span.activity.tint))
             Spacer()
-            Text(span.isOpen ? "now" : ActivityLog.duration(span.duration))
-                .font(.label)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            if !span.activity.isMoment {
+                Text(span.isOpen ? "now" : ActivityLog.duration(span.duration))
+                    .font(.label)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, 8)
         .frame(minHeight: 40)
@@ -650,7 +801,7 @@ private struct SpanRow: View {
     }
 }
 
-private struct TintedIconLabelStyle: LabelStyle {
+struct TintedIconLabelStyle: LabelStyle {
     let tint: Color
 
     func makeBody(configuration: Configuration) -> some View {
@@ -673,7 +824,15 @@ private struct MarkEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                DatePicker("Started", selection: $mark.time, in: ...Date.now)
+                DatePicker(mark.time > .now ? "Planned for" : "Started", selection: $mark.time)
+                Section {
+                    Toggle("Repeat every day", isOn: Binding(get: { mark.isDaily }, set: { mark.repeats = $0 ? "daily" : nil }))
+                    if mark.time > .now || mark.isDaily {
+                        Toggle("Alarm", isOn: Binding(get: { mark.alarm == true }, set: { mark.alarm = $0 }))
+                    }
+                } footer: {
+                    if mark.isDaily { Text("Shows up at \(SleepNow.clock(mark.time)) on the days after, for two weeks ahead.") }
+                }
                 Section("Activity") {
                     FlowLayout(spacing: 8) {
                         ForEach(activities + [.untagged]) { item in
@@ -702,7 +861,7 @@ private struct MarkEditor: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(ActivityMark(id: mark.id, time: ActivityLog.rounded(mark.time), tag: mark.tag))
+                        onSave(ActivityMark(id: mark.id, time: ActivityLog.rounded(mark.time), tag: mark.tag, alarm: mark.alarm, repeats: mark.repeats))
                         dismiss()
                     }
                 }
