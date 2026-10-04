@@ -1,16 +1,9 @@
-import WatchConnectivity
 import WidgetKit
 
-/// Copies cities and countdowns to the App Group (widget) and the watch whenever they change.
-final class GlancePublisher: NSObject, WCSessionDelegate {
+/// Copies cities and countdowns to the App Group for the widget whenever they change.
+final class GlancePublisher {
     static let shared = GlancePublisher()
     private var last: Glance?
-
-    func activate() {
-        guard WCSession.isSupported() else { return }
-        WCSession.default.delegate = self
-        WCSession.default.activate()
-    }
 
     @MainActor
     func publish() {
@@ -20,33 +13,7 @@ final class GlancePublisher: NSObject, WCSessionDelegate {
         last = glance
         glance.save()
         WidgetCenter.shared.reloadAllTimelines()
-        sendToWatch(glance)
     }
-
-    private func sendToWatch(_ glance: Glance) {
-        guard WCSession.isSupported() else { return }
-        let session = WCSession.default
-        guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled,
-              let data = try? JSONEncoder().encode(glance) else { return }
-        try? session.updateApplicationContext([Glance.key: data])
-    }
-
-    func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
-        Task { @MainActor in
-            last = nil
-            publish()
-        }
-    }
-
-    func sessionWatchStateDidChange(_ session: WCSession) {
-        Task { @MainActor in
-            last = nil
-            publish()
-        }
-    }
-
-    func sessionDidBecomeInactive(_ session: WCSession) {}
-    func sessionDidDeactivate(_ session: WCSession) { session.activate() }
 }
 
 extension Glance {

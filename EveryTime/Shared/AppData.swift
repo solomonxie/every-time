@@ -12,7 +12,7 @@ enum AppData {
     static let demoSuite = (Bundle.main.bundleIdentifier ?? "everytime") + ".demo-data"
     static let demoDefaults = UserDefaults(suiteName: demoSuite) ?? .standard
 
-    /// Notifications, widget and watch show real data; demo mode inside the real app leaves them alone.
+    /// Notifications and widget show real data; demo mode inside the real app leaves them alone.
     static var drivesSystem: Bool { !isDemo }
 
     /// Seeds first, so views never see an empty demo store.

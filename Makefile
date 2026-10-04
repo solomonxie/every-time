@@ -28,7 +28,7 @@ sim: project
 	xcrun simctl install "$(SIM)" $(DERIVED)/Build/Products/Debug-iphonesimulator/$(APP)
 	xcrun simctl launch "$(SIM)" $(APP_ID)
 
-# Compile check for a generic iPhone (app + widget + watch); no install.
+# Compile check for a generic iPhone (app + widget); no install.
 build: project
 	xcodebuild -scheme $(SCHEME) -destination 'generic/platform=iOS' -derivedDataPath $(DERIVED) \
 		-allowProvisioningUpdates -quiet build

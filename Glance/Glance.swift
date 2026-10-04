@@ -1,6 +1,6 @@
 import Foundation
 
-/// What the widget and watch show, published by the phone app.
+/// What the widget shows, published by the phone app.
 struct Glance: Codable, Equatable {
     struct Countdown: Codable, Equatable, Identifiable {
         let id: UUID

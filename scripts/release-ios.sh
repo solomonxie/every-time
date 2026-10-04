@@ -1,5 +1,5 @@
 #!/bin/sh
-# Archive a Release build (app + widget + watch app) and upload it to App Store Connect.
+# Archive a Release build (app + widget) and upload it to App Store Connect.
 # Needs: Xcode → Settings → Accounts signed in to the developer Apple ID,
 # and Local.xcconfig holding DEVELOPMENT_TEAM (see Local.xcconfig.example).
 #

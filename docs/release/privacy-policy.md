@@ -19,8 +19,8 @@ Your cities, countdowns, events, timers, work log, activity log, naps and nights
 ## Notifications and alarms
 Countdown, event, lunar, wind-down, jet lag and nap alarms are scheduled locally on the device. No push server is involved.
 
-## Apple Watch and widgets
-The app shares a small snapshot (your cities, upcoming countdowns, sleep times) with its own widget and your paired Apple Watch. It does not leave your devices.
+## Widgets
+The app shares a small snapshot (your cities, upcoming countdowns, sleep times) with its own widget. It does not leave your device.
 
 ## What leaves your device, and only if you ask
 - **iCloud Drive backup** — off by default. When on, backup files are written to your own iCloud Drive (Files → iCloud Drive → Every Time), in your Apple account and your storage quota. We have no access to them.
