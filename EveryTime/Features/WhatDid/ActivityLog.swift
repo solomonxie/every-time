@@ -127,8 +127,8 @@ struct ActivityLog {
     static let tagsKey = "timers.activityTags"
     static let stylesKey = "timers.activityTagStyles"
     static let orderKey = "timers.activityOrder"
-    /// Shorter sleep than this is a nap, not a night.
-    static let minNight: TimeInterval = 3 * 3600
+    /// Shorter sleep than this (a cycle) is a nap, not a night.
+    static var minNight: TimeInterval { Nap.nightLength }
     /// The last mark stops running after this long with nothing after it: yesterday's coffee isn't still going on.
     static let maxOpen: TimeInterval = 12 * 3600
 

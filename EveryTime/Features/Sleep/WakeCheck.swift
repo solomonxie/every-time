@@ -37,23 +37,74 @@ struct WakeCheck: Equatable {
     }
 }
 
-/// Personal cycle timing: fall-asleep time you set, cycle length from Health once there's enough Watch data.
+/// Personal cycle timing: fall-asleep time you set; cycle length yours, or learned from when you wake on your own,
+/// else from Health's sleep stages, else the 90-minute average.
 struct SleepCycle: Codable, Equatable {
     static let key = "sleep.cycle"
     static let defaultMinutes = 90
     static let fallAsleepRange = 5...45
+    static let cycleRange = 70...120
+    /// Natural wakes needed before the learned length counts.
+    static let minWakes = 3
 
     var fallAsleepMinutes = 15
     var usesHealth = true
+    /// Set by hand; nil = learn.
+    var manualMinutes: Int?
+    var learnedMinutes: Int?
+    var learnedCount = 0
     var healthMinutes: Int?
     var healthCount = 0
 
-    var minutes: Int { usesHealth ? healthMinutes ?? Self.defaultMinutes : Self.defaultMinutes }
+    var minutes: Int { manualMinutes ?? learnedMinutes ?? (usesHealth ? healthMinutes : nil) ?? Self.defaultMinutes }
+
+    /// Where the length in use comes from, for the page.
+    var sourceText: String {
+        if manualMinutes != nil { return "set by you" }
+        if learnedMinutes != nil { return "learned from \(learnedCount) natural wakes" }
+        if usesHealth, healthMinutes != nil { return "from \(healthCount) Watch sleep cycles" }
+        return learnedCount > 0 ? "average · \(learnedCount) of \(Self.minWakes) natural wakes so far" : "average until you wake on your own a few times"
+    }
+
+    /// The cycle length that best explains when you woke on your own: each wake should land on a cycle's end.
+    static func learned(from naps: [Nap], fallAsleep: Int, minCount: Int = minWakes) -> (minutes: Int, count: Int)? {
+        let wakes = naps.filter { $0.natural == true }.map { Double($0.minutes - fallAsleep) }.filter { $0 >= 60 }
+        guard wakes.count >= minCount else { return nil }
+        let best = cycleRange.min { a, b in cost(a, wakes) < cost(b, wakes) } ?? defaultMinutes
+        return (best, wakes.count)
+    }
+
+    private static func cost(_ length: Int, _ asleep: [Double]) -> Double {
+        asleep.reduce(0) { sum, minutes in
+            let cycles = max(1, (minutes / Double(length)).rounded())
+            return sum + abs(minutes - cycles * Double(length))
+        }
+    }
+
+    /// Re-reads your natural wakes and stores the length they point to.
+    static func relearn(from naps: [Nap]) {
+        var cycle = current
+        let learned = learned(from: naps, fallAsleep: cycle.fallAsleepMinutes)
+        cycle.learnedMinutes = learned?.minutes
+        cycle.learnedCount = learned?.count ?? naps.filter { $0.natural == true }.count
+        if cycle != current { current = cycle }
+    }
 
     /// Health-derived values live under a key outside `BackupSnapshot.keyPrefixes`, so they never reach iCloud Drive.
     static let healthKey = "health.sleepCycle"
-    private enum CodingKeys: String, CodingKey { case fallAsleepMinutes, usesHealth }
+    private enum CodingKeys: String, CodingKey { case fallAsleepMinutes, usesHealth, manualMinutes, learnedMinutes, learnedCount }
     private struct FromHealth: Codable { var minutes: Int?; var count: Int }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fallAsleepMinutes = try c.decodeIfPresent(Int.self, forKey: .fallAsleepMinutes) ?? 15
+        usesHealth = try c.decodeIfPresent(Bool.self, forKey: .usesHealth) ?? true
+        manualMinutes = try c.decodeIfPresent(Int.self, forKey: .manualMinutes)
+        learnedMinutes = try c.decodeIfPresent(Int.self, forKey: .learnedMinutes)
+        learnedCount = try c.decodeIfPresent(Int.self, forKey: .learnedCount) ?? 0
+    }
 
     static var current: SleepCycle {
         get {

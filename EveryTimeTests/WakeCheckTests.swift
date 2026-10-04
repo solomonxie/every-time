@@ -85,3 +85,30 @@ struct PastNightMergeTests {
     }
 }
 
+
+struct SleepCycleTests {
+    private func wake(_ minutes: Int, natural: Bool? = true) -> Nap {
+        let start = date(2026, 3, 10, 23)
+        return Nap(start: start, end: start.addingTimeInterval(Double(minutes) * 60), natural: natural)
+    }
+
+    @Test func learnsTheLengthThatPutsNaturalWakesOnCycleEnds() {
+        // 15 min to fall asleep, then 2, 3 and 1 cycles of ~100 min.
+        let naps = [wake(215), wake(318), wake(113), wake(300, natural: false), wake(450, natural: nil)]
+        let learned = SleepCycle.learned(from: naps, fallAsleep: 15)
+        #expect(learned?.minutes == 100)
+        #expect(learned?.count == 3)
+    }
+
+    @Test func needsThreeNaturalWakes() {
+        #expect(SleepCycle.learned(from: [wake(215), wake(318)], fallAsleep: 15) == nil)
+    }
+
+    @Test func manualBeatsLearned() {
+        var cycle = SleepCycle()
+        cycle.learnedMinutes = 100
+        #expect(cycle.minutes == 100)
+        cycle.manualMinutes = 85
+        #expect(cycle.minutes == 85)
+    }
+}

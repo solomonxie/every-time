@@ -109,6 +109,7 @@ struct LogNapSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var start = Calendar.current.date(byAdding: .minute, value: -30, to: .now) ?? .now
     @State private var minutes = NapAdvice.suggestedMinutes
+    @State private var natural = true
 
     var body: some View {
         NavigationStack {
@@ -116,6 +117,12 @@ struct LogNapSheet: View {
                 DatePicker("Fell asleep", selection: $start, in: ...Date.now)
                 Stepper(minutes < 60 ? "\(minutes) min" : NapAdvice.hours(Double(minutes) / 60), value: $minutes, in: 5...720, step: 5)
                     .monospacedDigit()
+                Toggle(isOn: $natural) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Woke on my own")
+                        Text("Not by an alarm — these teach your cycle length").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Log sleep")
@@ -125,7 +132,7 @@ struct LogNapSheet: View {
             }
             .bottomBar {
                 Button("Save") {
-                    onSave(Nap(start: start, end: start.addingTimeInterval(Double(minutes) * 60)))
+                    onSave(Nap(start: start, end: start.addingTimeInterval(Double(minutes) * 60), natural: natural))
                     dismiss()
                 }
                 .buttonStyle(.primary)
@@ -140,5 +147,53 @@ extension View {
         listRowInsets(EdgeInsets(top: 10, leading: Theme.padding, bottom: 10, trailing: Theme.padding))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
+    }
+}
+
+/// Change a logged sleep's times, whether you woke on your own, or remove it.
+struct SleepEditor: View {
+    @State var nap: Nap
+    let onSave: (Nap) -> Void
+    let onDelete: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmsDelete = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                DatePicker("Fell asleep", selection: $nap.start, in: ...Date.now)
+                DatePicker("Woke up", selection: $nap.end, in: nap.start...Date.now)
+                LabeledContent(nap.isNight ? "Night" : "Nap", value: ActivityLog.duration(nap.duration))
+                Toggle(isOn: Binding(get: { nap.natural == true }, set: { nap.natural = $0 })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Woke on my own")
+                        Text("Not by an alarm — these teach your cycle length").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Section {
+                    Button("Remove", role: .destructive) { confirmsDelete = true }
+                        .confirmationDialog("Remove this sleep?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+                            Button("Remove", role: .destructive) {
+                                onDelete()
+                                dismiss()
+                            }
+                        }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Edit sleep")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(nap)
+                        dismiss()
+                    }
+                    .disabled(nap.end <= nap.start)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }

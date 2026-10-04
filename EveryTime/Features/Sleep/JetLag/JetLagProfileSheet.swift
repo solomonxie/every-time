@@ -96,21 +96,34 @@ struct JetLagProfileSheet: View {
             Stepper(value: $cycle.fallAsleepMinutes, in: SleepCycle.fallAsleepRange, step: 5) {
                 LabeledContent("Fall asleep in", value: "\(cycle.fallAsleepMinutes) min")
             }
-            Toggle(isOn: $cycle.usesHealth) {
+            Toggle(isOn: Binding(get: { cycle.manualMinutes != nil }, set: { cycle.manualMinutes = $0 ? cycle.minutes : nil })) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Cycle length from Health")
-                    Text(cycle.healthMinutes.map { "\($0) min, from \(cycle.healthCount) cycles your Watch recorded" }
-                         ?? "Not enough Watch sleep stages yet")
+                    Text("Set my cycle length myself")
+                    Text("Off: learned from when you wake on your own, else Health, else 90 min")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            LabeledContent("Cycle length", value: "\(cycle.minutes) min")
+            if cycle.manualMinutes != nil {
+                Stepper(value: Binding(get: { cycle.manualMinutes ?? cycle.minutes }, set: { cycle.manualMinutes = $0 }),
+                        in: SleepCycle.cycleRange, step: 5) {
+                    LabeledContent("Cycle length", value: "\(cycle.minutes) min")
+                }
+            } else {
+                LabeledContent("Cycle length") {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(cycle.minutes) min")
+                        Text(cycle.sourceText).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
         } header: {
             SectionLabel(title: "Sleep cycles") {
                 InfoButton(label: "About sleep cycles", text: """
                     Suggested times are lights-out plus your fall-asleep time, then whole cycles. \
                     Most people take 10–20 min to drift off. A cycle averages 90 min but runs 70–120 \
-                    from person to person; with an Apple Watch, yours is measured from REM to REM.
+                    from person to person. Every time you wake before the alarm, the app notes how long \
+                    you slept; after three such wakes it picks the length that puts them on cycle ends. \
+                    An Apple Watch's REM stages are used until then. Or set it yourself.
                     """)
             }
         }

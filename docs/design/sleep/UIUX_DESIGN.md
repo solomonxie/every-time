@@ -28,15 +28,27 @@ Sleep ─ idle ──Sleep now──▶ asleep ──alarm──▶ ringing ─�
           └─ Change (footer) ──▶ Your sleep (profile sheet, unchanged)
 ```
 
-Only the hero changes state. Below it, idle only: Nights, Naps, then Insights (sleep debt, energy,
-trend chart) and the footer. The old Today tiles (coffee, energy, debt) are gone — the coffee cutoff
+Only the hero changes state. Below it, idle only: the "Usually 11:00 PM – 7:00 AM · Change" line,
+History (nights and naps together, newest first, 5 then Show all), then Insights (sleep debt,
+energy, trend chart). A sleep
+shorter than one cycle (fall-asleep + cycle) is a nap. Tap a logged night or nap → Edit sleep
+(fell asleep, woke up, woke on my own, remove); Health nights are read-only.
+
+```
+HISTORY ⓘ                                         ⊕
+ 82  Sat, Oct 4   11:10 PM – 6:50 AM · 5 cycles   7h 25m   ← night: score, times, cycles
+     Fri, Oct 3   2:00 – 2:20 PM          Fresh    20 min  ← nap: level dot, feel
+ Show all 12
+``` The old Today tiles (coffee, energy, debt) are gone — the coffee cutoff
 is on the ring, the rest moved to Insights.
 
 ```
 INSIGHTS
 ╭──────────────────────────────────────────╮
-│ 🛏 Sleep debt ⓘ                   2h 10m  │   ← green < 1 h · orange < 3 h · red
-│    Short of 8 h/night over the last 7    │
+│ ⟳ Cycle length ⓘ                 100 min  │   ← learned from natural wakes (3+), else Health,
+│    Learned from 6 natural wakes          │      else 90; tap → Your sleep, "Set my cycle length
+│ 🛏 Sleep debt ⓘ                   2h 10m  │      myself" + stepper 70–120
+│    Short of 8 h/night over the last 7    │   ← green < 1 h · orange < 3 h · red
 │ ⚡ Energy ⓘ                       3.8 / 5 │   ← mean of recent feel ratings
 │    How you felt waking, recently         │
 │ Sleep score                              │   ← 2+ nights
