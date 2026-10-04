@@ -8,7 +8,7 @@
     {
       "id": "798CA5FD-88A8-5000-BE9D-A6BC89D18B27",
       "time": "@today 07:05",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "46DB6D2C-C78B-5B5F-940C-87E591859949",
@@ -18,7 +18,7 @@
     {
       "id": "45234E30-DEF7-583A-8C9B-8D878EA7E576",
       "time": "@today-1 07:15",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "F02E39D8-F9DE-5C4A-9637-8C0C7C1B2BF2",
@@ -28,7 +28,7 @@
     {
       "id": "CC733C64-E4B7-5C44-942A-734821DEC347",
       "time": "@today-2 07:40",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "C23C5BF3-9E55-54B0-BE28-57B366987748",
@@ -38,7 +38,7 @@
     {
       "id": "75C94206-7D5F-5C9A-A22E-A9EAE7440245",
       "time": "@today-3 06:55",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "9E9CAAD5-FB7A-56DA-BB06-189753864913",
@@ -48,7 +48,7 @@
     {
       "id": "BEBE083E-BB5C-5E40-BEA8-E95572CBD2A0",
       "time": "@today-4 06:45",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "F2475379-1043-5563-ACD0-3A7B377C2527",
@@ -58,7 +58,7 @@
     {
       "id": "28A5C6A4-054D-5967-9CE2-711AB6EEC627",
       "time": "@today-5 07:10",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "D757E017-E331-5EF6-8EF6-EC3A90408A8D",
@@ -68,7 +68,7 @@
     {
       "id": "42FA5250-1186-586D-8651-E676A41E34FE",
       "time": "@today-6 08:20",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "75A37A60-0BA8-567F-AACC-1F0C3977B07F",
@@ -78,7 +78,7 @@
     {
       "id": "877E0BA3-4334-50D3-B395-5B256BB0300C",
       "time": "@today-7 07:00",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "C628DF6D-CA23-5BF3-8161-01FB277D528F",
@@ -88,7 +88,7 @@
     {
       "id": "EA4DB9C2-02A4-5B56-85A1-D1A6A68A6B2F",
       "time": "@today-8 07:05",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "825C9825-507F-5DC9-B37F-DFA3DABB9D45",
@@ -98,7 +98,7 @@
     {
       "id": "A8CD8267-B5D4-5E94-A40A-410F6D68C885",
       "time": "@today-9 07:30",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "6D646FAC-A3CC-5A81-938B-49761CBFC175",
@@ -108,7 +108,7 @@
     {
       "id": "C4EA5EDD-3C53-5E9A-9526-E0600DBA02AA",
       "time": "@today-10 06:50",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "C80D3793-6848-523A-9463-0DBAE6D1EE70",
@@ -118,7 +118,7 @@
     {
       "id": "DD707ECA-459A-529A-8B13-8E2DFBF72915",
       "time": "@today-11 07:10",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "348F2BBE-027B-5143-9EEC-BB4FB97A10F7",
@@ -128,7 +128,7 @@
     {
       "id": "31856EF5-249D-5AC0-B55F-B2D3F2F4FE81",
       "time": "@today-12 08:05",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "CADCAA88-041B-50B7-8460-59613988A36E",
@@ -138,12 +138,12 @@
     {
       "id": "20D22C08-9EB2-5123-9E9A-0195D21CFBDD",
       "time": "@today-13 07:05",
-      "tag": "wake"
+      "tag": null
     },
     {
       "id": "CF1C425D-AD75-57F6-BE13-B3E8C10CF7D2",
       "time": "@today-1 14:40",
-      "tag": "nap"
+      "tag": "sleep"
     },
     {
       "id": "1ECF64F1-CA69-5C88-A477-18FE9AE0BB65",
@@ -153,7 +153,7 @@
     {
       "id": "AF024D40-D270-56F9-8FF3-7BA5F7F4C78B",
       "time": "@today-2 13:35",
-      "tag": "nap"
+      "tag": "sleep"
     },
     {
       "id": "7F2FDB6D-44FB-50DB-BEDB-3DF5FBDFEBD8",
@@ -163,7 +163,7 @@
     {
       "id": "E6A6C5A2-86EA-507B-A37D-5988675DDF5F",
       "time": "@today-5 14:10",
-      "tag": "nap"
+      "tag": "sleep"
     },
     {
       "id": "70F34CBB-E88D-5637-AD79-28B85655A317",
@@ -173,7 +173,7 @@
     {
       "id": "58DC266B-4E16-5C87-B435-1F559EFE0D24",
       "time": "@today-9 15:20",
-      "tag": "nap"
+      "tag": "sleep"
     },
     {
       "id": "4ED5B13A-8582-551A-BBFE-C3E691A3A5AE",
