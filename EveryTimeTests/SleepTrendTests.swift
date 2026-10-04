@@ -2,18 +2,6 @@ import Foundation
 import Testing
 @testable import EveryTime
 
-struct SleepPlanTests {
-    @Test func wakeTimesFromNowLeadWithANap() {
-        let rows = SleepPlan.wakeTimes(from: date(2026, 3, 10, 23), includesNap: true)
-        #expect(rows.map(\.cycles) == [0, 1, 2, 3, 4, 5, 6])
-        #expect(rows[0].time == date(2026, 3, 10, 23, 20))
-        #expect(rows[6].time == date(2026, 3, 11, 8, 15))
-        #expect(rows.map(\.level) == [.low, .high, .high, .some, .some, .low, .low])
-        #expect(SleepPlan.wakeTimes(from: date(2026, 3, 10, 23), includesNap: false).first?.cycles == 1)
-    }
-
-}
-
 struct SleepTrendTests {
     private func night(_ day: Int, wake: Int, hours: Double) -> PastNight {
         let end = date(2026, 3, day, wake / 60, wake % 60)

@@ -7,31 +7,22 @@ import UserNotifications
 /// Starts, ends or drops the nap in progress; shared by the page and the alarm's "I'm up".
 @MainActor
 enum NapSession {
+    /// Cancelling within this of lying down drops the sleep; after it the night is kept.
+    static let cancelWindow: TimeInterval = 15 * 60
+
     static func start(minutes: Int) {
-        let nap = ActiveNap(start: .now, minutes: minutes)
-        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
-        ActivityLog.record(kind(minutes), at: nap.start)
-        Task { await NapAlarm.schedule(nap) }
+        resume(ActiveNap(start: .now, minutes: minutes))
     }
 
-    /// What What did shows for this stretch: a night or a nap.
-    static func kind(_ minutes: Int) -> Activity { Double(minutes) * 60 >= Nap.nightLength ? .sleep : .nap }
-
-    private static func unrecord(at time: Date) {
-        ActivityLog.remove(.nap, at: time)
-        ActivityLog.remove(.sleep, at: time)
+    /// Up at `wake`, from now.
+    static func start(wake: Date) {
+        start(minutes: max(1, Int((wake.timeIntervalSinceNow / 60).rounded())))
     }
 
-    /// Commits to a night: in bed at `bed` (now if past), alarm at `wake`, wind-down reminder if there's time.
+    /// Bed later tonight: alarm at `wake`, wind-down reminder before bed; asleep from `bed` unless "I'm in bed now" comes first.
     static func plan(bed: Date, wake: Date) {
         let start = max(bed, .now)
-        let nap = ActiveNap(start: start, minutes: max(1, Int((wake.timeIntervalSince(start) / 60).rounded())))
-        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
-        ActivityLog.record(kind(nap.minutes), at: start)
-        Task {
-            await NapAlarm.schedule(nap)
-            if start.addingTimeInterval(-WindDown.lead) > .now { await WindDown.schedule(bed: start) } else { WindDown.cancel() }
-        }
+        resume(ActiveNap(start: start, minutes: max(1, Int((wake.timeIntervalSince(start) / 60).rounded()))))
     }
 
     /// Going to bed earlier than planned: start now, same alarm.
@@ -46,23 +37,49 @@ enum NapSession {
         WindDown.cancel()
     }
 
-    /// Logs the sleep, tagged with that night's bedtime if it wasn't the usual one.
+    /// Makes `nap` the sleep in progress (or planned, when its start is ahead); also undoes a cancel.
+    static func resume(_ nap: ActiveNap) {
+        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
+        ActivityLog.record(kind(nap.minutes), at: nap.start)
+        WindDown.cancel()
+        Task {
+            await NapAlarm.schedule(nap)
+            if nap.start.addingTimeInterval(-WindDown.lead) > .now { await WindDown.schedule(bed: nap.start) }
+        }
+    }
+
+    /// What did's tag for any stretch of sleep; it reads as a nap by its length.
+    static func kind(_ minutes: Int) -> Activity { .sleep }
+
+    private static func unrecord(at time: Date) {
+        ActivityLog.remove(.sleep, at: time)
+    }
+
+    static func canCancel(_ nap: ActiveNap, at now: Date = .now) -> Bool {
+        now.timeIntervalSince(nap.start) <= cancelWindow
+    }
+
+    /// Stops the alarm; the sleep goes on and is logged at "I'm up".
+    static func turnOffAlarm() {
+        guard var nap: ActiveNap = AppData.defaults.decoded(NapKey.active) else { return }
+        NapAlarm.cancel()
+        nap.alarmOff = true
+        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
+    }
+
+    /// Logs the sleep.
     static func finish(at end: Date = .now) {
         let defaults = AppData.defaults
         NapAlarm.cancel()
         guard let nap: ActiveNap = defaults.decoded(NapKey.active) else { return }
-        guard end > nap.start else { return cancel() }
-        let plan: NightPlan? = defaults.decoded(NapKey.night)
-        let advice = NapAdvice(profile: defaults.decoded(JetLagKey.profile) ?? JetLagProfile(), plan: plan)
-        let day = advice.current(at: nap.start)
-        let planned = plan.map { Calendar.current.isDate($0.day, inSameDayAs: day.wake) } ?? false
+        guard end > nap.start else { cancel(); return }
         var naps: [Nap] = defaults.decoded(NapKey.naps) ?? []
-        naps.insert(Nap(start: nap.start, end: max(end, nap.start), bed: planned ? day.bed : nil), at: 0)
+        naps.insert(Nap(start: nap.start, end: max(end, nap.start)), at: 0)
         defaults.encode(naps, NapKey.naps)
         defaults.encode(nil as ActiveNap?, NapKey.active)
         unrecord(at: nap.start)
         ActivityLog.record(kind(Int(end.timeIntervalSince(nap.start) / 60)), at: nap.start)
-        ActivityLog.record(.wake, at: end)
+        ActivityLog.record(nil, at: end)
     }
 
     /// Ends this stretch and starts another from now, so each wake keeps its own record.
@@ -75,6 +92,7 @@ enum NapSession {
     static func moveAlarm(to time: Date) {
         guard var nap: ActiveNap = AppData.defaults.decoded(NapKey.active), time > .now else { return }
         nap.minutes = max(1, Int((time.timeIntervalSince(nap.start) / 60).rounded()))
+        nap.alarmOff = nil
         AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
         Task { await NapAlarm.schedule(nap) }
     }
@@ -87,13 +105,15 @@ enum NapSession {
         defaults.encode(naps, NapKey.naps)
     }
 
-    static func cancel() {
+    /// Drops the sleep in progress; returns it so the cancel can be undone with `resume`.
+    @discardableResult
+    static func cancel() -> ActiveNap? {
         NapAlarm.cancel()
         WindDown.cancel()
-        if let nap: ActiveNap = AppData.defaults.decoded(NapKey.active) {
-            unrecord(at: nap.start)
-        }
+        let nap: ActiveNap? = AppData.defaults.decoded(NapKey.active)
+        if let nap { unrecord(at: nap.start) }
         AppData.defaults.encode(nil as ActiveNap?, NapKey.active)
+        return nap
     }
 }
 
@@ -138,7 +158,7 @@ enum NapAlarm {
     /// After a relaunch, re-arms the in-app ringer for a nap still under way.
     static func restore() {
         guard kind == .app, !NapRinger.shared.isArmed,
-              let nap: ActiveNap = AppData.defaults.decoded(NapKey.active), nap.alarm > .now
+              let nap: ActiveNap = AppData.defaults.decoded(NapKey.active), nap.ringsAlarm, nap.alarm > .now
         else { return }
         NapRinger.shared.arm(for: nap)
     }
