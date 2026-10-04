@@ -97,7 +97,8 @@ struct AsleepCard: View {
     private var asleep: some View {
         let check = WakeCheck(start: nap.start, now: now)
         let isUp = now >= nap.alarm
-        let ends = (1...3).map { check.nextCycleEnd.addingTimeInterval(Double($0 - 1) * WakeCheck.cycle) }
+        let ends = (0..<12).map { check.nextCycleEnd.addingTimeInterval(Double($0) * WakeCheck.cycle) }
+            .filter { $0 > nap.alarm.addingTimeInterval(-120) }.prefix(3)
         return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(isUp ? "Time to get up" : check.isAtCycleEnd ? "Good moment to get up" : "Asleep")
@@ -107,6 +108,7 @@ struct AsleepCard: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+            SleepRing(now: now, plan: nap).frame(maxWidth: 300).frame(maxWidth: .infinity)
             HStack(spacing: 10) {
                 CycleDots(count: max(1, Int((nap.alarm.timeIntervalSince(nap.start) - WakeCheck.fallAsleep) / WakeCheck.cycle)),
                           tint: .indigo, done: Double(check.cycles) + check.intoCycle / WakeCheck.cycle)
@@ -116,24 +118,27 @@ struct AsleepCard: View {
             if !isUp, !check.isFirstMinutes { rightNow(check) }
             if !isUp {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Move the alarm to a cycle's end").font(.label).foregroundStyle(.secondary)
+                    Text("Sleep longer? Alarm at a cycle's end").font(.label).foregroundStyle(.secondary)
                     HStack(spacing: 8) {
-                        ForEach(ends, id: \.self) { end in
-                            let isAlarm = abs(end.timeIntervalSince(nap.alarm)) < 120
-                            Button { NapSession.moveAlarm(to: end) } label: {
-                                Text(SleepNow.clock(end))
-                                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                                    .monospacedDigit()
-                                    .frame(maxWidth: .infinity, minHeight: 40)
-                                    .foregroundStyle(isAlarm ? Color.white : .primary)
-                                    .background(isAlarm ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
+                        ForEach(Array(ends), id: \.self) { end in
+                            timeChip(end, isAlarm: abs(end.timeIntervalSince(nap.alarm)) < 120)
                         }
                     }
                 }
             }
         }
+    }
+
+    private func timeChip(_ time: Date, isAlarm: Bool) -> some View {
+        Button { NapSession.moveAlarm(to: time) } label: {
+            Text(SleepNow.clock(time))
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .foregroundStyle(isAlarm ? Color.white : .primary)
+                .background(isAlarm ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func alarmLine(isUp: Bool) -> some View {
@@ -148,17 +153,21 @@ struct AsleepCard: View {
 
     /// Woke before the alarm: get up now, or how much more sleep still ends on a cycle.
     private func rightNow(_ check: WakeCheck) -> some View {
-        let back = SleepPlan.backToSleep(now: now, alarm: nap.alarm)
+        let times = SleepPlan.backToSleepTimes(now: now, alarm: nap.alarm)
         let upNow = check.isAtCycleEnd ? "Between cycles — getting up now should feel OK."
             : "Mid-cycle — getting up now will likely feel groggy."
-        let more = back.map { "Back to sleep: \($0.cycles) more \($0.cycles == 1 ? "cycle" : "cycles") fit — up at \(SleepNow.clock($0.time))." }
-            ?? "Under a full cycle left before the alarm — better to get up now, or rest until it rings."
         return VStack(alignment: .leading, spacing: 8) {
             Text("Awake now?").font(.label).foregroundStyle(.secondary)
-            Text(upNow + " " + more).font(.subheadline).fixedSize(horizontal: false, vertical: true)
-            if let back, abs(back.time.timeIntervalSince(nap.alarm)) >= 120 {
-                Button("Set alarm to \(SleepNow.clock(back.time))") { NapSession.moveAlarm(to: back.time) }
-                    .font(.subheadline.weight(.semibold))
+            Text(upNow).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            if !times.isEmpty {
+                Text("Back to sleep, up at…").font(.label).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(times) { row in timeChip(row.time, isAlarm: abs(row.time.timeIntervalSince(nap.alarm)) < 120) }
+                }
+                if let late = times.first(where: { $0.time > nap.alarm.addingTimeInterval(120) }) {
+                    Text("After the alarm: \(SleepNow.clock(late.time)) is the next good time.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }
         .padding(12)

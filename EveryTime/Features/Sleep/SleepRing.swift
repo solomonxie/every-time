@@ -60,6 +60,8 @@ struct SleepRing: View {
         var length: Int { end - start }
     }
 
+    private var isAsleep: Bool { plan.map { now >= $0.start } ?? false }
+
     private enum Part: Equatable { case night, nap(Int) }
     private enum Grab: Equatable {
         case start(Part), end(Part), whole(Part, at: Int), pin
@@ -79,9 +81,11 @@ struct SleepRing: View {
     @State private var focus = Part.night
     /// Where the pin was dragged to plan from; nil = now.
     @State private var cursor: Int?
-    /// One bright blink when a hold takes hold.
+    /// One bright blink when a drag takes hold.
     @State private var flash = false
 
+    /// Naps ride a thinner lane just inside the night's track.
+    private static let napLane: CGFloat = 0.42
     static let step = 10
     private static let day = 24 * 60
     private static let nightLengths = 20 ... 14 * 60
@@ -97,10 +101,10 @@ struct SleepRing: View {
         let night = plan.map(span) ?? night ?? usualNight
         VStack(spacing: 16) {
             let shown = plan == nil ? focusedNap : nil
-            header(night: shown ?? night, isNap: shown != nil)
+            if !isAsleep { header(night: shown ?? night, isNap: shown != nil) }
             ring(night: night)
-            readout(night: shown ?? night, isNap: shown != nil, side: 260)
-            if let plan { waiting(plan) } else {
+            if !isAsleep { readout(night: shown ?? night, isNap: shown != nil, side: 260) }
+            if let plan { if !isAsleep { waiting(plan) } } else {
                 summary(night: night)
                 actions(night: night)
             }
@@ -185,23 +189,27 @@ struct SleepRing: View {
                     .frame(width: radius * 2, height: radius * 2).position(center)
                 Circle().fill(Theme.cardFill).frame(width: (radius - track / 2 - 6) * 2, height: (radius - track / 2 - 6) * 2).position(center)
                 face(radius: radius - track / 2 - 14, point: point)
-                cycles(night, radius: radius, track: track, center: center)
+                cycles(night, origin: origin(night), radius: radius, track: track, center: center)
+                if !isAsleep { noCoffee(before: night, radius: radius, track: track, center: center, point: point) }
                 arc(night, color: fit(night).color, width: track - 6, radius: radius, center: center, lit: lit(.night))
                 ForEach(Array((plan == nil ? naps : []).enumerated()), id: \.offset) { i, nap in
-                    arc(nap, color: fit(nap, isNap: true).color.opacity(0.7), width: track * 0.55, radius: radius, center: center, lit: lit(.nap(i)))
-                    handle("cup.and.saucer.fill", size: track * 0.62, isGrabbed: held(.start(.nap(i)), .nap(i)))
-                        .position(point(Double(nap.start), radius))
-                    handle("alarm", size: track * 0.62, isGrabbed: held(.end(.nap(i)), .nap(i)))
-                        .position(point(Double(nap.end), radius))
+                    arc(nap, color: fit(nap, isNap: true).color.opacity(0.85), width: track * 0.22, radius: radius - track * Self.napLane, center: center, lit: lit(.nap(i)))
+                    handle("cup.and.saucer.fill", size: track * 0.5, isGrabbed: held(.start(.nap(i)), .nap(i)))
+                        .position(point(Double(nap.start), radius - track * Self.napLane))
+                    handle("alarm", size: track * 0.5, isGrabbed: held(.end(.nap(i)), .nap(i)))
+                        .position(point(Double(nap.end), radius - track * Self.napLane))
                 }
-                handle("bed.double.fill", size: track - 10, isGrabbed: held(.start(.night), .night))
-                    .position(point(Double(night.start), radius))
+                if !isAsleep {
+                    handle("bed.double.fill", size: track - 10, isGrabbed: held(.start(.night), .night))
+                        .position(point(Double(night.start), radius))
+                }
                 handle("alarm.fill", size: track - 10, isGrabbed: held(.end(.night), .night))
                     .position(point(Double(night.end), radius))
                 Capsule().fill(.primary.opacity(cursor == nil ? 1 : 0.35)).frame(width: 3, height: track + 6)
                     .rotationEffect(.degrees(degrees(0))).position(point(0, radius))
+                if !isAsleep { lengthLabel(focusedNapSpan ?? night, isNap: focusedNapSpan != nil, radius: radius, point: point) }
                 if plan == nil { pin(radius: radius, track: track, point: point) }
-                if let plan { countdown(to: plan.start, side: side).position(center) } else { pinTime(side: side).position(center) }
+                if let plan { centerCountdown(plan, side: side).position(center) } else { pinTime(side: side).position(center) }
             }
             .contentShape(Rectangle())
             .gesture(drag(night: night, center: center, radius: radius, track: track), including: plan == nil ? .all : .subviews)
@@ -241,20 +249,21 @@ struct SleepRing: View {
     }
 
     /// From bedtime on: each cycle's deep-sleep stretch shaded, a tick where it ends. Shown across the next 12 h.
-    private func cycles(_ night: Span, radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
+    private func cycles(_ night: Span, origin: Double, radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
         let fall = SleepSuggestion.fallAsleepTime / 60, cycle = SleepSuggestion.cycleLength / 60
-        let starts = (0..<12).map { Double(night.start) + fall + Double($0) * cycle }.filter { $0 < Double(night.start) + 12 * 60 }
+        let all: [Double] = (0..<12).map { origin + fall + Double($0) * cycle }
+        let starts: [Double] = all.filter { (s: Double) -> Bool in s < origin + 720 && s + cycle > 0 }
         return ZStack {
             ForEach(Array(starts.enumerated()), id: \.offset) { i, s in
-                let from = min(Double(Self.day), s + cycle * WakeFit.deep.lowerBound)
-                let to = min(Double(Self.day), s + cycle * WakeFit.deep.upperBound)
+                let from = max(0, min(Double(Self.day), s + cycle * WakeFit.deep.lowerBound))
+                let to = max(0, min(Double(Self.day), s + cycle * WakeFit.deep.upperBound))
                 Circle()
                     .trim(from: from / Double(Self.day), to: to / Double(Self.day))
                     .stroke(Color.indigo.opacity(i < 3 ? 0.45 : 0.2), lineWidth: track * 0.2)
                     .rotationEffect(.degrees(-90 + degrees(0)))
                     .frame(width: (radius + track * 0.38) * 2, height: (radius + track * 0.38) * 2)
                     .position(center)
-                if s + cycle < Double(Self.day) {
+                if s + cycle < Double(Self.day), s + cycle > 0 {
                     Capsule().fill(.primary.opacity(0.6))
                         .frame(width: 2, height: track * 0.24)
                         .rotationEffect(.degrees(degrees(s + cycle)))
@@ -291,18 +300,21 @@ struct SleepRing: View {
         }
     }
 
-    /// Hold and drag along the rim to plan from a later time.
+    private static let silver = LinearGradient(colors: [Color(white: 0.96), Color(white: 0.62), Color(white: 0.9)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing)
+
+    /// Drag along the rim to plan from a later time.
     private func pin(radius: CGFloat, track: CGFloat, point: (Double, CGFloat) -> CGPoint) -> some View {
         let at = Double(cursor ?? 0)
         let isHeld = grab == .pin, isLit = flash && grab == .pin
         return ZStack {
-            Capsule().fill(Color.orange.gradient).frame(width: 4, height: track + 10)
+            Capsule().fill(Self.silver).frame(width: 4, height: track + 10)
                 .shadow(color: .black.opacity(0.4), radius: 2)
                 .rotationEffect(.degrees(degrees(at))).position(point(at, radius))
-            Circle().fill(isLit ? AnyShapeStyle(.white) : AnyShapeStyle(Color.orange.gradient))
-                .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2))
+            Circle().fill(Self.silver)
+                .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 1))
                 .frame(width: 16, height: 16)
-                .shadow(color: isLit ? .orange : .black.opacity(0.3), radius: isLit ? 10 : 2)
+                .shadow(color: isLit ? .white : .black.opacity(0.3), radius: isLit ? 10 : 2)
                 .scaleEffect(isLit ? 1.6 : isHeld ? 1.3 : 1)
                 .position(point(at, radius + track / 2 + 9))
         }
@@ -317,7 +329,7 @@ struct SleepRing: View {
                 .font(.clock(side * 0.09, weight: .semibold))
                 .monospacedDigit()
                 .contentTransition(.numericText())
-                .foregroundStyle(cursor == nil ? Color.primary : Color.orange)
+                .foregroundStyle(Color.primary)
             Text(cursor == nil ? "Now" : "in \(ActivityLog.duration(date(at).timeIntervalSince(now)))")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -336,19 +348,44 @@ struct SleepRing: View {
 
     private func readout(night: Span, isNap: Bool, side: CGFloat) -> some View {
         let fit = fit(night, isNap: isNap)
-        let cycles = max(0, Double(night.length) * 60 - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
         return VStack(spacing: 4) {
-            Label(isNap ? "Nap" : "Sleep", systemImage: isNap ? "cup.and.saucer.fill" : "bed.double.fill")
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            Text(NapAdvice.hours(Double(night.length) / 60))
-                .font(.clock(side * 0.11, weight: .regular))
-                .contentTransition(.numericText())
-            Text(isNap ? "~\(max(0, night.length - Int(SleepSuggestion.fallAsleepTime / 60))) min asleep"
-                 : "\(cycles.formatted(.number.precision(.fractionLength(1)))) cycles")
-                .font(.subheadline).foregroundStyle(.secondary)
             Label(fit.text(isNap: isNap), systemImage: fit == .good ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                 .font(.caption).foregroundStyle(fit == .poor ? Theme.Tone.bad : fit == .good ? Theme.Tone.good : .orange)
         }
+    }
+
+    /// Coffee cutoff to bedtime, drawn on the ring's track.
+    @ViewBuilder
+    private func noCoffee(before night: Span, radius: CGFloat, track: CGFloat, center: CGPoint, point: (Double, CGFloat) -> CGPoint) -> some View {
+        let band = Span(start: max(0, night.start - Int(Caffeine.hoursBeforeBed * 60)), end: night.start)
+        if band.length > 0 {
+            let line = radius - track / 2 + 3
+            arc(band, color: .red.opacity(0.9), width: 3, radius: line, center: center, lit: false)
+            if band.length >= 40 {
+                Image(systemName: "cup.and.saucer.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.red.opacity(0.9))
+                    .overlay { Capsule().fill(.red).frame(width: 2, height: 16).rotationEffect(.degrees(45)) }
+                    .position(point(Double(band.start + band.end) / 2, radius))
+            }
+        }
+    }
+
+    private var focusedNapSpan: Span? { plan == nil ? focusedNap : nil }
+
+    /// Duration and cycles, on the sleep arc's middle.
+    private func lengthLabel(_ span: Span, isNap: Bool, radius: CGFloat, point: (Double, CGFloat) -> CGPoint) -> some View {
+        let cycles = max(0, Double(span.length) * 60 - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
+        return VStack(spacing: 0) {
+            Text(NapAdvice.hours(Double(span.length) / 60)).font(.system(.caption, design: .rounded, weight: .bold))
+            Text(isNap ? "~\(max(0, span.length - Int(SleepSuggestion.fallAsleepTime / 60))) min asleep"
+                 : "\(cycles.formatted(.number.precision(.fractionLength(1)))) cycles")
+                .font(.system(size: 9, weight: .medium))
+        }
+        .foregroundStyle(.white)
+        .fixedSize()
+        .allowsHitTesting(false)
+        .position(point(Double(span.start + span.end) / 2, radius))
     }
 
     private func header(night: Span, isNap: Bool) -> some View {
@@ -367,6 +404,27 @@ struct SleepRing: View {
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Minutes from the ring's top to lying down; negative once asleep.
+    private func origin(_ night: Span) -> Double {
+        plan.map { Double(Int($0.start.timeIntervalSince(top) / 60)) } ?? Double(night.start)
+    }
+
+    @ViewBuilder
+    private func centerCountdown(_ plan: ActiveNap, side: CGFloat) -> some View {
+        if isAsleep { alarmCountdown(plan, side: side) } else { countdown(to: plan.start, side: side) }
+    }
+
+    private func alarmCountdown(_ plan: ActiveNap, side: CGFloat) -> some View {
+        let left = plan.alarm.timeIntervalSince(now)
+        return VStack(spacing: 2) {
+            Image(systemName: "alarm.fill").font(.title2).foregroundStyle(.indigo)
+            Text(left > 0 ? ActivityLog.duration(left) : "Now")
+                .font(.clock(side * 0.1, weight: .semibold))
+                .contentTransition(.numericText())
+            Text(left > 0 ? "until alarm" : "Time to get up").font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     // MARK: Waiting for bed
@@ -418,7 +476,7 @@ struct SleepRing: View {
                 Text("Nap ends \(ActivityLog.duration(Double(gap) * 60)) before bed\(gap < 6 * 60 ? " — may delay falling asleep" : "")")
                     .font(.footnote).foregroundStyle(gap < 6 * 60 ? Theme.Tone.warn : .secondary)
             }
-            Text("Shaded: each cycle's deep sleep. Hold a handle to resize, or the arc to move. \(Int(SleepSuggestion.fallAsleepTime / 60)) min to drift off.")
+            Text("Shaded: each cycle's deep sleep. Drag a handle to resize, or the arc to move. \(Int(SleepSuggestion.fallAsleepTime / 60)) min to drift off.")
                 .font(.footnote).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -500,12 +558,10 @@ struct SleepRing: View {
 
     // MARK: Dragging
 
-    /// Hold to grab, then drag: a plain tap only picks which range the stats show.
+    /// Drag a handle or arc to change it: a plain tap only picks which range the stats show.
     private func drag(night: Span, center: CGPoint, radius: CGFloat, track: CGFloat) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.15, maximumDistance: 12)
-            .sequenced(before: DragGesture(minimumDistance: 0))
-            .onChanged { sequence in
-                guard case .second(true, let value?) = sequence else { return }
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
                 let offset = self.offset(at: value.location, center: center)
                 if grab == nil {
                     grab = pick(value.startLocation, night: night, center: center, radius: radius, track: track)
@@ -537,14 +593,15 @@ struct SleepRing: View {
     private func pick(_ location: CGPoint, night: Span, center: CGPoint, radius: CGFloat, track: CGFloat) -> Grab? {
         let distance = hypot(location.x - center.x, location.y - center.y)
         guard abs(distance - radius) < track / 2 + 24 else { return nil }
-        let gap = { (offset: Int) in Self.gap(location, self.point(Double(offset), radius: radius, center: center)) }
+        let gap = { (offset: Int, r: CGFloat) in Self.gap(location, self.point(Double(offset), radius: r, center: center)) }
+        let napRadius = radius - track * Self.napLane
         let pinKnob = self.point(Double(cursor ?? 0), radius: radius + track / 2 + 9, center: center)
         if Self.gap(location, pinKnob) < 24 { return .pin }
-        var handles: [(Grab, CGFloat)] = [(.start(.night), gap(night.start)), (.end(.night), gap(night.end))]
-        for (i, nap) in naps.enumerated() { handles += [(.start(.nap(i)), gap(nap.start)), (.end(.nap(i)), gap(nap.end))] }
+        var handles: [(Grab, CGFloat)] = [(.start(.night), gap(night.start, radius)), (.end(.night), gap(night.end, radius))]
+        for (i, nap) in naps.enumerated() { handles += [(.start(.nap(i)), gap(nap.start, napRadius)), (.end(.nap(i)), gap(nap.end, napRadius))] }
         if let nearest = handles.min(by: { $0.1 < $1.1 }), nearest.1 < track * 0.8 { return nearest.0 }
         let offset = self.offset(at: location, center: center)
-        if let i = naps.firstIndex(where: { ($0.start...$0.end).contains(offset) }) { return .whole(.nap(i), at: offset) }
+        if distance < radius - track * 0.2, let i = naps.firstIndex(where: { ($0.start...$0.end).contains(offset) }) { return .whole(.nap(i), at: offset) }
         return (night.start...night.end).contains(offset) ? .whole(.night, at: offset) : nil
     }
 
