@@ -73,33 +73,58 @@ struct NapEffectRow: View {
     }
 }
 
+/// One history line; nights and naps share the same columns.
+struct SleepHistoryRow<Lead: View>: View {
+    let date: Date
+    let detail: String
+    var energy: Int? = nil
+    var symbol: Nap.Night? = nil
+    let duration: String
+    @ViewBuilder let lead: () -> Lead
+
+    var body: some View {
+        HStack(spacing: 12) {
+            lead().frame(width: 34, alignment: .leading)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
+                    .font(.system(.body, design: .rounded))
+                Text(detail)
+                    .font(.label)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            Text(energy.map(Nap.energyTitle) ?? "")
+                .font(.label)
+                .foregroundStyle(.secondary)
+                .frame(width: 56, alignment: .trailing)
+            Image(systemName: symbol?.symbol ?? "circle")
+                .foregroundStyle(.secondary)
+                .opacity(symbol == nil ? 0 : 1)
+                .frame(width: 24)
+                .accessibilityLabel(symbol?.title ?? "")
+            Text(duration)
+                .font(.clock(20, weight: .regular))
+                .frame(width: 76, alignment: .trailing)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct NapRow: View {
     let nap: Nap
     let level: NapAdvice.Level
 
     var body: some View {
-        HStack(spacing: 12) {
+        SleepHistoryRow(
+            date: nap.start,
+            detail: "\(nap.start.formatted(date: .omitted, time: .shortened)) – \(nap.end.formatted(date: .omitted, time: .shortened))",
+            energy: nap.energy,
+            symbol: nap.night,
+            duration: nap.isNight ? NapAdvice.hours((nap.duration / 60).rounded() / 60) : "\(nap.minutes) min"
+        ) {
             Circle().fill(level.tint).frame(width: 8, height: 8)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(nap.start, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
-                    .font(.system(.body, design: .rounded))
-                Text("\(nap.start.formatted(date: .omitted, time: .shortened)) – \(nap.end.formatted(date: .omitted, time: .shortened))")
-                    .font(.label)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let energy = nap.energy {
-                Text(Nap.energyTitle(energy))
-                    .font(.label)
-                    .foregroundStyle(.secondary)
-            }
-            if let night = nap.night {
-                Image(systemName: night.symbol)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(night.title)
-            }
-            Text(nap.isNight ? NapAdvice.hours((nap.duration / 60).rounded() / 60) : "\(nap.minutes) min")
-                .font(.clock(20, weight: .regular))
         }
     }
 }
