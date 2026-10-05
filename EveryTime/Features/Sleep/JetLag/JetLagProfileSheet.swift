@@ -30,6 +30,8 @@ struct JetLagProfileSheet: View {
                 }
                 .listRowBackground(Theme.cardFill)
 
+                if !showsAdvice { cycleSection }
+
                 Section {
                     ForEach(Chronotype.allCases) { type in
                         Button { withAnimation(.snappy) { profile.chronotype = type } } label: { chronotypeRow(type) }
@@ -71,7 +73,7 @@ struct JetLagProfileSheet: View {
                 }
                 .listRowBackground(Theme.cardFill)
 
-                if showsAdvice { adviceSection } else { cycleSection }
+                if showsAdvice { adviceSection }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("Your sleep")
@@ -81,8 +83,8 @@ struct JetLagProfileSheet: View {
             }
             .bottomBar {
                 Button("Save") {
-                    onSave(profile)
                     if !showsAdvice { SleepCycle.current = cycle }
+                    onSave(profile)
                     dismiss()
                 }
                 .buttonStyle(.primary)

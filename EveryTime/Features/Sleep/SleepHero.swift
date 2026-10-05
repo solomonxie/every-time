@@ -6,7 +6,8 @@ struct WakeChoice: Equatable {
     let bed: Date
     let wake: Date
 
-    var isNow: Bool { bed.timeIntervalSince(now) < 60 }
+    /// A bed on the nearest mark, up to half a step ahead, still starts now.
+    var isNow: Bool { bed.timeIntervalSince(now) <= Double(SleepRing.step) * 30 }
     var minutes: Int { max(1, Int((wake.timeIntervalSince(bed) / 60).rounded())) }
     var length: TimeInterval { Double(minutes) * 60 }
     var isNap: Bool { length < Nap.nightLength }
@@ -15,7 +16,7 @@ struct WakeChoice: Equatable {
 
     var button: String {
         isNow ? "\(isNap ? "Nap" : "Sleep") now · up at \(SleepNow.clock(wake))"
-            : "Bed at \(SleepNow.clock(bed)) · up at \(SleepNow.clock(wake))"
+            : "Start schedule · bed \(SleepNow.clock(bed))"
     }
     var symbol: String { !isNow ? "bed.double.fill" : isNap ? "cup.and.saucer.fill" : "moon.zzz.fill" }
 
@@ -25,6 +26,12 @@ struct WakeChoice: Equatable {
             : "\(cycles.formatted(.number.precision(.fractionLength(cycles.rounded() == cycles ? 0 : 1)))) cycles"
         return "\(ActivityLog.duration(length)) · \(what) · \(fit.text(isNap: isNap))"
     }
+}
+
+/// A nap is one icon with a length from a wheel; a sleep has its own span on the ring.
+enum SleepKind: String, CaseIterable {
+    case nap = "Nap", sleep = "Sleep"
+    static let napMinutes = 5...90
 }
 
 /// Idle top of the Sleep page: bed and wake readouts (tap for a wheel), the ring, wake chips and the verdict.
@@ -37,16 +44,28 @@ struct SleepHero: View {
     /// nil = the pick for now.
     @Binding var wake: Date?
 
+    @Binding var kind: SleepKind
+    @Binding var napMinutes: Int
+
     private enum End { case bed, wake }
     @State private var open: End?
+    @State private var editsNap = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                readout(.bed, "bed.double.fill", "Bedtime", choice.bed)
-                readout(.wake, "alarm.fill", "Wake up", choice.wake)
+            if kind == .nap {
+                HStack(spacing: 8) {
+                    Button { editsNap = true } label: { stat("cup.and.saucer.fill", "Nap", "\(napMinutes) min", "Tap for exact") }
+                        .buttonStyle(.plain)
+                    stat("alarm.fill", "Wake up", SleepNow.clock(choice.wake), "Today")
+                }
+            } else {
+                HStack(spacing: 8) {
+                    readout(.bed, "bed.double.fill", "Bedtime", choice.bed)
+                    readout(.wake, "alarm.fill", "Wake up", choice.wake)
+                }
             }
-            if let open {
+            if kind == .sleep, let open {
                 MinuteWheel(date: wheel(open))
                     .frame(maxWidth: .infinity)
                     .frame(height: 150)
@@ -56,10 +75,12 @@ struct SleepHero: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(choice.fit.color)
                 .contentTransition(.numericText())
-            SleepRing(now: now, bed: ringBed, wake: ringWake)
+            SleepRing(now: now, bed: kind == .nap ? nil : ringBed, wake: kind == .nap ? nil : ringWake,
+                      nap: kind == .nap ? napMinutes : nil, minLength: Int(Nap.nightLength / 60))
                 .frame(maxWidth: 300)
                 .frame(maxWidth: .infinity)
-            chips
+            kindTiles
+            if kind == .nap { napChips } else { chips }
             Text(verdict)
                 .font(.footnote)
                 .foregroundStyle(sleepNow.zone == .evening && sleepNow.sleepOptions.first?.level == .high ? Theme.Tone.bad : .secondary)
@@ -67,6 +88,75 @@ struct SleepHero: View {
         }
         .animation(.snappy, value: choice)
         .animation(.snappy, value: open)
+        .sheet(isPresented: $editsNap) {
+            NavigationStack {
+                Picker("Nap length", selection: $napMinutes) {
+                    ForEach(Array(stride(from: SleepKind.napMinutes.lowerBound, through: SleepKind.napMinutes.upperBound, by: 5)), id: \.self) {
+                        Text("\($0) min").tag($0)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .navigationTitle("Nap length")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { editsNap = false } } }
+            }
+            .presentationDetents([.height(300)])
+        }
+    }
+
+    private var kindTiles: some View {
+        HStack(spacing: 10) {
+            tile(.nap, "cup.and.saucer.fill", "\(napMinutes) min")
+            tile(.sleep, "moon.zzz.fill", kind == .sleep ? "up \(SleepNow.clock(choice.wake))" : "bed & alarm")
+        }
+    }
+
+    private func tile(_ tile: SleepKind, _ symbol: String, _ detail: String) -> some View {
+        let picked = kind == tile
+        return Button { kind = tile } label: {
+            HStack(spacing: 10) {
+                Image(systemName: symbol).font(.title2)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(tile.rawValue).font(.headline)
+                    Text(detail).font(.caption).monospacedDigit().opacity(0.8)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .foregroundStyle(picked ? Color.white : .primary)
+            .background(picked ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: kind)
+        .accessibilityAddTraits(picked ? .isSelected : [])
+    }
+
+    private func stat(_ symbol: String, _ title: String, _ value: String, _ caption: String) -> some View {
+        VStack(spacing: 2) {
+            Label(title.uppercased(), systemImage: symbol).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text(value).font(.clock(30, weight: .semibold)).contentTransition(.numericText())
+            Text(caption).font(.footnote).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var napChips: some View {
+        HStack(spacing: 8) {
+            ForEach([10, 20, 30, 45, 60, 90], id: \.self) { minutes in
+                let picked = napMinutes == minutes
+                Button { napMinutes = minutes } label: {
+                    Text("\(minutes)")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .foregroundStyle(picked ? Color.white : .primary)
+                        .background(picked ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(minutes) minute nap")
+            }
+        }
     }
 
     private func readout(_ end: End, _ symbol: String, _ title: String, _ time: Date) -> some View {
@@ -99,7 +189,7 @@ struct SleepHero: View {
     /// The wheel gives a clock time; it lands on the right side of midnight, after now (bed) or after bed (wake).
     private func wheel(_ end: End) -> Binding<Date> {
         Binding(get: { end == .bed ? choice.bed : choice.wake }, set: { picked in
-            let floor = end == .bed ? now : choice.bed.addingTimeInterval(Double(SleepRing.lengths.lowerBound) * 60)
+            let floor = end == .bed ? now : choice.bed.addingTimeInterval(Nap.nightLength)
             var date = picked
             if date < floor { date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date }
             if date.timeIntervalSince(floor) > Double(SleepRing.lengths.upperBound) * 60 {
@@ -108,7 +198,7 @@ struct SleepHero: View {
             date = SleepRing.snap(max(floor, date))
             if end == .bed {
                 bed = date.timeIntervalSince(now) < 60 ? nil : date
-                if choice.wake.timeIntervalSince(date) < Double(SleepRing.lengths.lowerBound) * 60 { wake = nil }
+                if choice.wake.timeIntervalSince(date) < Nap.nightLength { wake = nil }
             } else {
                 wake = date
             }
@@ -118,7 +208,7 @@ struct SleepHero: View {
     private var chips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 8) {
-                ForEach(sleepNow.options) { option in
+                ForEach(sleepNow.options.filter { $0.time.timeIntervalSince(choice.bed) >= Nap.nightLength - 60 }) { option in
                     let time = SleepRing.snap(option.time)
                     let isPicked = abs(time.timeIntervalSince(choice.wake)) < 60
                     Button {

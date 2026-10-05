@@ -61,6 +61,10 @@ struct SleepRing: View {
     var wake: Binding<Date>? = nil
     /// Planned or asleep: the ring just counts down.
     var plan: ActiveNap? = nil
+    /// Idle nap: one icon at now; its length (minutes) is set elsewhere.
+    var nap: Int? = nil
+    /// Shortest sleep the handles allow.
+    var minLength = SleepRing.lengths.lowerBound
 
     private enum Handle: Equatable { case bed, alarm, whole(from: Int) }
     @State private var dragging: Handle?
@@ -86,7 +90,7 @@ struct SleepRing: View {
         return min(Self.day, max(0, start))
     }
     private var end: Int {
-        let end = plan.map { offset($0.alarm) } ?? wake.map { offset($0.wrappedValue) } ?? start + 8 * 60
+        let end = plan.map { offset($0.alarm) } ?? nap.map { start + $0 } ?? wake.map { offset($0.wrappedValue) } ?? start + 8 * 60
         return min(Self.day, max(start, end))
     }
 
@@ -109,30 +113,36 @@ struct SleepRing: View {
                     .frame(width: radius * 2, height: radius * 2).position(center)
                 Circle().fill(Theme.cardFill).frame(width: (radius - track / 2 - 6) * 2, height: (radius - track / 2 - 6) * 2).position(center)
                 face(radius: radius - track / 2 - 14, point: point)
-                cycles(radius: radius, track: track, center: center)
+                if nap == nil { cycles(radius: radius, track: track, center: center) }
                 if let plan {
                     arc(start, end, color: .indigo.opacity(0.35), width: track - 6, radius: radius, center: center)
                     if isAsleep {
                         arc(start, min(end, max(start, offset(now))), color: .indigo, width: track - 6, radius: radius, center: center)
                     } else {
-                        marker("bed.double.fill", size: track - 14, tint: .indigo).position(point(Double(start), radius))
+                        if !crowded(point, radius: radius, size: track - 14) {
+                            marker("bed.double.fill", size: track - 14, tint: .indigo).position(point(Double(start), radius))
+                        }
                     }
                     marker("alarm.fill", size: track - 14, tint: plan.ringsAlarm ? .indigo : .secondary)
                         .position(point(Double(end), radius))
+                } else if nap != nil {
+                    marker("cup.and.saucer.fill", size: track - 8, tint: fit.color).position(point(0, radius))
                 } else {
                     arc(start, end, color: fit.color, width: track - 6, radius: radius, center: center)
-                    if bed != nil {
+                    if bed != nil, !crowded(point, radius: radius, size: track - 8) {
                         marker("bed.double.fill", size: track - 8, tint: .indigo, isGrabbed: dragging == .bed || isMovingWhole)
                             .position(point(Double(start), radius))
                     }
                     marker("alarm.fill", size: track - 8, tint: fit.color, isGrabbed: dragging == .alarm || isMovingWhole)
                         .position(point(Double(end), radius))
                 }
-                Capsule().fill(.primary).frame(width: 3, height: track + 6)
-                    .rotationEffect(.degrees(degrees(0))).position(point(0, radius))
+                if nap == nil {
+                    Capsule().fill(.primary).frame(width: 3, height: track + 6)
+                        .rotationEffect(.degrees(degrees(0))).position(point(0, radius))
+                }
                 centre(side: side).position(center)
             }
-            .contentShape(Rectangle())
+            .contentShape(Band(radius: radius, width: track + 32), eoFill: true)
             .gesture(drag(center: center, radius: radius, track: track), including: plan == nil ? .all : .subviews)
         }
         .aspectRatio(1, contentMode: .fit)
@@ -143,7 +153,26 @@ struct SleepRing: View {
         .accessibilityValue("\(SleepNow.clock(date(start))) to \(SleepNow.clock(date(end))), \(fit.text(isNap: isNap))")
     }
 
+    /// Only the ring's track takes touches, so the page scrolls from the space around and inside it.
+    private struct Band: Shape {
+        let radius: CGFloat
+        let width: CGFloat
+
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            for r in [radius + width / 2, radius - width / 2] {
+                path.addEllipse(in: CGRect(x: rect.midX - r, y: rect.midY - r, width: r * 2, height: r * 2))
+            }
+            return path
+        }
+    }
+
     // MARK: Parts
+
+    /// A short nap puts both handles on top of each other; the alarm alone is drawn then.
+    private func crowded(_ point: (Double, CGFloat) -> CGPoint, radius: CGFloat, size: CGFloat) -> Bool {
+        Self.gap(point(Double(start), radius), point(Double(end), radius)) < size * 1.1
+    }
 
     private func arc(_ from: Int, _ to: Int, color: Color, width: CGFloat, radius: CGFloat, center: CGPoint) -> some View {
         Circle()
@@ -221,26 +250,8 @@ struct SleepRing: View {
     /// Idle: how long and how many cycles. Planned: until bed. Asleep: until the alarm.
     @ViewBuilder
     private func centre(side: CGFloat) -> some View {
-        if let plan, !isAsleep {
-            let left = plan.start.timeIntervalSince(now)
-            VStack(spacing: 2) {
-                Image(systemName: left <= WindDown.lead ? "moon.zzz.fill" : "moon.stars.fill").font(.title3).foregroundStyle(.indigo)
-                    .symbolEffect(.pulse, isActive: left <= WindDown.lead)
-                Text(ActivityLog.duration(max(0, left)))
-                    .font(.clock(side * 0.1, weight: .semibold))
-                    .contentTransition(.numericText())
-                Text(left <= WindDown.lead ? "wind down" : "until bed").font(.caption).foregroundStyle(.secondary)
-            }
-        } else if let plan {
-            let left = plan.alarm.timeIntervalSince(now)
-            VStack(spacing: 2) {
-                Image(systemName: plan.ringsAlarm ? "alarm.fill" : "alarm.slash").font(.title3).foregroundStyle(.indigo)
-                Text(!plan.ringsAlarm ? "Alarm off" : left > 0 ? ActivityLog.duration(left) : "Now")
-                    .font(.clock(side * 0.1, weight: .semibold))
-                    .contentTransition(.numericText())
-                Text(!plan.ringsAlarm ? "up when you wake" : left > 0 ? "until alarm" : "Time to get up")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+        if plan != nil {
+            EmptyView()
         } else {
             let cycles = max(0, length - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
             VStack(spacing: 2) {
@@ -272,10 +283,10 @@ struct SleepRing: View {
                 switch dragging {
                 case .bed:
                     // Past the ring's top counter-clockwise reads as "now".
-                    let bedOffset = min(max(0, offset > end ? 0 : offset), end - Self.lengths.lowerBound)
+                    let bedOffset = min(max(0, offset > end ? 0 : offset), end - minLength)
                     if bedOffset != start { bed?.wrappedValue = date(bedOffset) }
                 case .alarm:
-                    var alarm = min(max(offset, start + Self.lengths.lowerBound), min(Self.day, start + Self.lengths.upperBound))
+                    var alarm = min(max(offset, start + minLength), min(Self.day, start + Self.lengths.upperBound))
                     if let detent = Self.detent(near: alarm - start) {
                         if start + detent != end { detents += 1 }
                         alarm = start + detent

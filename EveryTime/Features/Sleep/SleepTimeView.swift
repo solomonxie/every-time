@@ -16,6 +16,8 @@ struct SleepTimeView: View {
     /// Bed and wake picked by chip, wheel or drag; they stay until they pass. nil = now / the pick for now.
     @Stored("sleep.plan.bed") private var storedBed: Date? = nil
     @Stored("sleep.plan.wake") private var storedWake: Date? = nil
+    @AppStorage("sleep.kind") private var kind = SleepKind.nap
+    @AppStorage("sleep.nap.minutes") private var napMinutes = 20
     @State private var toast: Toast?
     @State private var showsAllHistory = false
     @State private var sheet: SheetKind?
@@ -34,22 +36,12 @@ struct SleepTimeView: View {
     }
 
     var body: some View {
-        TimelineView(.everyMinute) { context in
-            let now = max(context.date, .now)
-            // Stored decodes on every read; read once per redraw.
-            let profile = storedProfile ?? JetLagProfile()
-            let naps = storedNaps
-            Group {
-                if let active {
-                    NightScreen(phase: active.start > now ? .waiting(active)
-                                    : active.ringsAlarm && now >= active.alarm ? .ringing(active) : .asleep(active),
-                                now: now, onCancel: cancel) {}
-                } else if let woke = naps.first(where: { $0.energy == nil && $0.end <= now && now.timeIntervalSince($0.end) < 2 * 3600 }),
-                          woke.id.uuidString != dismissedWoke {
-                    NightScreen(phase: .woke(woke), now: now, onCancel: { _ in }) { dismissedWoke = woke.id.uuidString }
-                } else {
-                    idle(now: now, naps: naps, profile: profile)
-                }
+        Group {
+            // The night screen counts seconds; the idle page only needs the minute.
+            if active != nil {
+                TimelineView(.periodic(from: .now, by: 1)) { page(now: max($0.date, .now)) }
+            } else {
+                TimelineView(.everyMinute) { page(now: max($0.date, .now)) }
             }
         }
         .animation(.snappy, value: active)
@@ -88,21 +80,42 @@ struct SleepTimeView: View {
         .sensoryFeedback(.impact(weight: .medium), trigger: active == nil)
     }
 
+    private func page(now: Date) -> some View {
+        // Stored decodes on every read; read once per redraw.
+        let profile = storedProfile ?? JetLagProfile()
+        let naps = storedNaps
+        return Group {
+            if let active {
+                NightScreen(phase: active.start > now ? .waiting(active)
+                                : active.ringsAlarm && now >= active.alarm ? .ringing(active) : .asleep(active),
+                            now: now, onCancel: cancel) {}
+            } else if let woke = naps.first(where: { $0.energy == nil && $0.end <= now && now.timeIntervalSince($0.end) < 2 * 3600 }),
+                      woke.id.uuidString != dismissedWoke {
+                NightScreen(phase: .woke(woke), now: now, onCancel: { _ in }) { dismissedWoke = woke.id.uuidString }
+            } else {
+                idle(now: now, naps: naps, profile: profile)
+            }
+        }
+    }
+
     // MARK: Idle
 
     private func idle(now: Date, naps: [Nap], profile: JetLagProfile) -> some View {
         let advice = NapAdvice(profile: profile)
-        let minLength = Double(SleepRing.lengths.lowerBound) * 60
-        let bed = storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil } ?? now
+        // Sleep times sit on the ring's 10-minute marks, so "now" is the nearest mark.
+        let bed = kind == .nap ? now : SleepRing.snap(storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil } ?? now)
         let sleepNow = SleepNow(advice: advice, start: bed)
-        let wake = storedWake.flatMap { $0.timeIntervalSince(bed) >= minLength - 60 ? $0 : nil }
-            ?? sleepNow.pick.map { SleepRing.snap($0.time) } ?? bed.addingTimeInterval(8 * 3600)
+        let long = sleepNow.pick.map { SleepRing.snap($0.time) }.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength ? $0 : nil }
+        let wake = kind == .nap ? bed.addingTimeInterval(Double(napMinutes) * 60)
+            : SleepRing.snap(storedWake.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength - 60 ? $0 : nil }
+                ?? long ?? bed.addingTimeInterval(8 * 3600))
         let choice = WakeChoice(now: now, bed: bed, wake: wake)
         let nights = PastNight.merged(logged: naps, health: health)
         return ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 14) {
-                    SleepHero(now: now, sleepNow: sleepNow, choice: choice, bed: $storedBed, wake: $storedWake)
+                    SleepHero(now: now, sleepNow: sleepNow, choice: choice, bed: $storedBed, wake: $storedWake,
+                              kind: $kind, napMinutes: $napMinutes)
                     if alarmBlocked { alarmWarning }
                     if let morning = MorningLog.proposal(now: now, naps: naps, health: health, advice: advice),
                        dismissedMorning != MorningLog.key(now) {
@@ -110,9 +123,9 @@ struct SleepTimeView: View {
                     }
                     hoursLine(profile, nights: nights)
                 }
+                schedule(profile)
                 history(nights: nights, naps: naps, now: now, profile: profile, advice: advice)
-                        insights(nights: nights, naps: naps, profile: profile)
-                footer(profile)
+                insights(nights: nights, naps: naps, profile: profile)
             }
             .padding(.horizontal, Theme.padding)
             .padding(.vertical, 12)
@@ -196,11 +209,9 @@ struct SleepTimeView: View {
         dismissedMorning = MorningLog.key(.now)
     }
 
-    /// Back to the page with the schedule as it was, ready to adjust.
+    /// Back to the page; the saved bed and wake times are never touched by starting or cancelling.
     private func cancel(_ nap: ActiveNap) {
         NapSession.cancel()
-        storedBed = nap.start.timeIntervalSinceNow >= 60 ? nap.start : nil
-        storedWake = nap.alarm
         let what = nap.start > .now ? "Plan" : Double(nap.minutes) * 60 < Nap.nightLength ? "Nap" : "Sleep"
         show(Toast(text: "\(what) cancelled") { NapSession.resume(nap) })
     }
@@ -416,17 +427,28 @@ struct SleepTimeView: View {
 
     // MARK: Usual hours
 
-    private func footer(_ profile: JetLagProfile) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button { sheet = .profile } label: {
-                HStack {
-                    Label("Usually \(clock(profile.usualBedtime)) – \(clock(profile.usualWake))", systemImage: "person.crop.circle")
-                    Spacer()
-                    Text("Change").fontWeight(.semibold)
-                }
-                .font(.subheadline)
+    private func schedule(_ profile: JetLagProfile) -> some View {
+        let cycle = SleepCycle.current
+        return Button { sheet = .profile } label: {
+            VStack(spacing: 12) {
+                scheduleRow("person.crop.circle", "Usually \(clock(profile.usualBedtime)) – \(clock(profile.usualWake))", nil)
+                scheduleRow("arrow.triangle.2.circlepath", "Cycle \(cycle.minutes) min", cycle.sourceText)
             }
-            .buttonStyle(.borderless)
+            .padding(14)
+            .background(Theme.cardFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func scheduleRow(_ symbol: String, _ title: String, _ detail: String?) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(.indigo).frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold)).monospacedDigit()
+                if let detail { Text(detail.prefix(1).uppercased() + detail.dropFirst()).font(.caption).foregroundStyle(.secondary) }
+            }
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
         }
     }
 

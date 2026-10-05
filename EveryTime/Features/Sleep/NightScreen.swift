@@ -44,23 +44,19 @@ struct NightScreen: View {
         let left = nap.start.timeIntervalSince(now)
         let windingDown = left <= WindDown.lead
         return Group {
-            clock(now)
-            VStack(spacing: 6) {
-                Text("Bed \(SleepNow.clock(nap.start)) · in \(ActivityLog.duration(max(0, left)))")
-                    .font(.title2.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.85))
-                Text(windingDown ? "Wind down · lights low, screens away" : "Alarm \(SleepNow.clock(nap.alarm)) is set")
+            countdown(left)
+            HStack(spacing: 8) {
+                Text(windingDown ? "Wind down · bed \(SleepNow.clock(nap.start))" : "Scheduled bed \(SleepNow.clock(nap.start))")
                     .font(.title3.weight(.medium))
                     .foregroundStyle(windingDown ? Color.indigo.opacity(0.9) : Self.dim)
+                InfoButton(label: "About this schedule", text: """
+                    Asleep from \(SleepNow.clock(nap.start)) on its own, up at \(SleepNow.clock(nap.alarm)). \
+                    \(NapAlarm.kind == .system ? "The alarm rings even in silent mode and Focus." : "The alarm rings even in silent mode; leave Every Time open or in the background and don't swipe it away. Keep notifications on and the volume up.") \
+                    Wind down: lights low, screens away.
+                    """)
             }
             SleepRing(now: now, plan: nap)
-                .frame(maxWidth: 240)
-                .opacity(0.7)
-            Text("Asleep from \(SleepNow.clock(nap.start)) unless you tap below first; up at \(SleepNow.clock(nap.alarm)).")
-                .font(.footnote).foregroundStyle(Self.dim)
-                .multilineTextAlignment(.center)
-            NapAlarmStatus().opacity(0.6)
+                .frame(maxWidth: 300)
         }
     }
 
@@ -68,27 +64,28 @@ struct NightScreen: View {
 
     private func asleep(_ nap: ActiveNap) -> some View {
         let check = WakeCheck(start: nap.start, now: now)
+        let isNap = Double(nap.minutes) * 60 < Nap.nightLength
+        let cycles = max(1, Int((nap.alarm.timeIntervalSince(nap.start) - WakeCheck.fallAsleep) / WakeCheck.cycle))
         return Group {
-            clock(now)
-            VStack(spacing: 6) {
+            if nap.ringsAlarm { countdown(nap.alarm.timeIntervalSince(now)) } else { clock(now) }
+            HStack(spacing: 8) {
                 alarmLine(nap)
+                InfoButton(label: "About the alarm", text: Self.alarmInfo)
+            }
+            SleepRing(now: now, plan: nap)
+                .frame(maxWidth: 300)
+            if !isNap {
                 Text(answer(check, nap: nap))
-                    .font(.title3.weight(.medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(check.isFirstMinutes ? Self.dim : check.isAtCycleEnd ? Theme.Tone.good : Theme.Tone.warn)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    CycleDots(count: cycles, tint: .indigo, done: Double(check.cycles) + check.intoCycle / WakeCheck.cycle)
+                    Text("\(check.cycles) of \(cycles) cycles").font(.footnote).foregroundStyle(Self.dim)
+                }
+                chipRow("Up at", times: upAt(nap, check: check), current: nap.ringsAlarm ? nap.alarm : nil) { NapSession.moveAlarm(to: $0) }
             }
-            SleepRing(now: now, plan: nap)
-                .frame(maxWidth: 240)
-                .opacity(0.7)
-            HStack(spacing: 10) {
-                CycleDots(count: max(1, Int((nap.alarm.timeIntervalSince(nap.start) - WakeCheck.fallAsleep) / WakeCheck.cycle)),
-                          tint: .indigo, done: Double(check.cycles) + check.intoCycle / WakeCheck.cycle)
-                Text("\(check.cycles) of \(max(1, Int((nap.alarm.timeIntervalSince(nap.start) - WakeCheck.fallAsleep) / WakeCheck.cycle))) cycles")
-                    .font(.footnote).foregroundStyle(Self.dim)
-            }
-            chipRow("Up at", times: upAt(nap, check: check), current: nap.ringsAlarm ? nap.alarm : nil) { NapSession.moveAlarm(to: $0) }
-            NapAlarmStatus().opacity(0.6)
         }
     }
 
@@ -107,9 +104,8 @@ struct NightScreen: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Text(nap.ringsAlarm ? "Alarm \(SleepNow.clock(nap.alarm)) · in \(ActivityLog.duration(max(0, nap.alarm.timeIntervalSince(now))))"
-                     : "Alarm off · up when you wake")
-                    .font(.title2.weight(.semibold))
+                Text(nap.ringsAlarm ? "Alarm \(SleepNow.clock(nap.alarm))" : "Alarm off · up when you wake")
+                    .font(.title3.weight(.medium))
                     .monospacedDigit()
                 if !NapSession.canCancel(nap, at: now) {
                     Image(systemName: "chevron.down").font(.caption.weight(.bold)).foregroundStyle(Self.dim)
@@ -199,7 +195,29 @@ struct NightScreen: View {
 
     // MARK: Shared
 
+    private static var alarmInfo: String {
+        NapAlarm.kind == .system
+            ? "The alarm rings even in silent mode and Focus."
+            : "The alarm rings even in silent mode. Leave Every Time open or in the background, don't swipe it away, keep notifications on and the volume up."
+    }
+
     private static let dim = Color.white.opacity(0.55)
+
+    /// "89 min 43 sec"; under a minute, "43 sec". Never hours.
+    private func countdown(_ left: TimeInterval) -> some View {
+        let s = Int(max(0, left).rounded(.up))
+        return countdownText(s >= 60 ? "\(s / 60) min \(s % 60) sec" : "\(s) sec")
+            .accessibilityLabel(ActivityLog.duration(max(0, left)))
+    }
+
+    private func countdownText(_ text: String) -> some View {
+        Text(text)
+            .font(.clock(44, weight: .medium))
+            .monospacedDigit()
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(.white.opacity(0.85))
+    }
 
     private func clock(_ time: Date) -> some View {
         Text(SleepNow.clock(time))
@@ -249,13 +267,8 @@ struct NightScreen: View {
     private var bar: some View {
         switch phase {
         case .waiting(let nap):
-            HStack(spacing: Theme.spacing) {
-                Button("Cancel") { onCancel(nap) }
-                    .buttonStyle(.soft)
-                    .frame(maxWidth: 120)
-                Button { NapSession.inBedNow() } label: { Label("Asleep already", systemImage: "moon.zzz.fill") }
-                    .buttonStyle(.primary)
-            }
+            Button { onCancel(nap) } label: { Text("Cancel schedule").frame(maxWidth: .infinity) }
+                .buttonStyle(.soft)
         case .asleep(let nap):
             HStack(spacing: Theme.spacing) {
                 if NapSession.canCancel(nap, at: now) {

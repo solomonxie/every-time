@@ -25,18 +25,6 @@ enum NapSession {
         resume(ActiveNap(start: start, minutes: max(1, Int((wake.timeIntervalSince(start) / 60).rounded()))))
     }
 
-    /// Going to bed earlier than planned: start now, same alarm.
-    static func inBedNow() {
-        guard var nap: ActiveNap = AppData.defaults.decoded(NapKey.active), nap.start > .now else { return }
-        let alarm = nap.alarm
-        unrecord(at: nap.start)
-        nap.start = .now
-        nap.minutes = max(1, Int((alarm.timeIntervalSince(nap.start) / 60).rounded()))
-        ActivityLog.record(kind(nap.minutes), at: nap.start)
-        AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
-        WindDown.cancel()
-    }
-
     /// Makes `nap` the sleep in progress (or planned, when its start is ahead); also undoes a cancel.
     static func resume(_ nap: ActiveNap) {
         AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
