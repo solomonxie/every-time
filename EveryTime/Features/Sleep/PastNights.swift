@@ -142,26 +142,15 @@ struct PastNightRow: View {
     var body: some View {
         let fit = SleepSuggestion.fit(minutesInBed: Int((night.end.timeIntervalSince(night.start) + SleepSuggestion.fallAsleepTime) / 60))
         let score = SleepScore.score(asleep: night.asleep, usualHours: usualHours, energy: night.energy)
-        HStack(spacing: 12) {
+        SleepHistoryRow(
+            date: night.end,
+            detail: "\(SleepNow.clock(night.start)) – \(SleepNow.clock(night.end)) · \(fit.cycles) \(fit.cycles == 1 ? "cycle" : "cycles")",
+            energy: night.energy,
+            duration: NapAdvice.hours((night.asleep / 60).rounded() / 60)
+        ) {
             Text("\(score)")
                 .font(.clock(18, weight: .semibold))
                 .foregroundStyle(SleepScore.level(score).tint)
-                .frame(width: 34, alignment: .leading)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(night.end, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day())
-                    .font(.system(.body, design: .rounded))
-                Text("\(SleepNow.clock(night.start)) – \(SleepNow.clock(night.end)) · \(fit.cycles) \(fit.cycles == 1 ? "cycle" : "cycles")")
-                    .font(.label)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let energy = night.energy {
-                Text(Nap.energyTitle(energy)).font(.label).foregroundStyle(.secondary)
-            }
-            Text(NapAdvice.hours((night.asleep / 60).rounded() / 60))
-                .font(.clock(20, weight: .regular))
         }
-        .accessibilityElement(children: .combine)
     }
 }
