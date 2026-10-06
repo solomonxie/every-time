@@ -27,9 +27,14 @@ struct WorldCity: Codable, Identifiable, Hashable {
     static let all: [WorldCity] = {
         let zones = TimeZone.knownTimeZoneIdentifiers
             .filter { $0.contains("/") && !$0.hasPrefix("Etc/") }
-            .map(WorldCity.init)
+            .map { id -> WorldCity in
+                let city = WorldCity(timeZoneIdentifier: id)
+                return WorldCity(name: WorldCity.renames[city.name] ?? city.name, timeZoneIdentifier: id)
+            }
         let names = Set(zones.map(\.name))
-        let extra = aliases
+        let capitals = Dictionary(WorldCity.countries.compactMap { c in
+            c.zones.first { TimeZone(identifier: $0) != nil }.map { (c.capital, $0) } }, uniquingKeysWith: { a, _ in a })
+        let extra = aliases.merging(capitals) { a, _ in a }
             .filter { !names.contains($0.key) && TimeZone(identifier: $0.value) != nil }
             .map { WorldCity(name: $0.key, timeZoneIdentifier: $0.value) }
         return (zones + extra).sorted { $0.name < $1.name }
