@@ -124,7 +124,7 @@ struct NapRow: View {
             symbol: nap.night,
             duration: nap.isNight ? NapAdvice.hours((nap.duration / 60).rounded() / 60) : "\(nap.minutes) min"
         ) {
-            Circle().fill(level.tint).frame(width: 8, height: 8)
+            Image(systemName: "powersleep").font(.title3).foregroundStyle(level.tint)
         }
     }
 }

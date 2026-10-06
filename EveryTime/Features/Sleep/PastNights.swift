@@ -148,9 +148,11 @@ struct PastNightRow: View {
             energy: night.energy,
             duration: NapAdvice.hours((night.asleep / 60).rounded() / 60)
         ) {
-            Text("\(score)")
-                .font(.clock(18, weight: .semibold))
-                .foregroundStyle(SleepScore.level(score).tint)
+            VStack(spacing: 1) {
+                Image(systemName: "moon.fill").font(.callout)
+                Text("\(score)").font(.clock(14, weight: .semibold))
+            }
+            .foregroundStyle(SleepScore.level(score).tint)
         }
     }
 }

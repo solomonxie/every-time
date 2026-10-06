@@ -46,10 +46,12 @@ struct SleepHero: View {
 
     @Binding var kind: SleepKind
     @Binding var napMinutes: Int
+    var napBlockedTip: String?
 
     private enum End { case bed, wake }
     @State private var open: End?
     @State private var editsNap = false
+    @State private var showsNapTip = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -113,7 +115,8 @@ struct SleepHero: View {
 
     private func tile(_ tile: SleepKind, _ symbol: String, _ detail: String) -> some View {
         let picked = kind == tile
-        return Button { kind = tile } label: {
+        let blocked = tile == .nap && napBlockedTip != nil
+        return Button { if blocked { showsNapTip = true } else { kind = tile } } label: {
             HStack(spacing: 10) {
                 Image(systemName: symbol).font(.title2)
                 VStack(alignment: .leading, spacing: 1) {
@@ -126,8 +129,10 @@ struct SleepHero: View {
             .frame(maxWidth: .infinity, minHeight: 64)
             .foregroundStyle(picked ? Color.white : .primary)
             .background(picked ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .opacity(blocked ? 0.4 : 1)
         }
         .buttonStyle(.plain)
+        .alert("Nap unavailable", isPresented: $showsNapTip) { Button("OK", role: .cancel) {} } message: { Text(napBlockedTip ?? "") }
         .sensoryFeedback(.selection, trigger: kind)
         .accessibilityAddTraits(picked ? .isSelected : [])
     }

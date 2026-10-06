@@ -30,7 +30,7 @@ struct NightScreen: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .background(Color.black.ignoresSafeArea())
-        .bottomBar { bar }
+        .bottomBar { bar.padding(.bottom, 10) }
         .colorScheme(.dark)
         .tint(.orange)
         .modifier(NightDim())
