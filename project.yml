@@ -123,6 +123,7 @@ targets:
           - "EveryTimeWidget.entitlements"
       - Glance
       - EveryTime/Models/WorldCity.swift
+      - EveryTime/Models/WorldCityData.swift
     entitlements:
       path: EveryTimeWidget/EveryTimeWidget.entitlements
       properties:
