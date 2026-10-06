@@ -100,22 +100,35 @@ struct SleepTimeView: View {
 
     // MARK: Idle
 
+    private func napTip(_ profile: JetLagProfile, now: Date, slept: Bool) -> String? {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: now)
+        let minute = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        let (bed, wake) = (profile.usualBedtime, profile.usualWake)
+        let from = (bed - 60 + 24 * 60) % (24 * 60)
+        let nearBed = from <= bed ? (from..<bed).contains(minute) : (minute >= from || minute < bed)
+        let inNight = bed <= wake ? (bed...wake).contains(minute) : (minute >= bed || minute <= wake)
+        guard nearBed || (inNight && !slept) else { return nil }
+        return "It's within an hour of, or inside, your usual sleep hours (\(bed.timeOfDayText) – \(wake.timeOfDayText)). Use Sleep instead."
+    }
+
     private func idle(now: Date, naps: [Nap], profile: JetLagProfile) -> some View {
         let advice = NapAdvice(profile: profile)
         // Sleep times sit on the ring's 10-minute marks, so "now" is the nearest mark.
-        let bed = kind == .nap ? now : SleepRing.snap(storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil } ?? now)
+        let nights = PastNight.merged(logged: naps, health: health)
+        let slept = nights.contains { $0.end <= now && now.timeIntervalSince($0.end) < 14 * 3600 && $0.end.timeIntervalSince($0.start) >= Nap.nightLength }
+        let tonight = Calendar.current.nextDate(after: now, matching: DateComponents(hour: profile.usualBedtime / 60, minute: profile.usualBedtime % 60), matchingPolicy: .nextTime)
+        let bed = kind == .nap ? now : SleepRing.snap(storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil } ?? (slept ? tonight : nil) ?? now)
         let sleepNow = SleepNow(advice: advice, start: bed)
         let long = sleepNow.pick.map { SleepRing.snap($0.time) }.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength ? $0 : nil }
         let wake = kind == .nap ? bed.addingTimeInterval(Double(napMinutes) * 60)
             : SleepRing.snap(storedWake.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength - 60 ? $0 : nil }
                 ?? long ?? bed.addingTimeInterval(8 * 3600))
         let choice = WakeChoice(now: now, bed: bed, wake: wake)
-        let nights = PastNight.merged(logged: naps, health: health)
         return ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 14) {
                     SleepHero(now: now, sleepNow: sleepNow, choice: choice, bed: $storedBed, wake: $storedWake,
-                              kind: $kind, napMinutes: $napMinutes)
+                              kind: $kind, napMinutes: $napMinutes, napBlockedTip: napTip(profile, now: now, slept: slept))
                     if alarmBlocked { alarmWarning }
                     if let morning = MorningLog.proposal(now: now, naps: naps, health: health, advice: advice),
                        dismissedMorning != MorningLog.key(now) {
@@ -312,12 +325,12 @@ struct SleepTimeView: View {
     private enum Entry: Identifiable {
         case night(PastNight), nap(Nap)
         var id: String { switch self { case .night(let n): "n\(n.id.timeIntervalSinceReferenceDate)"; case .nap(let n): n.id.uuidString } }
-        var end: Date { switch self { case .night(let n): n.end; case .nap(let n): n.end } }
+        var start: Date { switch self { case .night(let n): n.start; case .nap(let n): n.start } }
     }
 
     private func history(nights: [PastNight], naps: [Nap], now: Date, profile: JetLagProfile, advice: NapAdvice) -> some View {
         let short = naps.filter { !$0.isNight }
-        let entries = (nights.map(Entry.night) + short.map(Entry.nap)).sorted { $0.end > $1.end }
+        let entries = (nights.map(Entry.night) + short.map(Entry.nap)).sorted { $0.start > $1.start }
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 SectionLabel(title: "History") { InfoButton(label: "About history", text: Self.nightsInfo) }
@@ -429,26 +442,21 @@ struct SleepTimeView: View {
 
     private func schedule(_ profile: JetLagProfile) -> some View {
         let cycle = SleepCycle.current
-        return Button { sheet = .profile } label: {
-            VStack(spacing: 12) {
-                scheduleRow("person.crop.circle", "Usually \(clock(profile.usualBedtime)) – \(clock(profile.usualWake))", nil)
-                scheduleRow("arrow.triangle.2.circlepath", "Cycle \(cycle.minutes) min", cycle.sourceText)
+        return VStack(alignment: .leading, spacing: 8) {
+            Button { sheet = .profile } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle").foregroundStyle(.indigo).frame(width: 22)
+                    Text("Usually \(clock(profile.usualBedtime)) – \(clock(profile.usualWake))")
+                        .font(.subheadline.weight(.semibold)).monospacedDigit()
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+                }
+                .padding(14)
+                .background(Theme.cardFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .padding(14)
-            .background(Theme.cardFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func scheduleRow(_ symbol: String, _ title: String, _ detail: String?) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol).foregroundStyle(.indigo).frame(width: 22)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold)).monospacedDigit()
-                if let detail { Text(detail.prefix(1).uppercased() + detail.dropFirst()).font(.caption).foregroundStyle(.secondary) }
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+            .buttonStyle(.plain)
+            Text("Cycle \(cycle.minutes) min · \(cycle.sourceText)")
+                .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 14)
         }
     }
 
