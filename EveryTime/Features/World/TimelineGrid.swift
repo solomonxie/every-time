@@ -69,6 +69,7 @@ struct TimelineGrid: View {
     let start: Date
     let hours: Int
     let cursor: Date
+    var overlaps: [Range<Date>] = []
     @Binding var position: ScrollPosition
     let isEditing: Bool
     let snaps: Bool
@@ -150,7 +151,20 @@ struct TimelineGrid: View {
                 }
             }
         }
+        .overlay(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
+                ForEach(overlaps, id: \.lowerBound) { overlapBar($0) }
+            }
+            .allowsHitTesting(false)
+        }
         .overlay(alignment: .leading) { nowMarker }
+    }
+
+    private func overlapBar(_ range: Range<Date>) -> some View {
+        Capsule()
+            .fill(Theme.Tone.good)
+            .frame(width: CGFloat(range.upperBound.timeIntervalSince(range.lowerBound) / 3600) * Self.cellWidth - 2, height: 4)
+            .offset(x: CGFloat(range.lowerBound.timeIntervalSince(start) / 3600) * Self.cellWidth + 1)
     }
 
     private var nowMarker: some View {

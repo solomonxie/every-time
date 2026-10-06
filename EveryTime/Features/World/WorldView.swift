@@ -12,6 +12,8 @@ struct WorldView: View {
     @State private var showingWall = false
     @Stored("world.targetHours") private var target = TargetHours.work
     @State private var editingTarget = false
+    /// Cities left out of the overlap; new ones count by default.
+    @Stored("world.overlapExcluded") private var overlapExcluded: [String] = []
     /// Every city ever added, newest first.
     @Stored("world.recentCities") private var recent: [WorldCity] = []
 
@@ -30,7 +32,7 @@ struct WorldView: View {
             VStack(alignment: .leading, spacing: 24) {
                 hero.screen()
                 VStack(alignment: .leading, spacing: Theme.spacing) {
-                    TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, position: $position,
+                    TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, overlaps: overlapRanges(from: start, hours: hours), position: $position,
                                  isEditing: isEditing, snaps: !followsNow,
                                  onScroll: { if !followsNow { cursor = date(atOffset: $0) } },
                                  onDragStart: { followsNow = false },
@@ -99,21 +101,45 @@ struct WorldView: View {
                     .font(.label).foregroundStyle(.tertiary)
             }
             Card {
-                let ranges = overlapRanges
-                if ranges.isEmpty {
+                if overlapRanges.isEmpty {
                     Label("No shared target hours this day", systemImage: "moon.zzz")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(ranges, id: \.lowerBound) { range in chip(range) }
-                        }
-                    }
+                    Divider().overlay(Theme.hairline)
                 }
-                Divider().overlay(Theme.hairline)
                 targetRow
                 if editingTarget { targetEditor }
+                if rows.count > 1 { cityPicks }
+            }
+        }
+    }
+
+    private var cityPicks: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(rows) { row in
+                    let on = !overlapExcluded.contains(row.id)
+                    Button { toggleOverlap(row.id) } label: {
+                        Label(row.city.name, systemImage: on ? "checkmark.circle.fill" : "circle")
+                            .font(.subheadline)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 34)
+                            .foregroundStyle(on ? Color.accentColor : .secondary)
+                            .background(on ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.12), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .accessibilityHint("Cities compared for the overlap")
+    }
+
+    private func toggleOverlap(_ id: String) {
+        withAnimation(.snappy) {
+            if let i = overlapExcluded.firstIndex(of: id) {
+                overlapExcluded.remove(at: i)
+            } else if rows.filter({ !overlapExcluded.contains($0.id) }).count > 1 {
+                overlapExcluded.append(id)
             }
         }
     }
@@ -142,13 +168,6 @@ struct WorldView: View {
 
     private var targetEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach([("Work", TargetHours.work), ("Awake", TargetHours.awake)], id: \.0) { name, preset in
-                    Button("\(name) \(Self.rangeText(preset))") { withAnimation(.snappy) { target = preset } }
-                        .buttonStyle(.soft)
-                        .foregroundStyle(target == preset ? Color.accentColor : .primary)
-                }
-            }
             HStack(spacing: 0) {
                 hourWheel("From", selection: $target.start)
                 Text("–").foregroundStyle(.secondary)
@@ -177,28 +196,14 @@ struct WorldView: View {
         target.start == target.end ? "All day" : "\(hourText(target.start)) – \(hourText(target.end))"
     }
 
-    private func chip(_ range: Range<Date>) -> some View {
-        let active = range.contains(cursor)
-        return Button {
-            followsNow = false
-            scroll(to: range.lowerBound)
-        } label: {
-            Text(range.formatted(.interval.hour().minute()))
-                .font(.clock(15, weight: .medium))
-                .padding(.horizontal, 14)
-                .frame(minHeight: 36)
-                .foregroundStyle(active ? Color.white : Color.accentColor)
-                .background(active ? Color.accentColor : Color.accentColor.opacity(0.12), in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
     /// Hour blocks of the cursor's local day where every row is inside the target hours.
-    private var overlapRanges: [Range<Date>] {
-        let dayStart = Calendar.current.startOfDay(for: cursor)
-        let instants = (0..<24).map { dayStart.addingTimeInterval(Double($0) * 3600) }
+    private var overlapRanges: [Range<Date>] { overlapRanges(from: Calendar.current.startOfDay(for: cursor), hours: 24) }
+
+    private func overlapRanges(from first: Date, hours: Int) -> [Range<Date>] {
+        let instants = (0..<hours).map { first.addingTimeInterval(Double($0) * 3600) }
+        let compared = rows.filter { !overlapExcluded.contains($0.id) }
         var ranges: [Range<Date>] = []
-        for instant in instants where rows.allSatisfy({ target.contains($0.calendar.component(.hour, from: instant)) }) {
+        for instant in instants where compared.allSatisfy({ target.contains($0.calendar.component(.hour, from: instant)) }) {
             let end = instant.addingTimeInterval(3600)
             if let last = ranges.last, last.upperBound == instant {
                 ranges[ranges.count - 1] = last.lowerBound..<end
