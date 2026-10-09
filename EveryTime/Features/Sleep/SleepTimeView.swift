@@ -116,13 +116,18 @@ struct SleepTimeView: View {
         // Sleep times sit on the ring's 10-minute marks, so "now" is the nearest mark.
         let nights = PastNight.merged(logged: naps, health: health)
         let slept = nights.contains { $0.end <= now && now.timeIntervalSince($0.end) < 14 * 3600 && $0.end.timeIntervalSince($0.start) >= Nap.nightLength }
+        // Default: the usual hours; already inside them (and not slept yet), from now.
+        let usualWakeAfter = { (date: Date) in Calendar.current.nextDate(after: date, matching: DateComponents(hour: profile.usualWake / 60, minute: profile.usualWake % 60), matchingPolicy: .nextTime) }
         let tonight = Calendar.current.nextDate(after: now, matching: DateComponents(hour: profile.usualBedtime / 60, minute: profile.usualBedtime % 60), matchingPolicy: .nextTime)
-        let bed = kind == .nap ? now : SleepRing.snap(storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil } ?? (slept ? tonight : nil) ?? now)
+        let inUsualHours = usualWakeAfter(now).flatMap { wake in tonight.map { wake < $0 } } ?? false
+        let bed = kind == .nap ? now : SleepRing.snap(storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil }
+            ?? (inUsualHours && !slept ? nil : tonight) ?? now)
         let sleepNow = SleepNow(advice: advice, start: bed)
+        let usual = usualWakeAfter(bed).map(SleepRing.snap).flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength ? $0 : nil }
         let long = sleepNow.pick.map { SleepRing.snap($0.time) }.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength ? $0 : nil }
         let wake = kind == .nap ? bed.addingTimeInterval(Double(napMinutes) * 60)
             : SleepRing.snap(storedWake.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength - 60 ? $0 : nil }
-                ?? long ?? bed.addingTimeInterval(8 * 3600))
+                ?? usual ?? long ?? bed.addingTimeInterval(8 * 3600))
         let choice = WakeChoice(now: now, bed: bed, wake: wake)
         return ScrollView {
             VStack(alignment: .leading, spacing: 28) {
