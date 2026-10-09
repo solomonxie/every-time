@@ -184,7 +184,7 @@ struct SleepHero: View {
     }
 
     private var ringBed: Binding<Date> {
-        Binding(get: { choice.bed }, set: { bed = $0.timeIntervalSince(now) < 60 ? nil : $0 })
+        Binding(get: { choice.bed }, set: { bed = $0 <= SleepRing.snap(now) ? nil : $0 })
     }
 
     private var ringWake: Binding<Date> {

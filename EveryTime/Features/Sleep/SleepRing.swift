@@ -78,11 +78,8 @@ struct SleepRing: View {
 
     private var isAsleep: Bool { plan.map { $0.start <= now } ?? false }
 
-    /// The ring's top: now, floored to `step`.
-    private var top: Date {
-        let minutes = Int(now.timeIntervalSinceReferenceDate / 60)
-        return Date(timeIntervalSinceReferenceDate: Double(minutes - minutes % Self.step) * 60)
-    }
+    /// The ring's top: now on the nearest `step`, so bed "now" is a whole mark.
+    private var top: Date { Self.snap(now) }
 
     /// Minutes from the top of the ring to lying down and to the alarm.
     private var start: Int {
