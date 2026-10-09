@@ -32,7 +32,8 @@ struct WorldView: View {
             VStack(alignment: .leading, spacing: 24) {
                 hero.screen()
                 VStack(alignment: .leading, spacing: Theme.spacing) {
-                    TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, overlaps: overlapRanges(from: start, hours: hours), position: $position,
+                    TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, overlaps: overlapRanges(from: start, hours: hours),
+                                 overlapRowIDs: Set(rows.map(\.id).filter { !overlapExcluded.contains($0) }), position: $position,
                                  isEditing: isEditing, snaps: !followsNow,
                                  onScroll: { if !followsNow { cursor = date(atOffset: $0) } },
                                  onDragStart: { followsNow = false },
@@ -54,13 +55,11 @@ struct WorldView: View {
         }
         .fullScreenCover(isPresented: $showingWall) {
             WorldWallView(rows: rows, start: start, hours: hours, cursor: cursor, followsNow: followsNow)
-                .environment(\.targetHours, target)
         }
         .bottomBar { bottomBar }
         .sheet(isPresented: $showingPicker) {
             CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { add($0) }
         }
-        .environment(\.targetHours, target)
         .sensoryFeedback(.selection, trigger: target)
         .onAppear { jumpToNow(animated: false) }
         .task { await tickWhileFollowingNow() }
@@ -101,12 +100,19 @@ struct WorldView: View {
                     .font(.label).foregroundStyle(.tertiary)
             }
             Card {
-                if overlapRanges.isEmpty {
+                let ranges = overlapRanges
+                if ranges.isEmpty {
                     Label("No shared target hours this day", systemImage: "moon.zzz")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Divider().overlay(Theme.hairline)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(ranges, id: \.lowerBound) { range in chip(range) }
+                        }
+                    }
                 }
+                Divider().overlay(Theme.hairline)
                 targetRow
                 if editingTarget { targetEditor }
                 if rows.count > 1 { cityPicks }
@@ -194,6 +200,22 @@ struct WorldView: View {
 
     private static func rangeText(_ target: TargetHours) -> String {
         target.start == target.end ? "All day" : "\(hourText(target.start)) – \(hourText(target.end))"
+    }
+
+    private func chip(_ range: Range<Date>) -> some View {
+        let active = range.contains(cursor)
+        return Button {
+            followsNow = false
+            scroll(to: range.lowerBound)
+        } label: {
+            Text(range.formatted(.interval.hour().minute()))
+                .font(.clock(15, weight: .medium))
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .foregroundStyle(active ? Color.white : Color.accentColor)
+                .background(active ? Color.accentColor : Color.accentColor.opacity(0.12), in: Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Hour blocks of the cursor's local day where every row is inside the target hours.

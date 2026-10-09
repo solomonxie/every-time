@@ -9,9 +9,8 @@ enum Theme {
     static let hairline = Color.primary.opacity(0.08)
 
     enum Tone {
-        static let night = Color.indigo.opacity(0.28)
-        static let edge = Color.orange.opacity(0.14)
-        static let work = Color.accentColor.opacity(0.22)
+        static let day = Color(red: 0.40, green: 0.72, blue: 1.0).opacity(0.30)
+        static let evening = Color(red: 0.30, green: 0.27, blue: 0.62).opacity(0.28)
         static let warn = Color.orange
         static let bad = Color.red
         static let good = Color.green
