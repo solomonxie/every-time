@@ -203,10 +203,11 @@ struct NightScreen: View {
 
     private static let dim = Color.white.opacity(0.55)
 
-    /// "89 min 43 sec"; under a minute, "43 sec". Never hours.
+    /// "7 hr 12 min" from an hour up; "59 min 43 sec" under; "43 sec" under a minute.
     private func countdown(_ left: TimeInterval) -> some View {
         let s = Int(max(0, left).rounded(.up))
-        return countdownText(s >= 60 ? "\(s / 60) min \(s % 60) sec" : "\(s) sec")
+        let m = (s + 59) / 60
+        return countdownText(s >= 3600 ? "\(m / 60) hr \(m % 60) min" : s >= 60 ? "\(s / 60) min \(s % 60) sec" : "\(s) sec")
             .accessibilityLabel(ActivityLog.duration(max(0, left)))
     }
 
