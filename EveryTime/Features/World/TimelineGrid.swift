@@ -23,35 +23,18 @@ struct TargetHours: Codable, Equatable {
     func contains(_ hour: Int) -> Bool {
         start < end ? (start..<end).contains(hour) : hour >= start || hour < end
     }
-
-    /// The target plus 2h before and 4h after, shaded as edge hours.
-    var widened: TargetHours {
-        TargetHours(start: (start + 22) % 24, end: (end + 4) % 24)
-    }
 }
 
-extension EnvironmentValues {
-    @Entry var targetHours = TargetHours.work
-}
-
+/// Daylight 7 AM – 7 PM, evening otherwise.
 enum HourShade {
-    case night, edge, work
+    case day, evening
 
-    init(hour: Int, target: TargetHours) {
-        if target.contains(hour) {
-            self = .work
-        } else if target.widened.contains(hour) {
-            self = .edge
-        } else {
-            self = .night
-        }
-    }
+    init(hour: Int) { self = (7..<19).contains(hour) ? .day : .evening }
 
     var color: Color {
         switch self {
-        case .night: Theme.Tone.night
-        case .edge: Theme.Tone.edge
-        case .work: Theme.Tone.work
+        case .day: Theme.Tone.day
+        case .evening: Theme.Tone.evening
         }
     }
 }
@@ -70,6 +53,7 @@ struct TimelineGrid: View {
     let hours: Int
     let cursor: Date
     var overlaps: [Range<Date>] = []
+    var overlapRowIDs: Set<String> = []
     @Binding var position: ScrollPosition
     let isEditing: Bool
     let snaps: Bool
@@ -149,13 +133,15 @@ struct TimelineGrid: View {
                             .frame(width: Self.cellWidth, height: Self.rowHeight)
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    if overlapRowIDs.contains(row.id) {
+                        ZStack(alignment: .topLeading) {
+                            ForEach(overlaps, id: \.lowerBound) { overlapBar($0) }
+                        }
+                        .allowsHitTesting(false)
+                    }
+                }
             }
-        }
-        .overlay(alignment: .topLeading) {
-            ZStack(alignment: .topLeading) {
-                ForEach(overlaps, id: \.lowerBound) { overlapBar($0) }
-            }
-            .allowsHitTesting(false)
         }
         .overlay(alignment: .leading) { nowMarker }
     }
@@ -163,7 +149,7 @@ struct TimelineGrid: View {
     private func overlapBar(_ range: Range<Date>) -> some View {
         Capsule()
             .fill(Theme.Tone.good)
-            .frame(width: CGFloat(range.upperBound.timeIntervalSince(range.lowerBound) / 3600) * Self.cellWidth - 2, height: 4)
+            .frame(width: CGFloat(range.upperBound.timeIntervalSince(range.lowerBound) / 3600) * Self.cellWidth - 2, height: 2)
             .offset(x: CGFloat(range.lowerBound.timeIntervalSince(start) / 3600) * Self.cellWidth + 1)
     }
 
@@ -261,7 +247,6 @@ private struct HourCell: View {
 
     private static let uses12h = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current)?.contains("a") ?? false
     private static let radius: CGFloat = 12
-    @Environment(\.targetHours) private var target
 
     var body: some View {
         let parts = calendar.dateComponents([.weekday, .day, .hour, .minute], from: date)
@@ -289,7 +274,7 @@ private struct HourCell: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            HourShade(hour: hour, target: target).color,
+            HourShade(hour: hour).color,
             in: UnevenRoundedRectangle(
                 topLeadingRadius: opensBand ? Self.radius : 0, bottomLeadingRadius: opensBand ? Self.radius : 0,
                 bottomTrailingRadius: closesBand ? Self.radius : 0, topTrailingRadius: closesBand ? Self.radius : 0,
@@ -300,7 +285,7 @@ private struct HourCell: View {
     }
 
     private func band(_ hour: Int) -> HourShade {
-        HourShade(hour: hour, target: target)
+        HourShade(hour: hour)
     }
 
     private func label(hour: Int, minute: Int) -> String {
