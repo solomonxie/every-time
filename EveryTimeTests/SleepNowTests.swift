@@ -4,6 +4,8 @@ import Testing
 
 /// Usual 23:00 → 07:00; nap window 13:00–15:30 on 2026-03-10.
 struct SleepNowTests {
+    init() { useDefaultCycle() }
+
     private func sleepNow(_ start: Date) -> SleepNow { SleepNow(advice: napAdvice(), start: start) }
 
     private func recommended(_ options: [SleepNow.Option]) -> [String] { options.filter(\.isRecommended).map(\.id) }
@@ -132,6 +134,8 @@ struct SleepNowTests {
 }
 
 struct WakeChoiceTests {
+    init() { useDefaultCycle() }
+
     @Test func nightChoice() {
         let now = date(2026, 3, 10, 23, 20)
         let choice = WakeChoice(now: now, bed: now, wake: date(2026, 3, 11, 6, 35))
@@ -155,7 +159,7 @@ struct WakeChoiceTests {
         let choice = WakeChoice(now: now, bed: date(2026, 3, 10, 23), wake: date(2026, 3, 11, 6, 35))
         #expect(!choice.isNow)
         #expect(choice.minutes == 455)
-        #expect(choice.button.hasPrefix("Bed at "))
+        #expect(choice.button.hasPrefix("Start schedule · bed "))
         #expect(choice.symbol == "bed.double.fill")
     }
 }

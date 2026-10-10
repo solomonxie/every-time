@@ -3,6 +3,8 @@ import Testing
 @testable import EveryTime
 
 struct PastNightsTests {
+    init() { useDefaultCycle() }
+
     @Test func overlappingSourcesCountOnce() {
         let merged = PastNights.merge([
             (date(2026, 9, 27, 23), date(2026, 9, 28, 3)),

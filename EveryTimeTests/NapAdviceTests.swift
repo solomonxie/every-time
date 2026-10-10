@@ -11,6 +11,8 @@ func napAdvice(age: Int = 35, bed: Int = 23 * 60) -> NapAdvice {
 }
 
 struct ClockTimeTests {
+    init() { useDefaultCycle() }
+
     @Test func bedBeforeNoonMeansAfterMidnight() {
         #expect(gregorian().clockTime(minutes: 60, daysAfter: 1, of: date(2026, 3, 10)) == date(2026, 3, 11, 1))
         #expect(gregorian().clockTime(minutes: 23 * 60, of: date(2026, 3, 10)) == date(2026, 3, 10, 23))
@@ -18,6 +20,8 @@ struct ClockTimeTests {
 }
 
 struct NapAdviceTests {
+    init() { useDefaultCycle() }
+
     @Test func clockChangeDayKeepsWallClockTimes() {
         let newYork = TimeZone(identifier: "America/New_York")!
         var profile = JetLagProfile()
