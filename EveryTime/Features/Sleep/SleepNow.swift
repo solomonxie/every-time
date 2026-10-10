@@ -205,7 +205,7 @@ struct SleepNow {
             let wake = asleep.addingTimeInterval(Double(cycles) * Self.cycle)
             guard cycles >= 3 || zone == .lateNight else { return nil }
             let late = wake > day.nextWake.addingTimeInterval(15 * 60)
-            return Option(kind: .night(cycles: cycles, wake: wake), title: "Sleep \(NapAdvice.hours(Double(cycles) * 1.5))",
+            return Option(kind: .night(cycles: cycles, wake: wake), title: "Sleep \(NapAdvice.hours(Double(cycles) * Self.cycle / 3600))",
                           detail: "\(cycles) full cycle\(cycles == 1 ? "" : "s")"
                               + (late ? " · after your \(Self.clock(day.nextWake)) wake" : ""),
                           time: wake, level: cycles >= 5 ? .low : cycles >= 3 ? .some : .high, isLate: late)
