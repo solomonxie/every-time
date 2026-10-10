@@ -128,10 +128,10 @@ struct SleepCycle: Codable, Equatable {
     }
 }
 
-/// A rough 0–100 for a night: mostly how much of your usual sleep you got, plus waking between cycles and how you felt.
+/// A rough 0–100 for a night: mostly how much of the sleep you need you got, plus waking between cycles and how you felt.
 enum SleepScore {
-    static func score(asleep: TimeInterval, usualHours: Double, energy: Int? = nil) -> Int {
-        let length = min(1, asleep / (usualHours * 3600)) * 60
+    static func score(asleep: TimeInterval, need: TimeInterval, energy: Int? = nil) -> Int {
+        let length = min(1, asleep / need) * 60
         let fit = SleepSuggestion.fit(minutesInBed: Int((asleep + SleepSuggestion.fallAsleepTime) / 60))
         let cycles = fit.isBetweenCycles ? 20.0 : 8
         let feel = energy.map { Double($0 - 1) * 5 } ?? 12
@@ -143,11 +143,21 @@ enum SleepScore {
     }
 }
 
-/// What recent nights add up to: sleep owed against your usual hours, and how steady your wake time is.
+/// What recent nights add up to: sleep owed against what you need, and how steady your wake time is.
 enum SleepTrend {
-    /// Shortfall over the last `days` nights; nights that ran long pay some back.
-    static func debt(_ nights: [PastNight], usualHours: Double, days: Int = 7) -> TimeInterval {
-        max(0, nights.prefix(days).reduce(0) { $0 + usualHours * 3600 - $1.asleep })
+    /// Sleep a night should hold: your usual hours less the time to fall asleep, but never under the
+    /// minimum sleep bodies recommend (AASM/SRS: 7 h for adults, 8 h for teens).
+    static func need(_ profile: JetLagProfile) -> TimeInterval {
+        max(profile.sleepHours * 3600 - SleepSuggestion.fallAsleepTime, (profile.age < 18 ? 8 : 7) * 3600)
+    }
+
+    /// Shortfall over the last `days` nights; long nights and naps in that time pay it back by the time spent asleep.
+    static func debt(_ nights: [PastNight], naps: [Nap] = [], need: TimeInterval, days: Int = 7) -> TimeInterval {
+        let recent = nights.prefix(days)
+        guard let since = recent.map(\.start).min() else { return 0 }
+        let napped = naps.filter { !$0.isNight && $0.start >= since }
+            .reduce(0) { $0 + max(0, $1.duration - SleepSuggestion.fallAsleepTime) }
+        return max(0, recent.reduce(0) { $0 + need - $1.asleep } - napped)
     }
 
     /// Newest-first nights in a row that ended within `slack` of the usual wake.
