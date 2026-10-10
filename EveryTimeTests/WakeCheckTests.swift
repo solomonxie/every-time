@@ -50,14 +50,14 @@ struct SleepScoreTests {
 }
 
 struct CaffeineTests {
+    init() { useDefaultCycle() }
+
     private let bed = date(2026, 3, 10, 23)
 
     @Test func cutoffIsEightHoursBeforeBed() {
         #expect(Caffeine.cutoff(bed: bed) == date(2026, 3, 10, 15))
         #expect(Caffeine(drinks: []).status(now: date(2026, 3, 10, 16), bed: bed).level == .high)
     }
-    init() { useDefaultCycle() }
-
 
     @Test func tooSoonAfterTheLastCup() {
         let caffeine = Caffeine(drinks: [date(2026, 3, 10, 9)])
@@ -74,11 +74,11 @@ struct CaffeineTests {
 }
 
 struct PastNightMergeTests {
+    init() { useDefaultCycle() }
+
     @Test func loggedStretchesJoinAndBeatHealth() {
         let logged = [
             Nap(start: date(2026, 3, 10, 23), end: date(2026, 3, 11, 3), energy: 2),
-    init() { useDefaultCycle() }
-
             Nap(start: date(2026, 3, 11, 3, 10), end: date(2026, 3, 11, 6, 30), energy: 4),
             Nap(start: date(2026, 3, 11, 14), end: date(2026, 3, 11, 14, 20), energy: 5),
         ]
@@ -95,6 +95,8 @@ struct PastNightMergeTests {
 
 
 struct SleepCycleTests {
+    init() { useDefaultCycle() }
+
     private func wake(_ minutes: Int, natural: Bool? = true) -> Nap {
         let start = date(2026, 3, 10, 23)
         return Nap(start: start, end: start.addingTimeInterval(Double(minutes) * 60), natural: natural)
