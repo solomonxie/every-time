@@ -45,7 +45,7 @@ struct SleepCycle: Codable, Equatable {
     static let fallAsleepRange = 5...45
     static let cycleRange = 70...120
     /// Natural wakes needed before the learned length counts.
-    static let minWakes = 3
+    static let minWakes = 5
 
     var fallAsleepMinutes = 15
     var usesHealth = true

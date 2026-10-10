@@ -85,15 +85,15 @@ struct SleepCycleTests {
     }
 
     @Test func learnsTheLengthThatPutsNaturalWakesOnCycleEnds() {
-        // 15 min to fall asleep, then 2, 3 and 1 cycles of ~100 min.
-        let naps = [wake(215), wake(318), wake(113), wake(300, natural: false), wake(450, natural: nil)]
+        // 15 min to fall asleep, then 2, 3, 1, 4 and 2 cycles of ~100 min.
+        let naps = [wake(215), wake(318), wake(113), wake(412), wake(217), wake(300, natural: false), wake(450, natural: nil)]
         let learned = SleepCycle.learned(from: naps, fallAsleep: 15)
         #expect(learned?.minutes == 100)
-        #expect(learned?.count == 3)
+        #expect(learned?.count == 5)
     }
 
-    @Test func needsThreeNaturalWakes() {
-        #expect(SleepCycle.learned(from: [wake(215), wake(318)], fallAsleep: 15) == nil)
+    @Test func needsFiveNaturalWakes() {
+        #expect(SleepCycle.learned(from: [wake(215), wake(318), wake(113), wake(412)], fallAsleep: 15) == nil)
     }
 
     @Test func manualBeatsLearned() {
