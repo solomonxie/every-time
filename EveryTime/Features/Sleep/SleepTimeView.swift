@@ -271,7 +271,8 @@ struct SleepTimeView: View {
 
     /// Sleep debt and energy at a glance, then the trend chart.
     private func insights(nights: [PastNight], naps: [Nap], profile: JetLagProfile) -> some View {
-        let debt = SleepTrend.debt(nights, usualHours: profile.sleepHours)
+        let need = SleepTrend.need(profile)
+        let debt = SleepTrend.debt(nights, naps: naps, need: need)
         let energy = EnergyChart.mean(naps)
         let streak = SleepTrend.wakeStreak(nights, usualWake: profile.usualWake)
         let cycle = SleepCycle.current
@@ -287,7 +288,7 @@ struct SleepTimeView: View {
                     insightRow("bed.double.fill", "Sleep debt",
                                value: debt < 15 * 60 ? "None" : ActivityLog.duration(debt),
                                tint: debt >= 3 * 3600 ? Theme.Tone.bad : debt >= 3600 ? Theme.Tone.warn : Theme.Tone.good,
-                               detail: "Short of \(Int(profile.sleepHours)) h/night over the last 7", info: Self.debtInfo(streak: streak))
+                               detail: "Short of \(NapAdvice.hours(need / 3600))/night over the last 7, naps count", info: Self.debtInfo(streak: streak))
                 }
                 if let energy {
                     insightRow("bolt.fill", "Energy",
@@ -297,7 +298,7 @@ struct SleepTimeView: View {
                 }
                 if nights.count >= 2 {
                     Text("Sleep score").font(.label).foregroundStyle(.secondary)
-                    ScoreChart(nights: nights, usualHours: profile.sleepHours).frame(height: 100)
+                    ScoreChart(nights: nights, need: need).frame(height: 100)
                 }
                 if EnergyChart.rated(naps).count >= 2 {
                     Text("Energy on waking").font(.label).foregroundStyle(.secondary)
@@ -354,7 +355,7 @@ struct SleepTimeView: View {
                 switch entry {
                 case .night(let night):
                     let own = night.source.flatMap { id in storedNaps.first { $0.id == id } }
-                    PastNightRow(night: night, usualHours: profile.sleepHours)
+                    PastNightRow(night: night, need: SleepTrend.need(profile))
                         .contentShape(Rectangle())
                         .onTapGesture { if let own { editingNap = own } }
                         .contextMenu {
@@ -484,17 +485,18 @@ struct SleepTimeView: View {
 
     private static func debtInfo(streak: Int) -> String {
         """
-        Hours you slept under your usual amount over the last 7 nights. Under 1 h is fine; 3 h+ is worth catching up.
-        Pay it back with an earlier bedtime or a nap, not a long lie-in — waking at a steady time helps most \
+        Sleep you missed over the last 7 nights, against your usual hours (at least the recommended 7 h asleep). \
+        Naps in that time pay it back by the time actually asleep. Under 1 h is fine; 3 h+ is worth catching up.
+        Pay it back with an earlier bedtime or an early-afternoon nap, not a long lie-in — waking at a steady time helps most \
         (\(streak) \(streak == 1 ? "day" : "days") in a row so far).
         """
     }
 
     private static let nightsInfo = """
         Nights and naps slept from here, plus the Health app's nights on days with nothing logged. A sleep \
-        shorter than one cycle is a nap. Score 0–100: up to 60 for \
-        length against your usual hours, 20 for waking between cycles, 20 for how you felt. Sleep debt: hours \
-        short of your usual over the last 7 nights. Steady wake: nights in a row up within 30 min of your usual time.
+        under 3 h is a nap. Score 0–100: up to 60 for \
+        sleep against what you need, 20 for waking between cycles, 20 for how you felt. Sleep debt: hours \
+        short of that over the last 7 nights, less naps. Steady wake: nights in a row up within 30 min of your usual time.
         """
 }
 

@@ -33,8 +33,8 @@ struct Nap: Identifiable, Codable, Hashable {
 
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
     var duration: TimeInterval { end.timeIntervalSince(start) }
-    /// A full cycle or more counts as a night; shorter is a nap.
-    var isNight: Bool { duration >= Nap.nightLength }
+    /// 3 h or more counts as a night, as Health's nights do; shorter is a nap.
+    var isNight: Bool { duration >= PastNight.minLength }
 
     static var nightLength: TimeInterval { SleepSuggestion.fallAsleepTime + SleepSuggestion.cycleLength }
     static let energyRange = 1...5

@@ -13,7 +13,11 @@ struct PastNight: Identifiable, Equatable {
 
     var id: Date { start }
 
+    /// Shorter sleeps are naps, logged or from Health.
+    static let minLength: TimeInterval = 3 * 3600
+
     /// Logged nights, stretches with under half an hour awake between joined; Health fills the other days.
+    /// Logged time is in bed, so the time to fall asleep comes off once per night.
     static func merged(logged: [Nap], health: [PastNight], calendar: Calendar = .current) -> [PastNight] {
         var nights: [PastNight] = []
         for nap in logged.sorted(by: { $0.start < $1.start }) {
@@ -21,10 +25,11 @@ struct PastNight: Identifiable, Equatable {
                 nights[nights.count - 1] = PastNight(start: last.start, end: nap.end, asleep: last.asleep + nap.duration,
                                                      energy: nap.energy ?? last.energy, source: last.source)
             } else {
-                nights.append(PastNight(start: nap.start, end: nap.end, asleep: nap.duration, energy: nap.energy, source: nap.id))
+                nights.append(PastNight(start: nap.start, end: nap.end, asleep: max(0, nap.duration - SleepSuggestion.fallAsleepTime),
+                                        energy: nap.energy, source: nap.id))
             }
         }
-        let own = nights.filter { $0.asleep >= Nap.nightLength }
+        let own = nights.filter { $0.end.timeIntervalSince($0.start) >= minLength }
         let days = Set(own.map { calendar.startOfDay(for: $0.end) })
         return (own + health.filter { !days.contains(calendar.startOfDay(for: $0.end)) }).sorted { $0.end > $1.end }
     }
@@ -35,7 +40,6 @@ enum PastNights {
     private static let store = HKHealthStore()
     private static let type = HKCategoryType(.sleepAnalysis)
     private static let sessionGap: TimeInterval = 2 * 3600
-    private static let minNight: TimeInterval = 3 * 3600
 
     static var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
 
@@ -107,7 +111,7 @@ enum PastNights {
         let all = sessions.compactMap { parts -> PastNight? in
             guard let first = parts.first, let last = parts.last else { return nil }
             let asleep = parts.reduce(0) { $0 + $1.1.timeIntervalSince($1.0) }
-            return asleep >= minNight ? PastNight(start: first.0, end: last.1, asleep: asleep) : nil
+            return asleep >= PastNight.minLength ? PastNight(start: first.0, end: last.1, asleep: asleep) : nil
         }
         return Dictionary(grouping: all) { calendar.startOfDay(for: $0.end) }
             .values.compactMap { $0.max { $0.asleep < $1.asleep } }
@@ -118,11 +122,11 @@ enum PastNights {
 /// Score per night, latest on the right.
 struct ScoreChart: View {
     let nights: [PastNight]
-    let usualHours: Double
+    let need: TimeInterval
 
     var body: some View {
         Chart(nights.prefix(14).reversed()) { night in
-            let score = SleepScore.score(asleep: night.asleep, usualHours: usualHours, energy: night.energy)
+            let score = SleepScore.score(asleep: night.asleep, need: need, energy: night.energy)
             BarMark(x: .value("Night", night.end, unit: .day), y: .value("Score", score))
                 .foregroundStyle(SleepScore.level(score).tint)
                 .cornerRadius(3)
@@ -137,11 +141,11 @@ struct ScoreChart: View {
 
 struct PastNightRow: View {
     let night: PastNight
-    let usualHours: Double
+    let need: TimeInterval
 
     var body: some View {
-        let fit = SleepSuggestion.fit(minutesInBed: Int((night.end.timeIntervalSince(night.start) + SleepSuggestion.fallAsleepTime) / 60))
-        let score = SleepScore.score(asleep: night.asleep, usualHours: usualHours, energy: night.energy)
+        let fit = SleepSuggestion.fit(minutesInBed: Int((night.asleep + SleepSuggestion.fallAsleepTime) / 60))
+        let score = SleepScore.score(asleep: night.asleep, need: need, energy: night.energy)
         SleepHistoryRow(
             date: night.end,
             detail: "\(SleepNow.clock(night.start)) – \(SleepNow.clock(night.end)) · \(fit.cycles) \(fit.cycles == 1 ? "cycle" : "cycles")",

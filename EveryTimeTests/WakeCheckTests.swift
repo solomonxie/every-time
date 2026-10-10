@@ -38,12 +38,12 @@ struct SleepScoreTests {
     init() { useDefaultCycle() }
 
     @Test func fullNightBetweenCyclesScoresHigh() {
-        #expect(SleepScore.score(asleep: 7.5 * 3600, usualHours: 8, energy: 5) == 96)
-        #expect(SleepScore.score(asleep: 7.5 * 3600, usualHours: 8) == 88)
+        #expect(SleepScore.score(asleep: 7.5 * 3600, need: 8 * 3600, energy: 5) == 96)
+        #expect(SleepScore.score(asleep: 7.5 * 3600, need: 8 * 3600) == 88)
     }
 
     @Test func shortMidCycleNightScoresLow() {
-        #expect(SleepScore.score(asleep: 4 * 3600, usualHours: 8, energy: 2) == 43)
+        #expect(SleepScore.score(asleep: 4 * 3600, need: 8 * 3600, energy: 2) == 43)
         #expect(SleepScore.level(43) == .high)
         #expect(SleepScore.level(70) == .some)
     }
@@ -70,7 +70,7 @@ struct PastNightMergeTests {
         ]
         let nights = PastNight.merged(logged: logged, health: health, calendar: gregorian())
         #expect(nights.map(\.start) == [date(2026, 3, 10, 23), date(2026, 3, 9, 23)])
-        #expect(nights[0].asleep == 7 * 3600 + 20 * 60)
+        #expect(nights[0].asleep == 7 * 3600 + 5 * 60)
         #expect(nights[0].energy == 4)
     }
 }
