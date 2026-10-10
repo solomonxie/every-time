@@ -31,7 +31,7 @@ struct WakeChoice: Equatable {
 /// A nap is one icon with a length from a wheel; a sleep has its own span on the ring.
 enum SleepKind: String, CaseIterable {
     case nap = "Nap", sleep = "Sleep"
-    static let napMinutes = 5...90
+    static var napMinutes: ClosedRange<Int> { 5...max(90, NapAdvice.longMinutes) }
 }
 
 /// Idle top of the Sleep page: bed and wake readouts (tap for a wheel), the ring, wake chips and the verdict.
@@ -148,7 +148,7 @@ struct SleepHero: View {
 
     private var napChips: some View {
         HStack(spacing: 8) {
-            ForEach([10, 20, 30, 45, 60, 90], id: \.self) { minutes in
+            ForEach([10, 20, 30, 45, 60, NapAdvice.longMinutes], id: \.self) { minutes in
                 let picked = napMinutes == minutes
                 Button { napMinutes = minutes } label: {
                     Text("\(minutes)")

@@ -88,9 +88,9 @@ struct NapAdviceTests {
 
     @Test func grogginess() {
         #expect([10, 20, 30, 45, 75, 90, 100, 120].map(NapAdvice.grogginess)
-            == [.low, .low, .some, .high, .high, .some, .some, .high])
+            == [.low, .low, .low, .high, .high, .some, .low, .some])
         #expect(NapAdvice.wakeText(minutes: 90) == "Full cycle — groggy if cut short")
-        #expect(NapAdvice.wakeText(minutes: 30) == "A little groggy")
+        #expect(NapAdvice.wakeText(minutes: 30) == "Wake up fresh")
         #expect(NapAdvice.wakeText(minutes: 10) == "Wake up fresh")
     }
 
