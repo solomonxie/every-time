@@ -3,6 +3,8 @@ import Testing
 @testable import EveryTime
 
 struct WakeCheckTests {
+    init() { useDefaultCycle() }
+
     private let start = date(2026, 3, 10, 23)
 
     @Test func firstMinutesDontCount() {
@@ -33,6 +35,8 @@ struct WakeCheckTests {
 }
 
 struct SleepScoreTests {
+    init() { useDefaultCycle() }
+
     @Test func fullNightBetweenCyclesScoresHigh() {
         #expect(SleepScore.score(asleep: 7.5 * 3600, usualHours: 8, energy: 5) == 96)
         #expect(SleepScore.score(asleep: 7.5 * 3600, usualHours: 8) == 88)
@@ -52,6 +56,8 @@ struct CaffeineTests {
         #expect(Caffeine.cutoff(bed: bed) == date(2026, 3, 10, 15))
         #expect(Caffeine(drinks: []).status(now: date(2026, 3, 10, 16), bed: bed).level == .high)
     }
+    init() { useDefaultCycle() }
+
 
     @Test func tooSoonAfterTheLastCup() {
         let caffeine = Caffeine(drinks: [date(2026, 3, 10, 9)])
@@ -71,6 +77,8 @@ struct PastNightMergeTests {
     @Test func loggedStretchesJoinAndBeatHealth() {
         let logged = [
             Nap(start: date(2026, 3, 10, 23), end: date(2026, 3, 11, 3), energy: 2),
+    init() { useDefaultCycle() }
+
             Nap(start: date(2026, 3, 11, 3, 10), end: date(2026, 3, 11, 6, 30), energy: 4),
             Nap(start: date(2026, 3, 11, 14), end: date(2026, 3, 11, 14, 20), energy: 5),
         ]

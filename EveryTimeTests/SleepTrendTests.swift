@@ -3,6 +3,8 @@ import Testing
 @testable import EveryTime
 
 struct SleepTrendTests {
+    init() { useDefaultCycle() }
+
     private func night(_ day: Int, wake: Int, hours: Double) -> PastNight {
         let end = date(2026, 3, day, wake / 60, wake % 60)
         return PastNight(start: end.addingTimeInterval(-hours * 3600), end: end, asleep: hours * 3600)
