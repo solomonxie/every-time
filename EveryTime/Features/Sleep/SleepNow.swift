@@ -45,6 +45,7 @@ struct SleepNow {
             switch kind {
             case .nap(let minutes):
                 if isRecommended { return "\(minutes) · best" }
+                if minutes >= NapAdvice.longMinutes { return "\(minutes) · full cycle" }
                 switch NapAdvice.grogginess(minutes: minutes) {
                 case .low: return "\(minutes) min"
                 case .some: return minutes >= NapAdvice.longMinutes ? "\(minutes) · full cycle" : "\(minutes) · groggy"

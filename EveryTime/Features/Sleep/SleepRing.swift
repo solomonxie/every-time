@@ -17,12 +17,16 @@ enum WakeFit: Equatable {
         return .okay
     }
 
-    /// Naps stay short of a full cycle: best before deep sleep starts, worst in the middle of it.
+    /// A nap's first cycle after sleep loss reaches deep sleep sooner, so short naps end by here.
+    static let napLight = 0.2
+
+    /// Best before deep sleep starts, worst in it; from late in the first cycle on, judged like a night.
     static func nap(length: TimeInterval, fallAsleep: TimeInterval = SleepSuggestion.fallAsleepTime,
                     cycle: TimeInterval = SleepSuggestion.cycleLength) -> WakeFit {
         let phase = max(0, length - fallAsleep) / cycle
-        if phase <= deep.lowerBound { return .good }
-        return deep.contains(phase) ? .poor : .okay
+        if phase <= napLight { return .good }
+        if phase < deep.upperBound { return .poor }
+        return of(length: length, fallAsleep: fallAsleep, cycle: cycle)
     }
 
     /// Nights on whole cycles, naps before deep sleep. A night under 4 cycles is short however it ends.

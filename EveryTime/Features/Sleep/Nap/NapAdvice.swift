@@ -69,9 +69,10 @@ struct NapAdvice {
         static func < (a: Level, b: Level) -> Bool { a.rawValue < b.rawValue }
     }
 
-    static let lengths = [10, 20, 30, 90]
+    static var lengths: [Int] { [10, 20, 30, longMinutes] }
     static let suggestedMinutes = 20
-    static let longMinutes = 90
+    /// Falling asleep plus one cycle, on a 5-minute mark and just short of a night.
+    static var longMinutes: Int { (Int(Nap.nightLength / 60) - 1) / 5 * 5 }
 
     var profile: JetLagProfile
     var calendar = Calendar.current
@@ -122,7 +123,7 @@ struct NapAdvice {
         let hoursLeft = (bed ?? day(of: start).bed).timeIntervalSince(end) / 3600
         let timing = hoursLeft >= calmHours ? 0 : hoursLeft >= riskyHours ? 1 : 2
         let length = hoursLeft >= calmHours + 3 || minutes <= (isOlder ? 20 : 30) ? 0
-            : minutes <= (isOlder ? 60 : 90) ? 1 : 2
+            : minutes <= (isOlder ? 60 : Self.longMinutes) ? 1 : 2
         return Level(rawValue: min(2, timing + length)) ?? .high
     }
 
@@ -131,14 +132,12 @@ struct NapAdvice {
         return minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m"
     }
 
-    /// Past ~30 minutes you reach deep sleep and wake groggy, until a full ~90-minute cycle ends.
+    /// Same timing as the ring: groggy from deep sleep until near the cycle's end.
     static func grogginess(minutes: Int) -> Level {
-        switch minutes {
-        case ...20: .low
-        case ...30: .some
-        case ...75: .high
-        case ...100: .some
-        default: .high
+        switch WakeFit.nap(length: Double(minutes) * 60) {
+        case .good: .low
+        case .okay: .some
+        case .poor: .high
         }
     }
 
@@ -151,7 +150,8 @@ struct NapAdvice {
     }
 
     static func wakeText(minutes: Int) -> String {
-        switch grogginess(minutes: minutes) {
+        if minutes >= longMinutes, grogginess(minutes: minutes) == .low { return "Full cycle — wake up fresh" }
+        return switch grogginess(minutes: minutes) {
         case .low: "Wake up fresh"
         case .some: minutes > 60 ? "Full cycle — groggy if cut short" : "A little groggy"
         case .high: "Groggy for a while"
@@ -159,8 +159,8 @@ struct NapAdvice {
     }
 
     static let info = """
-        Rough guide, not medical advice. 10–20 minutes refreshes without grogginess; \
-        30–75 reaches deep sleep, so waking feels heavy; ~90 is a full cycle. The later \
+        Rough guide, not medical advice. 10–30 minutes in bed refreshes without grogginess; \
+        45–75 reaches deep sleep, so waking feels heavy; 90–100 ends a full cycle. The later \
         and longer a nap, the more it eats into the sleep pressure you need at bedtime. \
         Limits are stricter from age 60 and looser under 25. Sex isn't used: there's no \
         well-established difference for naps. Rate your nights to see your own pattern.

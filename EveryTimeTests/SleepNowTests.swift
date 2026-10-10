@@ -27,7 +27,7 @@ struct SleepNowTests {
     @Test func beforeWindowSuggestsShortNap() {
         let now = sleepNow(date(2026, 3, 10, 10))
         #expect(now.isDaytime)
-        #expect(now.napOptions.map(\.id) == ["nap10", "nap20", "nap30", "nap90"])
+        #expect(now.napOptions.map(\.id) == ["nap10", "nap20", "nap30", "nap100"])
         #expect(recommended(now.napOptions) == ["nap20"])
         #expect(now.napVerdict.headline == "Early for a nap")
         #expect(now.sleepOptions.isEmpty)
@@ -44,7 +44,7 @@ struct SleepNowTests {
         #expect(nap.time == date(2026, 3, 10, 14, 20))
         #expect(nap.level == .low)
         #expect(nap.caption == "20 · best")
-        #expect(now.napOptions.map(\.caption) == ["10 min", "20 · best", "30 · groggy", "90 · full cycle"])
+        #expect(now.napOptions.map(\.caption) == ["10 min", "20 · best", "30 min", "100 · full cycle"])
     }
 
     @Test func eveningFarFromBedWarnsOfSplitNight() {
@@ -108,7 +108,7 @@ struct SleepNowTests {
 
     @Test func daytimeChipsAreNaps() {
         let now = sleepNow(date(2026, 3, 10, 14))
-        #expect(now.options.map(\.id) == ["nap10", "nap20", "nap30", "nap90"])
+        #expect(now.options.map(\.id) == ["nap10", "nap20", "nap30", "nap100"])
         #expect(now.pick?.id == "nap20")
         #expect(now.verdict.headline == now.napVerdict.headline)
     }
