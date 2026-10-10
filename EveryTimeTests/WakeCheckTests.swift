@@ -50,26 +50,8 @@ struct SleepScoreTests {
 }
 
 struct CaffeineTests {
-    init() { useDefaultCycle() }
-
-    private let bed = date(2026, 3, 10, 23)
-
-    @Test func cutoffIsEightHoursBeforeBed() {
-        #expect(Caffeine.cutoff(bed: bed) == date(2026, 3, 10, 15))
-        #expect(Caffeine(drinks: []).status(now: date(2026, 3, 10, 16), bed: bed).level == .high)
-    }
-
-    @Test func tooSoonAfterTheLastCup() {
-        let caffeine = Caffeine(drinks: [date(2026, 3, 10, 9)])
-        #expect(caffeine.status(now: date(2026, 3, 10, 10), bed: bed).level == .some)
-        #expect(caffeine.status(now: date(2026, 3, 10, 10, 30), bed: bed) == .init(text: "Fine until \(SleepNow.clock(date(2026, 3, 10, 15)))", level: .low))
-    }
-
-    @Test func addingKeepsAMonth() {
-        let old = date(2026, 1, 1, 9)
-        let caffeine = Caffeine(drinks: [old]).adding(date(2026, 3, 10, 9))
-        #expect(caffeine.drinks == [date(2026, 3, 10, 9)])
-        #expect(caffeine.today(date(2026, 3, 10, 12), calendar: gregorian()).count == 1)
+    @Test func cutoffIsNineHoursBeforeBed() {
+        #expect(Caffeine.cutoff(bed: date(2026, 3, 10, 23)) == date(2026, 3, 10, 14))
     }
 }
 

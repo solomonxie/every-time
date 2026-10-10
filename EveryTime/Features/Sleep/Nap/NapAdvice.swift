@@ -3,7 +3,6 @@ import SwiftUI
 enum NapKey {
     static let naps = "sleep.naps"
     static let active = "sleep.nap.active"
-    static let caffeine = "sleep.caffeine"
 }
 
 extension Calendar {
