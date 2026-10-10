@@ -25,9 +25,12 @@ enum WakeFit: Equatable {
         return deep.contains(phase) ? .poor : .okay
     }
 
-    /// Nights on whole cycles, naps before deep sleep.
+    /// Nights on whole cycles, naps before deep sleep. A night under 4 cycles is short however it ends.
     static func of(length: TimeInterval, isNap: Bool) -> WakeFit {
-        isNap ? nap(length: length) : of(length: length)
+        if isNap { return nap(length: length) }
+        let fit = of(length: length)
+        let cycles = max(0, length - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
+        return fit == .good && cycles < 3.5 ? .okay : fit
     }
 
     func text(isNap: Bool) -> String {
