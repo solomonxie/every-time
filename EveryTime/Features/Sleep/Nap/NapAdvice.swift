@@ -58,7 +58,10 @@ struct ActiveNap: Codable, Equatable {
     var minutes: Int
     /// Alarm turned off part-way: sleep on until "I'm up".
     var alarmOff: Bool?
+    /// Back to sleep right after waking, which takes only a few minutes.
+    var resleep: Bool?
     var alarm: Date { start.addingTimeInterval(Double(minutes) * 60) }
+    var fallAsleep: TimeInterval { resleep == true ? WakeCheck.fallBackAsleep : SleepSuggestion.fallAsleepTime }
     var ringsAlarm: Bool { alarmOff != true }
 }
 

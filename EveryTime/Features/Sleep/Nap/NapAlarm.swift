@@ -10,8 +10,8 @@ enum NapSession {
     /// Cancelling within this of lying down drops the sleep; after it the night is kept.
     static let cancelWindow: TimeInterval = 15 * 60
 
-    static func start(minutes: Int) {
-        resume(ActiveNap(start: .now, minutes: minutes))
+    static func start(minutes: Int, resleep: Bool = false) {
+        resume(ActiveNap(start: .now, minutes: minutes, resleep: resleep ? true : nil))
     }
 
     /// Up at `wake`, from now.
@@ -75,7 +75,7 @@ enum NapSession {
     /// Ends this stretch and starts another from now, so each wake keeps its own record.
     static func sleepMore(minutes: Int) {
         finish()
-        start(minutes: minutes)
+        start(minutes: minutes, resleep: true)
     }
 
     /// Rings at `time` instead, keeping the same start.

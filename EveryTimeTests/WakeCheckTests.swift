@@ -34,6 +34,19 @@ struct WakeCheckTests {
     }
 }
 
+struct ResleepTests {
+    init() { useDefaultCycle() }
+
+    @Test func goingBackToSleepEndsACycleSooner() {
+        let start = date(2026, 3, 11, 6)
+        let nap = ActiveNap(start: start, minutes: 95, resleep: true)
+        let check = WakeCheck(start: start, now: nap.alarm, latency: nap.fallAsleep)
+        #expect(check.cycles == 1)
+        #expect(check.isAtCycleEnd)
+        #expect(ActiveNap(start: start, minutes: 95).fallAsleep == 15 * 60)
+    }
+}
+
 struct SleepScoreTests {
     init() { useDefaultCycle() }
 

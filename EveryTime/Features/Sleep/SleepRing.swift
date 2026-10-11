@@ -189,7 +189,7 @@ struct SleepRing: View {
 
     /// From lying down on: each cycle's deep-sleep stretch shaded, a tick where it ends. Shown across the next 12 h.
     private func cycles(radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
-        let fall = SleepSuggestion.fallAsleepTime / 60, cycle = SleepSuggestion.cycleLength / 60
+        let fall = (plan?.fallAsleep ?? SleepSuggestion.fallAsleepTime) / 60, cycle = SleepSuggestion.cycleLength / 60
         let origin = Double(start)
         let starts: [Double] = (0..<12).map { origin + fall + Double($0) * cycle }.filter { $0 < origin + 720 && $0 + cycle > 0 }
         return ZStack {

@@ -63,9 +63,9 @@ struct NightScreen: View {
     // MARK: Asleep
 
     private func asleep(_ nap: ActiveNap) -> some View {
-        let check = WakeCheck(start: nap.start, now: now)
+        let check = WakeCheck(start: nap.start, now: now, latency: nap.fallAsleep)
         let isNap = Double(nap.minutes) * 60 < Nap.nightLength
-        let cycles = max(1, Int((nap.alarm.timeIntervalSince(nap.start) - WakeCheck.fallAsleep) / WakeCheck.cycle))
+        let cycles = max(1, Int((nap.alarm.timeIntervalSince(nap.start) - nap.fallAsleep) / WakeCheck.cycle))
         return Group {
             if nap.ringsAlarm { countdown(nap.alarm.timeIntervalSince(now)) } else { clock(now) }
             HStack(spacing: 8) {
@@ -131,7 +131,7 @@ struct NightScreen: View {
 
     private func ringing(_ nap: ActiveNap) -> some View {
         let late = now.timeIntervalSince(nap.alarm)
-        let check = WakeCheck(start: nap.start, now: now)
+        let check = WakeCheck(start: nap.start, now: now, latency: nap.fallAsleep)
         return Group {
             clock(now)
             VStack(spacing: 6) {
@@ -229,7 +229,7 @@ struct NightScreen: View {
 
     /// "+20 min" and "+1 cycle" from now: log this sleep and start the next.
     private var moreChips: some View {
-        let cycle = Int((WakeCheck.fallAsleep + WakeCheck.cycle) / 60)
+        let cycle = Int((WakeCheck.fallBackAsleep + WakeCheck.cycle) / 60)
         return HStack(spacing: 10) {
             chip("+20 min · \(SleepNow.clock(now.addingTimeInterval(20 * 60)))", isCurrent: false) { NapSession.sleepMore(minutes: 20) }
             chip("+1 cycle · \(SleepNow.clock(now.addingTimeInterval(Double(cycle) * 60)))", isCurrent: false) { NapSession.sleepMore(minutes: cycle) }

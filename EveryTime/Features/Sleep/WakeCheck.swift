@@ -6,12 +6,15 @@ struct WakeCheck: Equatable {
     static var fallAsleep: TimeInterval { SleepSuggestion.fallAsleepTime }
     /// Within this of a cycle's end counts as at the end.
     static let slack: TimeInterval = 15 * 60
+    /// Falling back asleep after a short wake, e.g. a toilet trip, is much quicker than at bedtime.
+    static let fallBackAsleep: TimeInterval = 5 * 60
 
     let start: Date
     let now: Date
+    var latency = Self.fallAsleep
 
     var elapsed: TimeInterval { max(0, now.timeIntervalSince(start)) }
-    private var asleep: TimeInterval { max(0, elapsed - Self.fallAsleep) }
+    private var asleep: TimeInterval { max(0, elapsed - latency) }
 
     var cycles: Int { Int(asleep / Self.cycle) }
     var isFirstMinutes: Bool { asleep < Self.slack }
