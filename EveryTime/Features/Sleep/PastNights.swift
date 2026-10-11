@@ -16,6 +16,9 @@ struct PastNight: Identifiable, Equatable {
     /// Shorter sleeps are naps, logged or from Health.
     static let minLength: TimeInterval = 3 * 3600
 
+    /// A logged stretch already joined into this night, like going back to sleep after a toilet trip.
+    func covers(_ nap: Nap) -> Bool { source != nil && start <= nap.start && nap.end <= end }
+
     /// Logged nights, stretches with under half an hour awake between joined; Health fills the other days.
     /// Logged time is in bed, so the time to fall asleep comes off once per night.
     static func merged(logged: [Nap], health: [PastNight], calendar: Calendar = .current) -> [PastNight] {

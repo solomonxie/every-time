@@ -155,7 +155,7 @@ enum SleepTrend {
     static func debt(_ nights: [PastNight], naps: [Nap] = [], need: TimeInterval, days: Int = 7) -> TimeInterval {
         let recent = nights.prefix(days)
         guard let since = recent.map(\.start).min() else { return 0 }
-        let napped = naps.filter { !$0.isNight && $0.start >= since }
+        let napped = naps.filter { nap in !nap.isNight && nap.start >= since && !nights.contains { $0.covers(nap) } }
             .reduce(0) { $0 + max(0, $1.duration - SleepSuggestion.fallAsleepTime) }
         return max(0, recent.reduce(0) { $0 + need - $1.asleep } - napped)
     }

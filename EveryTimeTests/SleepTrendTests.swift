@@ -24,6 +24,17 @@ struct SleepTrendTests {
         #expect(SleepTrend.debt(nights, naps: [before], need: 8 * 3600) == 2 * 3600)
     }
 
+    @Test func goingBackToSleepCountsOnceAsPartOfTheNight() {
+        let logged = [
+            Nap(start: date(2026, 3, 11, 23), end: date(2026, 3, 12, 6)),
+            Nap(start: date(2026, 3, 12, 6, 10), end: date(2026, 3, 12, 7, 55)),
+        ]
+        let nights = PastNight.merged(logged: logged, health: [], calendar: gregorian())
+        #expect(nights.count == 1)
+        #expect(nights[0].asleep == 8.5 * 3600)
+        #expect(SleepTrend.debt(nights, naps: logged, need: 9 * 3600) == 30 * 60)
+    }
+
     @Test func needIsUsualHoursAsleepButAtLeastTheRecommended() {
         var profile = JetLagProfile()
         profile.usualBedtime = 23 * 60

@@ -335,7 +335,7 @@ struct SleepTimeView: View {
     }
 
     private func history(nights: [PastNight], naps: [Nap], now: Date, profile: JetLagProfile, advice: NapAdvice) -> some View {
-        let short = naps.filter { !$0.isNight }
+        let short = naps.filter { nap in !nap.isNight && !nights.contains { $0.covers(nap) } }
         let entries = (nights.map(Entry.night) + short.map(Entry.nap)).sorted { $0.start > $1.start }
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
