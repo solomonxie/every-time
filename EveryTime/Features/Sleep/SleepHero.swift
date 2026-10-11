@@ -184,7 +184,13 @@ struct SleepHero: View {
     }
 
     private var ringBed: Binding<Date> {
-        Binding(get: { choice.bed }, set: { bed = $0 <= SleepRing.snap(now) ? nil : $0 })
+        Binding(get: { choice.bed }, set: { pick(bed: $0) })
+    }
+
+    /// "Now" is kept as a bed time too, with the wake pinned, so it isn't read as "no pick" and reset to the usual bedtime.
+    private func pick(bed date: Date) {
+        bed = date
+        if date <= SleepRing.snap(now), wake == nil { wake = choice.wake }
     }
 
     private var ringWake: Binding<Date> {
@@ -202,8 +208,8 @@ struct SleepHero: View {
             }
             date = SleepRing.snap(max(floor, date))
             if end == .bed {
-                bed = date.timeIntervalSince(now) < 60 ? nil : date
                 if choice.wake.timeIntervalSince(date) < Nap.nightLength { wake = nil }
+                pick(bed: date)
             } else {
                 wake = date
             }

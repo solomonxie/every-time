@@ -120,8 +120,9 @@ struct SleepTimeView: View {
         let usualWakeAfter = { (date: Date) in Calendar.current.nextDate(after: date, matching: DateComponents(hour: profile.usualWake / 60, minute: profile.usualWake % 60), matchingPolicy: .nextTime) }
         let tonight = Calendar.current.nextDate(after: now, matching: DateComponents(hour: profile.usualBedtime / 60, minute: profile.usualBedtime % 60), matchingPolicy: .nextTime)
         let inUsualHours = usualWakeAfter(now).flatMap { wake in tonight.map { wake < $0 } } ?? false
-        let bed = kind == .nap ? now : SleepRing.snap(storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : nil }
-            ?? (inUsualHours && !slept ? nil : tonight) ?? now)
+        // A picked bed at or before now means "now", for as long as its wake is still ahead.
+        let picked = storedBed.flatMap { $0.timeIntervalSince(now) >= 60 ? $0 : storedWake.map { $0 > now } == true ? now : nil }
+        let bed = kind == .nap ? now : SleepRing.snap(picked ?? (inUsualHours && !slept ? nil : tonight) ?? now)
         let sleepNow = SleepNow(advice: advice, start: bed)
         let usual = usualWakeAfter(bed).map(SleepRing.snap).flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength ? $0 : nil }
         let long = sleepNow.pick.map { SleepRing.snap($0.time) }.flatMap { $0.timeIntervalSince(bed) >= Nap.nightLength ? $0 : nil }
