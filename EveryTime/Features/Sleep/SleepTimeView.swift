@@ -475,7 +475,10 @@ struct SleepTimeView: View {
     private static var howItWorks: String { """
         A sleep cycle is about \(SleepCycle.current.minutes) minutes, plus ~\(SleepCycle.current.fallAsleepMinutes) to fall asleep; waking at a cycle's end feels easier. \
         Sleep now sets the alarm at the picked time; drag the ring or tap a chip to change it. \
-        Green: 5–6 cycles or a short nap. Orange: 3–4. Red: 1–2. A rough guide, not medical advice.
+        Green: 5–6 cycles or a short nap. Orange: 3–4. Red: 1–2. \
+        Before a night, the ring's inner bands mark no coffee from \(Int(Caffeine.hoursBeforeBed)) h before bed until you're up (caffeine lasts \
+        ~5 h per half) and no food from \(Int(LastMeal.hoursBeforeBed)) h (late meals mean more night waking and higher \
+        overnight blood sugar). A rough guide, not medical advice.
         """ }
 
     private static let cycleInfo = """

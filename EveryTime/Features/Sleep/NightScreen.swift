@@ -57,6 +57,7 @@ struct NightScreen: View {
             }
             SleepRing(now: now, plan: nap)
                 .frame(maxWidth: 300)
+            CutoffLegend(bed: nap.start, wake: nap.alarm, now: now)
         }
     }
 

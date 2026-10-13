@@ -87,6 +87,7 @@ struct SleepHero: View {
                       nap: kind == .nap ? napMinutes : nil, minLength: Int(choice.minLength / 60), resleep: choice.resleep)
                 .frame(maxWidth: 300)
                 .frame(maxWidth: .infinity)
+            if kind == .sleep, !choice.resleep, !choice.isNap { CutoffLegend(bed: choice.bed, wake: choice.wake, now: now) }
             kindTiles
             if kind == .nap { napChips } else { chips }
             Text(verdict)

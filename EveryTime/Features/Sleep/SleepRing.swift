@@ -126,6 +126,7 @@ struct SleepRing: View {
                 if nap == nil { cycles(radius: radius, track: track, center: center) }
                 if let plan {
                     arc(start, end, color: .indigo.opacity(0.35), width: track - 6, radius: radius, center: center)
+                    if showsCutoffs { cutoffs(radius: radius, track: track, center: center) }
                     if isAsleep {
                         arc(start, min(end, max(start, offset(now))), color: .indigo, width: track - 6, radius: radius, center: center)
                     } else {
@@ -139,6 +140,7 @@ struct SleepRing: View {
                     marker("cup.and.saucer.fill", size: track - 8, tint: fit.color).position(point(0, radius))
                 } else {
                     arc(start, end, color: fit.color, width: track - 6, radius: radius, center: center)
+                    if showsCutoffs { cutoffs(radius: radius, track: track, center: center) }
                     if bed != nil, !crowded(point, radius: radius, size: track - 8) {
                         marker("bed.double.fill", size: track - 8, tint: .indigo, isGrabbed: dragging == .bed || isMovingWhole)
                             .position(point(Double(start), radius))
@@ -213,6 +215,22 @@ struct SleepRing: View {
                         .frame(width: 2, height: track * 0.24)
                         .rotationEffect(.degrees(degrees(s + cycle)))
                         .position(self.point(s + cycle, radius: radius + track * 0.38, center: center))
+                }
+            }
+        }
+    }
+
+    /// Before a night: no coffee and no food from the cutoff until up, one thin lane each on the track's inner half, from now at the earliest.
+    private var showsCutoffs: Bool { nap == nil && !isNap && !isResleep && !isAsleep }
+
+    private func cutoffs(radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
+        let bed = date(start)
+        return ZStack {
+            ForEach(Array(Cutoff.allCases.enumerated()), id: \.offset) { lane, cutoff in
+                let from = max(0, offset(cutoff.time(bed: bed)))
+                if from < end {
+                    arc(from, end, color: cutoff.color, width: track * 0.16,
+                        radius: radius - track * (0.38 - 0.2 * Double(lane)), center: center)
                 }
             }
         }
@@ -373,5 +391,62 @@ struct SleepRing: View {
     private static func hourText(_ hour: Int) -> String {
         let date = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: .now) ?? .now
         return date.formatted(.dateTime.hour())
+    }
+}
+
+/// What to stop before a night, and when.
+enum Cutoff: CaseIterable {
+    case caffeine, food
+
+    func time(bed: Date) -> Date {
+        switch self {
+        case .caffeine: Caffeine.cutoff(bed: bed)
+        case .food: LastMeal.cutoff(bed: bed)
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .caffeine: .brown
+        case .food: .orange
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .caffeine: "cup.and.saucer.fill"
+        case .food: "fork.knife"
+        }
+    }
+
+    func text(bed: Date, wake: Date, now: Date) -> String {
+        let time = time(bed: bed)
+        let up = SleepNow.clock(wake)
+        switch self {
+        case .caffeine: return time > now ? "No coffee after \(SleepNow.clock(time))" : "No coffee till \(up)"
+        case .food: return time > now ? "Last meal by \(SleepNow.clock(time))" : "Fasting till \(up)"
+        }
+    }
+}
+
+/// The ring's coffee and food bands, spelled out.
+struct CutoffLegend: View {
+    let bed: Date
+    let wake: Date
+    let now: Date
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ForEach(Cutoff.allCases, id: \.self) { cutoff in
+                Label {
+                    Text(cutoff.text(bed: bed, wake: wake, now: now))
+                } icon: {
+                    Image(systemName: cutoff.symbol).foregroundStyle(cutoff.color)
+                }
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
