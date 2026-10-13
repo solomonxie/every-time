@@ -71,7 +71,10 @@ struct SleepCycle: Codable, Equatable {
 
     /// The cycle length that best explains when you woke on your own: each wake should land on a cycle's end.
     static func learned(from naps: [Nap], fallAsleep: Int, minCount: Int = minWakes) -> (minutes: Int, count: Int)? {
-        let wakes = naps.filter { $0.natural == true }.map { Double($0.minutes - fallAsleep) }.filter { $0 >= 60 }
+        let quick = Int(WakeCheck.fallBackAsleep / 60)
+        let wakes = naps.filter { $0.natural == true }
+            .map { Double($0.minutes - ($0.isResleep(among: naps) ? quick : fallAsleep)) }
+            .filter { $0 >= 60 }
         guard wakes.count >= minCount else { return nil }
         let best = cycleRange.min { a, b in cost(a, wakes) < cost(b, wakes) } ?? defaultMinutes
         return (best, wakes.count)

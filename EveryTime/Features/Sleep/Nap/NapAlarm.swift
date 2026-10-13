@@ -63,7 +63,7 @@ enum NapSession {
         guard end > nap.start else { cancel(); return }
         var naps: [Nap] = defaults.decoded(NapKey.naps) ?? []
         let natural = !nap.ringsAlarm || end < nap.alarm.addingTimeInterval(-120)
-        naps.insert(Nap(start: nap.start, end: max(end, nap.start), natural: natural), at: 0)
+        naps.insert(Nap(start: nap.start, end: max(end, nap.start), natural: natural, resleep: nap.resleep), at: 0)
         defaults.encode(naps, NapKey.naps)
         SleepCycle.relearn(from: naps)
         defaults.encode(nil as ActiveNap?, NapKey.active)

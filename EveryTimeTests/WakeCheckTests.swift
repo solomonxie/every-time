@@ -138,6 +138,18 @@ struct SleepCycleTests {
         #expect(learned?.count == 5)
     }
 
+    @Test func backToSleepFallsAsleepQuickly() {
+        let night = Nap(start: date(2026, 3, 10, 23), end: date(2026, 3, 11, 5), natural: true)
+        let soon = Nap(start: date(2026, 3, 11, 6), end: date(2026, 3, 11, 7, 45), natural: true)
+        let later = Nap(start: date(2026, 3, 11, 9), end: date(2026, 3, 11, 10, 45), natural: true)
+        let flagged = Nap(start: date(2026, 3, 11, 13), end: date(2026, 3, 11, 14, 45), natural: true, resleep: true)
+        #expect(soon.isResleep(among: [night, soon]))
+        #expect(!later.isResleep(among: [night, later]))
+        #expect(flagged.isResleep(among: [flagged]))
+        #expect(!night.isResleep(among: [night, soon]))
+        #expect(SleepCycle.learned(from: Array(repeating: soon, count: 5) + [night], fallAsleep: 15, minCount: 1)?.minutes == 100)
+    }
+
     @Test func needsFiveNaturalWakes() {
         #expect(SleepCycle.learned(from: [wake(215), wake(318), wake(113), wake(412)], fallAsleep: 15) == nil)
     }

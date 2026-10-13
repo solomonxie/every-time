@@ -30,11 +30,18 @@ struct Nap: Identifiable, Codable, Hashable {
     var energy: Int?
     /// Woke on your own, before the alarm (or with none): these teach your cycle length.
     var natural: Bool?
+    /// Started from "+20 min" / "+1 cycle" after waking.
+    var resleep: Bool?
 
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
     var duration: TimeInterval { end.timeIntervalSince(start) }
     /// 3 h or more counts as a night, as Health's nights do; shorter is a nap.
     var isNight: Bool { duration >= PastNight.minLength }
+
+    /// Back to sleep soon after a night, or from the wake screen: falls asleep in minutes.
+    func isResleep(among naps: [Nap]) -> Bool {
+        resleep == true || naps.contains { $0.isNight && $0.id != id && (0..<PastNight.resleepWindow).contains(start.timeIntervalSince($0.end)) }
+    }
 
     static var nightLength: TimeInterval { SleepSuggestion.fallAsleepTime + SleepSuggestion.cycleLength }
     static let energyRange = 1...5
