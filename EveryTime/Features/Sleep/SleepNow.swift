@@ -69,10 +69,13 @@ struct SleepNow {
     let start: Date
     let day: NapAdvice.Day
     let zone: Zone
+    /// Going back to sleep after a night: how far it fell short of the sleep you need.
+    let resleepShortfall: TimeInterval?
 
-    init(advice: NapAdvice, start: Date) {
+    init(advice: NapAdvice, start: Date, resleepShortfall: TimeInterval? = nil) {
         self.advice = advice
         self.start = start
+        self.resleepShortfall = resleepShortfall
         let day = advice.current(at: start)
         self.day = day
         let window = advice.window(on: day.wake)
@@ -96,6 +99,7 @@ struct SleepNow {
 
     /// Wake chips for now, earliest first: by day every nap length; from evening on, whole-cycle wakes plus a short nap.
     var options: [Option] {
+        if resleepShortfall != nil { return resleepOptions }
         let all: [Option]
         switch zone {
         case .beforeWindow, .napWindow:
@@ -118,7 +122,7 @@ struct SleepNow {
     var pick: Option? { options.first(where: \.isRecommended) ?? options.first }
 
     /// The verdict that matters now: napping by day, sleeping for the night from evening.
-    var verdict: Verdict { isDaytime ? napVerdict : sleepVerdict }
+    var verdict: Verdict { resleepShortfall != nil ? resleepVerdict : isDaytime ? napVerdict : sleepVerdict }
 
     /// Every nap length, with the pick for now marked if any is worth taking.
     var napOptions: [Option] {
@@ -213,7 +217,32 @@ struct SleepNow {
         }
     }
 
+    /// Cycles back to sleep that make up last night's shortfall, 1–3.
+    private var resleepCycles: Int {
+        min(3, max(1, Int(((resleepShortfall ?? 0) / Self.cycle).rounded(.up))))
+    }
+
+    /// Whole cycles from a quick fall-asleep; every one is a good wake.
+    private var resleepOptions: [Option] {
+        let asleep = start.addingTimeInterval(WakeCheck.fallBackAsleep)
+        return (1...4).map { cycles in
+            Option(kind: .night(cycles: cycles, wake: asleep.addingTimeInterval(Double(cycles) * Self.cycle)),
+                   title: "Sleep \(NapAdvice.hours(Double(cycles) * Self.cycle / 3600))",
+                   detail: "\(cycles) more cycle\(cycles == 1 ? "" : "s")",
+                   time: asleep.addingTimeInterval(Double(cycles) * Self.cycle), level: .low,
+                   isRecommended: cycles == resleepCycles)
+        }
+    }
+
     // MARK: Verdicts
+
+    private var resleepVerdict: Verdict {
+        let up = Self.clock(start.addingTimeInterval(WakeCheck.fallBackAsleep + Double(resleepCycles) * Self.cycle))
+        guard let short = resleepShortfall, short > 0 else { return ("Back to sleep", "Any cycle end is a good wake.") }
+        let need = NapAdvice.hours(SleepTrend.need(advice.profile) / 3600)
+        return ("Back to sleep", "Last night was \(NapAdvice.hours(short / 3600)) short of your \(need); "
+                + "\(resleepCycles) more cycle\(resleepCycles == 1 ? "" : "s") is up at \(up).")
+    }
 
     typealias Verdict = (headline: String, reason: String)
 

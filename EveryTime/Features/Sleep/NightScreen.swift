@@ -64,7 +64,7 @@ struct NightScreen: View {
 
     private func asleep(_ nap: ActiveNap) -> some View {
         let check = WakeCheck(start: nap.start, now: now, latency: nap.fallAsleep)
-        let isNap = Double(nap.minutes) * 60 < Nap.nightLength
+        let isNap = nap.resleep != true && Double(nap.minutes) * 60 < Nap.nightLength
         let cycles = max(1, Int((nap.alarm.timeIntervalSince(nap.start) - nap.fallAsleep) / WakeCheck.cycle))
         return Group {
             if nap.ringsAlarm { countdown(nap.alarm.timeIntervalSince(now)) } else { clock(now) }

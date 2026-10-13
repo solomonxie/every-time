@@ -45,6 +45,39 @@ struct ResleepTests {
         #expect(check.isAtCycleEnd)
         #expect(ActiveNap(start: start, minutes: 95).fallAsleep == 15 * 60)
     }
+
+    @Test func everyCycleEndIsGoodWhenGoingBackToSleep() {
+        for cycles in 1...3 {
+            let length = (5 + Double(cycles) * 90) * 60
+            #expect(WakeFit.of(length: length, isNap: false, resleep: true) == .good)
+            #expect(WakeFit.of(length: length, isNap: false) != .good)
+        }
+        #expect(WakeFit.of(length: (5 + 45) * 60, isNap: false, resleep: true) == .poor)
+    }
+
+    @Test func soonAfterANightOnly() {
+        let night = PastNight(start: date(2026, 3, 11, 1), end: date(2026, 3, 11, 6, 30), asleep: 5 * 3600)
+        #expect(night.isResleep(at: date(2026, 3, 11, 7, 30)))
+        #expect(!night.isResleep(at: date(2026, 3, 11, 8, 31)))
+        #expect(!night.isResleep(at: date(2026, 3, 11, 6)))
+    }
+
+    @Test func picksTheCyclesThatMakeUpLastNight() {
+        let start = date(2026, 3, 11, 7, 30)
+        let now = SleepNow(advice: napAdvice(), start: start, resleepShortfall: 2 * 3600)
+        #expect(now.options.count == 4)
+        #expect(now.options.allSatisfy { $0.level == .low })
+        #expect(now.pick?.kind == .night(cycles: 2, wake: date(2026, 3, 11, 10, 35)))
+        #expect(SleepNow(advice: napAdvice(), start: start, resleepShortfall: 0).pick?.time == date(2026, 3, 11, 9, 5))
+    }
+
+    @Test func oneCycleIsASleepNotANap() {
+        let now = date(2026, 3, 11, 7, 30)
+        let choice = WakeChoice(now: now, bed: now, wake: date(2026, 3, 11, 9, 5), resleep: true)
+        #expect(!choice.isNap)
+        #expect(choice.fit == .good)
+        #expect(choice.cycles == 1)
+    }
 }
 
 struct SleepScoreTests {

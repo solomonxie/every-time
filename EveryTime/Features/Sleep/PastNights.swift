@@ -16,6 +16,11 @@ struct PastNight: Identifiable, Equatable {
     /// Shorter sleeps are naps, logged or from Health.
     static let minLength: TimeInterval = 3 * 3600
 
+    /// Lying down this soon after a night ends is going back to sleep, not a new sleep.
+    static let resleepWindow: TimeInterval = 2 * 3600
+
+    func isResleep(at date: Date) -> Bool { (0..<Self.resleepWindow).contains(date.timeIntervalSince(end)) }
+
     /// A logged stretch already joined into this night, like going back to sleep after a toilet trip.
     func covers(_ nap: Nap) -> Bool { source != nil && start <= nap.start && nap.end <= end }
 

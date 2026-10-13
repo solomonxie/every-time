@@ -5,14 +5,20 @@ struct WakeChoice: Equatable {
     let now: Date
     let bed: Date
     let wake: Date
+    /// Going back to sleep soon after a night: quick to fall asleep, and any cycle end is a good wake.
+    var resleep = false
+
+    var fallAsleep: TimeInterval { resleep ? WakeCheck.fallBackAsleep : SleepSuggestion.fallAsleepTime }
+    /// Shortest sleep offered: one cycle.
+    var minLength: TimeInterval { fallAsleep + SleepSuggestion.cycleLength }
 
     /// A bed on the nearest mark, up to half a step ahead, still starts now.
     var isNow: Bool { bed.timeIntervalSince(now) <= Double(SleepRing.step) * 30 }
     var minutes: Int { max(1, Int((wake.timeIntervalSince(bed) / 60).rounded())) }
     var length: TimeInterval { Double(minutes) * 60 }
-    var isNap: Bool { length < Nap.nightLength }
-    var fit: WakeFit { WakeFit.of(length: length, isNap: isNap) }
-    var cycles: Double { max(0, length - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength }
+    var isNap: Bool { !resleep && length < Nap.nightLength }
+    var fit: WakeFit { WakeFit.of(length: length, isNap: isNap, resleep: resleep) }
+    var cycles: Double { max(0, length - fallAsleep) / SleepSuggestion.cycleLength }
 
     var button: String {
         isNow ? "\(isNap ? "Nap" : "Sleep") now · up at \(SleepNow.clock(wake))"
@@ -78,7 +84,7 @@ struct SleepHero: View {
                 .foregroundStyle(choice.fit.color)
                 .contentTransition(.numericText())
             SleepRing(now: now, bed: kind == .nap ? nil : ringBed, wake: kind == .nap ? nil : ringWake,
-                      nap: kind == .nap ? napMinutes : nil, minLength: Int(Nap.nightLength / 60))
+                      nap: kind == .nap ? napMinutes : nil, minLength: Int(choice.minLength / 60), resleep: choice.resleep)
                 .frame(maxWidth: 300)
                 .frame(maxWidth: .infinity)
             kindTiles
@@ -200,7 +206,7 @@ struct SleepHero: View {
     /// The wheel gives a clock time; it lands on the right side of midnight, after now (bed) or after bed (wake).
     private func wheel(_ end: End) -> Binding<Date> {
         Binding(get: { end == .bed ? choice.bed : choice.wake }, set: { picked in
-            let floor = end == .bed ? now : choice.bed.addingTimeInterval(Nap.nightLength)
+            let floor = end == .bed ? now : choice.bed.addingTimeInterval(choice.minLength)
             var date = picked
             if date < floor { date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date }
             if date.timeIntervalSince(floor) > Double(SleepRing.lengths.upperBound) * 60 {
@@ -208,7 +214,7 @@ struct SleepHero: View {
             }
             date = SleepRing.snap(max(floor, date))
             if end == .bed {
-                if choice.wake.timeIntervalSince(date) < Nap.nightLength { wake = nil }
+                if choice.wake.timeIntervalSince(date) < choice.minLength { wake = nil }
                 pick(bed: date)
             } else {
                 wake = date
@@ -219,7 +225,7 @@ struct SleepHero: View {
     private var chips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 8) {
-                ForEach(sleepNow.options.filter { $0.time.timeIntervalSince(choice.bed) >= Nap.nightLength - 60 }) { option in
+                ForEach(sleepNow.options.filter { $0.time.timeIntervalSince(choice.bed) >= choice.minLength - 60 }) { option in
                     let time = SleepRing.snap(option.time)
                     let isPicked = abs(time.timeIntervalSince(choice.wake)) < 60
                     Button {

@@ -15,8 +15,8 @@ enum NapSession {
     }
 
     /// Up at `wake`, from now.
-    static func start(wake: Date) {
-        start(minutes: max(1, Int((wake.timeIntervalSinceNow / 60).rounded())))
+    static func start(wake: Date, resleep: Bool = false) {
+        start(minutes: max(1, Int((wake.timeIntervalSinceNow / 60).rounded())), resleep: resleep)
     }
 
     /// Bed later tonight: alarm at `wake`, wind-down reminder before bed; asleep from `bed` unless "I'm in bed now" comes first.

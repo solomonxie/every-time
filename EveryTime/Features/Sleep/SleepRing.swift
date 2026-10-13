@@ -29,8 +29,10 @@ enum WakeFit: Equatable {
         return of(length: length, fallAsleep: fallAsleep, cycle: cycle)
     }
 
-    /// Nights on whole cycles, naps before deep sleep. A night under 4 cycles is short however it ends.
-    static func of(length: TimeInterval, isNap: Bool) -> WakeFit {
+    /// Nights on whole cycles, naps before deep sleep. A night under 4 cycles is short however it ends,
+    /// unless it's going back to sleep after one: then every cycle end is good.
+    static func of(length: TimeInterval, isNap: Bool, resleep: Bool = false) -> WakeFit {
+        if resleep { return of(length: length, fallAsleep: WakeCheck.fallBackAsleep) }
         if isNap { return nap(length: length) }
         let fit = of(length: length)
         let cycles = max(0, length - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
@@ -72,6 +74,8 @@ struct SleepRing: View {
     var nap: Int? = nil
     /// Shortest sleep the handles allow.
     var minLength = SleepRing.lengths.lowerBound
+    /// Idle: going back to sleep soon after a night.
+    var resleep = false
 
     private enum Handle: Equatable { case bed, alarm, whole(from: Int) }
     @State private var dragging: Handle?
@@ -102,8 +106,10 @@ struct SleepRing: View {
     private func date(_ offset: Int) -> Date { top.addingTimeInterval(Double(offset) * 60) }
 
     private var length: TimeInterval { Double(end - start) * 60 }
-    private var isNap: Bool { length < Nap.nightLength }
-    private var fit: WakeFit { WakeFit.of(length: length, isNap: isNap) }
+    private var isResleep: Bool { plan.map { $0.resleep == true } ?? resleep }
+    private var fallAsleep: TimeInterval { isResleep ? WakeCheck.fallBackAsleep : SleepSuggestion.fallAsleepTime }
+    private var isNap: Bool { !isResleep && length < Nap.nightLength }
+    private var fit: WakeFit { WakeFit.of(length: length, isNap: isNap, resleep: isResleep) }
 
     var body: some View {
         GeometryReader { geo in
@@ -189,7 +195,7 @@ struct SleepRing: View {
 
     /// From lying down on: each cycle's deep-sleep stretch shaded, a tick where it ends. Shown across the next 12 h.
     private func cycles(radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
-        let fall = (plan?.fallAsleep ?? SleepSuggestion.fallAsleepTime) / 60, cycle = SleepSuggestion.cycleLength / 60
+        let fall = fallAsleep / 60, cycle = SleepSuggestion.cycleLength / 60
         let origin = Double(start)
         let starts: [Double] = (0..<12).map { origin + fall + Double($0) * cycle }.filter { $0 < origin + 720 && $0 + cycle > 0 }
         return ZStack {
@@ -257,7 +263,7 @@ struct SleepRing: View {
         if plan != nil {
             EmptyView()
         } else {
-            let cycles = max(0, length - SleepSuggestion.fallAsleepTime) / SleepSuggestion.cycleLength
+            let cycles = max(0, length - fallAsleep) / SleepSuggestion.cycleLength
             VStack(spacing: 2) {
                 Text(ActivityLog.duration(length))
                     .font(.clock(side * 0.1, weight: .semibold))
@@ -291,7 +297,7 @@ struct SleepRing: View {
                     if bedOffset != start { bed?.wrappedValue = date(bedOffset) }
                 case .alarm:
                     var alarm = min(max(offset, start + minLength), min(Self.day, start + Self.lengths.upperBound))
-                    if let detent = Self.detent(near: alarm - start) {
+                    if let detent = Self.detent(near: alarm - start, fallAsleep: Int(fallAsleep / 60)) {
                         if start + detent != end { detents += 1 }
                         alarm = start + detent
                     }
@@ -330,8 +336,8 @@ struct SleepRing: View {
     }
 
     /// A cycle end within one step of `length` minutes from lying down.
-    static func detent(near length: Int) -> Int? {
-        let fall = Int(SleepSuggestion.fallAsleepTime / 60), cycle = Int(SleepSuggestion.cycleLength / 60)
+    static func detent(near length: Int, fallAsleep fall: Int) -> Int? {
+        let cycle = Int(SleepSuggestion.cycleLength / 60)
         return (1...8).map { fall + $0 * cycle }.first { abs($0 - length) <= step }
     }
 
