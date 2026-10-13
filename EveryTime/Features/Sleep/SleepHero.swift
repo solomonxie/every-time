@@ -24,7 +24,7 @@ struct WakeChoice: Equatable {
         isNow ? "\(isNap ? "Nap" : "Sleep") now · up at \(SleepNow.clock(wake))"
             : "Start schedule · bed \(SleepNow.clock(bed))"
     }
-    var symbol: String { !isNow ? "bed.double.fill" : isNap ? "cup.and.saucer.fill" : "moon.zzz.fill" }
+    var symbol: String { !isNow ? "bed.double.fill" : isNap ? "sofa.fill" : "moon.zzz.fill" }
 
     /// "5 cycles · Wakes between cycles".
     var fitLine: String {
@@ -63,7 +63,7 @@ struct SleepHero: View {
         VStack(alignment: .leading, spacing: 14) {
             if kind == .nap {
                 HStack(spacing: 8) {
-                    Button { editsNap = true } label: { stat("cup.and.saucer.fill", "Nap", "\(napMinutes) min", "Tap for exact") }
+                    Button { editsNap = true } label: { stat("sofa.fill", "Nap", "\(napMinutes) min", "Tap for exact") }
                         .buttonStyle(.plain)
                     stat("alarm.fill", "Wake up", SleepNow.clock(choice.wake), "Today")
                 }
@@ -115,7 +115,7 @@ struct SleepHero: View {
 
     private var kindTiles: some View {
         HStack(spacing: 10) {
-            tile(.nap, "cup.and.saucer.fill", "\(napMinutes) min")
+            tile(.nap, "sofa.fill", "\(napMinutes) min")
             tile(.sleep, "moon.zzz.fill", kind == .sleep ? "up \(SleepNow.clock(choice.wake))" : "bed & alarm")
         }
     }

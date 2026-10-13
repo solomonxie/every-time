@@ -137,7 +137,7 @@ struct SleepRing: View {
                     marker("alarm.fill", size: track - 14, tint: plan.ringsAlarm ? .indigo : .secondary)
                         .position(point(Double(end), radius))
                 } else if nap != nil {
-                    marker("cup.and.saucer.fill", size: track - 8, tint: fit.color).position(point(0, radius))
+                    marker("sofa.fill", size: track - 8, tint: fit.color).position(point(0, radius))
                 } else {
                     arc(start, end, color: fit.color, width: track - 6, radius: radius, center: center)
                     if showsCutoffs { cutoffs(radius: radius, track: track, center: center) }
