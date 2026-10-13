@@ -10,7 +10,7 @@ struct MoreView: View {
     @Stored(WorkLog.key) private var workSpans: [WorkSpan] = []
     @Stored(ActivityLog.key) private var activityMarks: [ActivityMark] = []
 
-    @State private var path: [AppTool] = []
+    @State private var path = NavigationPath()
 
     private var pins: [AppTool] { AppTool.pins(from: pinned) }
 
@@ -44,7 +44,7 @@ struct MoreView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: AppTool.self) { $0.destination }
         }
-        .onAppear { if path.isEmpty { path = ScreenshotHook.morePath(pins: pins) } }
+        .onAppear { if path.isEmpty { path = NavigationPath(ScreenshotHook.morePath(pins: pins)) } }
     }
 
     // MARK: Tools
