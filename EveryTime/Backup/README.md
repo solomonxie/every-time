@@ -3,6 +3,7 @@
 All user data is small Codable JSON in UserDefaults (`@Stored`), plus plain `@AppStorage` values (Bool, number, String). Backed up = every key with prefix
 `world.` `calendar.` `timers.` `sleep.` `tools.` `app.` `boards.` (`BackupSnapshot.keyPrefixes`; board cards live in Reminders, only board settings here) — new keys travel automatically.
 Except `BackupSnapshot.deviceKeys` (running nap, its system alarm id, Health asked): never saved, restored or cleared.
+Same for `<key>.corrupt` (bytes `StoreCodec` set aside because they no longer decode).
 
 ## Tiers
 

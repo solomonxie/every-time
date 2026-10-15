@@ -370,10 +370,10 @@ final class NapNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
 extension UserDefaults {
     /// Values saved by `@Stored` (JSON), for code outside views.
     func decoded<T: Decodable>(_ key: String) -> T? {
-        data(forKey: key).flatMap { try? JSONDecoder().decode(T.self, from: $0) }
+        StoreCodec.decode(T.self, from: data(forKey: key))
     }
 
-    func encode<T: Encodable>(_ value: T, _ key: String) {
-        set(try? JSONEncoder().encode(value), forKey: key)
+    func encode<T: Codable>(_ value: T, _ key: String) {
+        StoreCodec.write(value, key, to: self)
     }
 }

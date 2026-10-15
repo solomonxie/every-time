@@ -31,7 +31,7 @@ struct BackupSnapshot {
     var settings: [String: Data] = [:]
 
     static func isBackedUp(_ key: String) -> Bool {
-        keyPrefixes.contains { key.hasPrefix($0) } && !deviceKeys.contains(key)
+        keyPrefixes.contains { key.hasPrefix($0) } && !deviceKeys.contains(key) && !StoreCodec.isCorruptKey(key)
     }
 
     static func storedKeys(in defaults: UserDefaults = .standard) -> [String] {
