@@ -117,7 +117,7 @@ struct SleepTimeView: View {
         let nights = PastNight.merged(logged: naps, health: health)
         let lastNight = nights.first { $0.end <= now }
         let justWoke = lastNight?.isResleep(at: now) ?? false
-        let slept = nights.contains { $0.end <= now && now.timeIntervalSince($0.end) < 14 * 3600 && $0.end.timeIntervalSince($0.start) >= Nap.nightLength }
+        let slept = nights.contains { $0.end <= now && now.timeIntervalSince($0.end) < 14 * 3600 && $0.end.timeIntervalSince($0.start) >= Night.minLength }
         // Default: the usual hours; already inside them (and not slept yet), from now.
         let usualWakeAfter = { (date: Date) in Calendar.current.nextDate(after: date, matching: DateComponents(hour: profile.usualWake / 60, minute: profile.usualWake % 60), matchingPolicy: .nextTime) }
         let tonight = Calendar.current.nextDate(after: now, matching: DateComponents(hour: profile.usualBedtime / 60, minute: profile.usualBedtime % 60), matchingPolicy: .nextTime)
@@ -294,7 +294,7 @@ struct SleepTimeView: View {
                     insightRow("bed.double.fill", "Sleep debt",
                                value: debt < 15 * 60 ? "None" : ActivityLog.duration(debt),
                                tint: debt >= 3 * 3600 ? Theme.Tone.bad : debt >= 3600 ? Theme.Tone.warn : Theme.Tone.good,
-                               detail: "Short of \(NapAdvice.hours(need / 3600))/night over the last 7, naps count", info: Self.debtInfo(streak: streak))
+                               detail: "Short of \(NapAdvice.hours(need / 3600))/night over the last 7 days, naps count", info: Self.debtInfo(streak: streak))
                 }
                 if let energy {
                     insightRow("bolt.fill", "Energy",
@@ -494,7 +494,7 @@ struct SleepTimeView: View {
 
     private static func debtInfo(streak: Int) -> String {
         """
-        Sleep you missed over the last 7 nights, against your usual hours (at least the recommended 7 h asleep). \
+        Sleep you missed over the last 7 days, by the day you woke, against your usual hours (at least the recommended 7 h asleep). \
         Naps in that time pay it back by the time actually asleep. Under 1 h is fine; 3 h+ is worth catching up.
         Pay it back with an earlier bedtime or an early-afternoon nap, not a long lie-in — waking at a steady time helps most \
         (\(streak) \(streak == 1 ? "day" : "days") in a row so far).

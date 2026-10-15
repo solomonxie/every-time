@@ -238,7 +238,7 @@ struct WhatDidView: View {
                     stat("Wake", typical.wake.map(clock) ?? "–")
                     stat("Asleep", typical.sleep.map(ActivityLog.duration) ?? "–")
                 }
-                Text("Average of ^[\(typical.nights) night](inflect: true) marked Sleep, 3 h or longer.")
+                Text("Average of ^[\(typical.nights) night](inflect: true) marked Sleep, \(Int(Night.minLength / 3600)) h or longer.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

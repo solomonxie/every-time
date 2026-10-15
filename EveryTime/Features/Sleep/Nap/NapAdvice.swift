@@ -36,7 +36,7 @@ struct Nap: Identifiable, Codable, Hashable {
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
     var duration: TimeInterval { end.timeIntervalSince(start) }
     /// 3 h or more counts as a night, as Health's nights do; shorter is a nap.
-    var isNight: Bool { duration >= PastNight.minLength }
+    var isNight: Bool { duration >= EveryTime.Night.minLength }
 
     /// Back to sleep soon after a night, or from the wake screen: falls asleep in minutes.
     func isResleep(among naps: [Nap]) -> Bool {

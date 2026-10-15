@@ -102,4 +102,15 @@ struct ActivityLogTests {
         #expect(log.marks.map(\.tag) == ["eat", nil])
         #expect(log.marks.map(\.time) == [date(2026, 9, 28, 13), date(2026, 9, 28, 14)])
     }
+
+    @Test func twoHourNapIsNotANight() {
+        #expect(log([(date(2026, 9, 28, 14), "sleep"), (date(2026, 9, 28, 16), nil)]).nights(at: date(2026, 9, 28, 17)).isEmpty)
+    }
+
+    @Test func backToBackSleepPinsAreOneNight() {
+        let log = log([(date(2026, 9, 27, 23), "sleep"), (date(2026, 9, 28, 1), "sleep"), (date(2026, 9, 28, 2), nil)])
+        let nights = log.nights(at: date(2026, 9, 28, 9))
+        #expect(nights.count == 1)
+        #expect(nights.first?.duration == TimeInterval(3 * 3600))
+    }
 }

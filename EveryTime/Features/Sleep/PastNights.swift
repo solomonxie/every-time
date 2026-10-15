@@ -2,6 +2,11 @@ import Charts
 import HealthKit
 import SwiftUI
 
+/// What counts as a night, on every page: shorter sleep is a nap, logged or from Health.
+enum Night {
+    static let minLength: TimeInterval = 3 * 3600
+}
+
 /// One night of sleep: from Health (first to last asleep, sources merged) or logged here.
 struct PastNight: Identifiable, Equatable {
     let start: Date
@@ -12,9 +17,6 @@ struct PastNight: Identifiable, Equatable {
     var source: UUID? = nil
 
     var id: Date { start }
-
-    /// Shorter sleeps are naps, logged or from Health.
-    static let minLength: TimeInterval = 3 * 3600
 
     /// Lying down this soon after a night ends is going back to sleep, not a new sleep.
     static let resleepWindow: TimeInterval = 2 * 3600
@@ -37,7 +39,7 @@ struct PastNight: Identifiable, Equatable {
                                         energy: nap.energy, source: nap.id))
             }
         }
-        let own = nights.filter { $0.end.timeIntervalSince($0.start) >= minLength }
+        let own = nights.filter { $0.end.timeIntervalSince($0.start) >= Night.minLength }
         let days = Set(own.map { calendar.startOfDay(for: $0.end) })
         return (own + health.filter { !days.contains(calendar.startOfDay(for: $0.end)) }).sorted { $0.end > $1.end }
     }
@@ -119,7 +121,7 @@ enum PastNights {
         let all = sessions.compactMap { parts -> PastNight? in
             guard let first = parts.first, let last = parts.last else { return nil }
             let asleep = parts.reduce(0) { $0 + $1.1.timeIntervalSince($1.0) }
-            return asleep >= PastNight.minLength ? PastNight(start: first.0, end: last.1, asleep: asleep) : nil
+            return asleep >= Night.minLength ? PastNight(start: first.0, end: last.1, asleep: asleep) : nil
         }
         return Dictionary(grouping: all) { calendar.startOfDay(for: $0.end) }
             .values.compactMap { $0.max { $0.asleep < $1.asleep } }

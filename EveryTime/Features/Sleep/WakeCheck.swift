@@ -157,13 +157,18 @@ enum SleepTrend {
         max(profile.sleepHours * 3600 - SleepSuggestion.fallAsleepTime, (profile.age < 18 ? 8 : 7) * 3600)
     }
 
-    /// Shortfall over the last `days` nights; long nights and naps in that time pay it back by the time spent asleep.
-    static func debt(_ nights: [PastNight], naps: [Nap] = [], need: TimeInterval, days: Int = 7) -> TimeInterval {
-        let recent = nights.prefix(days)
+    /// Shortfall per wake day over the last `days` days; a second long sleep that day, long nights and naps
+    /// pay it back by the time spent asleep.
+    static func debt(_ nights: [PastNight], naps: [Nap] = [], need: TimeInterval, days: Int = 7,
+                     now: Date = .now, calendar: Calendar = .current) -> TimeInterval {
+        guard let from = calendar.date(byAdding: .day, value: 1 - days, to: calendar.startOfDay(for: now)) else { return 0 }
+        let recent = nights.filter { $0.end >= from }
         guard let since = recent.map(\.start).min() else { return 0 }
+        let byDay = Dictionary(grouping: recent) { calendar.startOfDay(for: $0.end) }.values
+            .map { $0.reduce(0) { $0 + $1.asleep } }
         let napped = naps.filter { nap in !nap.isNight && nap.start >= since && !nights.contains { $0.covers(nap) } }
             .reduce(0) { $0 + max(0, $1.duration - SleepSuggestion.fallAsleepTime) }
-        return max(0, recent.reduce(0) { $0 + need - $1.asleep } - napped)
+        return max(0, byDay.reduce(0) { $0 + need - $1 } - napped)
     }
 
     /// Newest-first nights in a row that ended within `slack` of the usual wake.

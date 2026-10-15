@@ -95,7 +95,7 @@ struct ActivitySpan: Identifiable, Hashable {
 
     /// A finished sleep under 3 h reads as a nap.
     var activity: Activity {
-        tag == Activity.sleep.id && !isOpen && duration < ActivityLog.minNight && end > start ? Activity.napLook : .of(tag)
+        tag == Activity.sleep.id && !isOpen && duration < Night.minLength && end > start ? Activity.napLook : .of(tag)
     }
     var duration: TimeInterval { end.timeIntervalSince(start) }
 
@@ -127,8 +127,6 @@ struct ActivityLog {
     static let tagsKey = "timers.activityTags"
     static let stylesKey = "timers.activityTagStyles"
     static let orderKey = "timers.activityOrder"
-    /// Shorter sleep than this (a cycle) is a nap, not a night.
-    static var minNight: TimeInterval { Nap.nightLength }
     /// The last mark stops running after this long with nothing after it: yesterday's coffee isn't still going on.
     static let maxOpen: TimeInterval = 12 * 3600
 
@@ -228,9 +226,17 @@ struct ActivityLog {
         return totals(in: window, at: now).map { ActivityTotal(tag: $0.tag, time: $0.time / dayCount) }
     }
 
-    /// Finished sleep of 3 h or more, newest first.
+    /// Finished sleep of `Night.minLength` or more, newest first; back-to-back sleep pins count as one.
     func nights(at now: Date) -> [ActivitySpan] {
-        spans(at: now).filter { $0.tag == Activity.sleep.id && !$0.isOpen && $0.duration >= Self.minNight }.reversed()
+        var sleeps: [ActivitySpan] = []
+        for span in spans(at: now) where span.tag == Activity.sleep.id {
+            if let last = sleeps.last, last.end == span.start {
+                sleeps[sleeps.count - 1] = ActivitySpan(id: last.id, tag: last.tag, start: last.start, end: span.end, isOpen: span.isOpen)
+            } else {
+                sleeps.append(span)
+            }
+        }
+        return sleeps.filter { !$0.isOpen && $0.duration >= Night.minLength }.reversed()
     }
 
     /// When you last got up: the end of the last night. Nil while asleep.
