@@ -64,6 +64,13 @@ make device STORE=cn    # store region, default us (Canada/US)
 
 `STORE` → Info.plist `AppStoreRegion` (`us`|`cn`), read via `StoreRegion.current`.
 
+Release:
+
+```
+make preflight          # clean tree, no placeholder Team/bundle ids, privacy manifests, tests on DEVICE_UDID (skipped if unset)
+make release            # preflight, then archive and upload; BUILD= pins the build number (default UTC timestamp)
+```
+
 ## Demo mode
 
 More → Demo mode: instant switch to a separate store (`<bundle id>.demo-data`); real data, notifications, widget and backups untouched. Doesn't read Health or write to Calendar. Off → back to real data.

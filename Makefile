@@ -8,7 +8,7 @@ APP     := EveryTime.app
 APP_ID  := $(shell sed -n 's/^APP_BUNDLE_ID *= *//p' Local.xcconfig)
 SIM     ?= iPhone 18 Pro
 
-.PHONY: project device sim build release screenshots
+.PHONY: project device sim build preflight release screenshots
 
 project:
 	xcodegen generate
@@ -33,11 +33,14 @@ build: project
 	xcodebuild -scheme $(SCHEME) -destination 'generic/platform=iOS' -derivedDataPath $(DERIVED) \
 		-allowProvisioningUpdates -quiet build
 
-# Archive, sign for the App Store and upload — no Xcode Organizer.
+# Clean tree, no placeholder signing values, privacy manifests, tests on DEVICE_UDID (skipped if unset). FORCE=1 allows a dirty tree.
+preflight:
+	@DEVICE_UDID="$(DEVICE_UDID)" TEAM_ID="$(TEAM_ID)" FORCE="$(FORCE)" scripts/preflight.sh
+
+# Archive, sign for the App Store and upload — no Xcode Organizer. Runs preflight first.
 # Needs Local.xcconfig (Team ID) and the app record in App Store Connect. BUILD= pins the build number.
 release:
-	@git diff --quiet HEAD -- || echo "warning: uncommitted changes are going into this build"
-	scripts/release-ios.sh $(BUILD)
+	@DEVICE_UDID="$(DEVICE_UDID)" TEAM_ID="$(TEAM_ID)" FORCE="$(FORCE)" scripts/release-ios.sh $(BUILD)
 
 # Resize iPhone shots to the App Store slots: make screenshots SHOTS=<dir>
 screenshots:
