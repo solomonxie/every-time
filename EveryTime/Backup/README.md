@@ -16,7 +16,7 @@ Except `BackupSnapshot.deviceKeys` (running nap, its system alarm id, Health ask
 - Writes verified by reading back before pruning; iCloud writes/deletes go through `NSFileCoordinator`.
 - Change gate = SHA-256 of the snapshot entries, recorded only after a verified write. Empty snapshots never written.
 - `CloudDriveStatus`: entitlement (embedded.mobileprovision) checked before `ubiquityIdentityToken`.
-- `FirstRunRestore`: no user content (non-empty lists/objects; launch-time settings like the selected tab don't count) + flag unset → newest readable iCloud archive applied silently, once.
+- `FirstRunRestore`: no user content (items in `countedKeys` lists; settings and tab pins don't count) + flag unset → newest iCloud archive with user content applied silently, once. Flag also set when local content exists or iCloud holds no archive. iCloud uploads wait for content until then.
 - Browse: Settings → iCloud Drive / Copies on this iPhone → list with per-backup counts → detail (counts vs now, restore, share).
 - Restore/import (`BackupRestore`): current data saved to tier 1 first; aborts if that fails. Notifications, widget and watch refreshed after.
 

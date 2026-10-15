@@ -68,8 +68,9 @@ final class AutoBackup: ObservableObject {
         BackupSnapshot.current().fingerprint == UserDefaults.standard.string(forKey: Self.fingerprintKey)
     }
 
+    /// A settings-only snapshot before the first-run restore would become the newest archive and push real ones out.
     private func backUp(_ snapshot: BackupSnapshot = .current()) async {
-        guard !isBackingUp, !snapshot.isEmpty else { return }
+        guard !isBackingUp, !snapshot.isEmpty, snapshot.hasUserContent || FirstRunRestore.isDone else { return }
         isBackingUp = true
         defer { isBackingUp = false }
         do {

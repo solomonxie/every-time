@@ -252,7 +252,19 @@ struct BackupRetentionTests {
 struct BackupContentTests {
     @Test func settingsAloneAreNotUserContent() {
         #expect(!snapshot(["world.localIndex": "0", "app.tabs": "[]"]).hasUserContent)
+        #expect(!snapshot(["app.tabs": #"["sleep","world","feeling"]"#, "sleep.cycle": #"{"usesHealth":true}"#],
+                          settings: ["app.tab": #""sleep""#]).hasUserContent)
+        #expect(!snapshot(["world.cities": "[]"]).hasUserContent)
         #expect(snapshot(["world.cities": #"[{"a":1}]"#]).hasUserContent)
+        #expect(snapshot(["timers.feelings": "[1]"]).hasUserContent)
+    }
+
+    @Test func firstRunSkipsSettingsOnlyArchive() throws {
+        #expect(!FirstRunRestore.acceptable(try BackupArchive.make(snapshot(["world.localIndex": "0"]))))
+        // Fresh install: pinning Feeling writes a non-empty app.tabs on first appear.
+        #expect(!FirstRunRestore.acceptable(try BackupArchive.make(snapshot(["app.tabs": #"["sleep","feeling"]"#]))))
+        #expect(FirstRunRestore.acceptable(try BackupArchive.make(snapshot(["app.tabs": #"["sleep"]"#, "sleep.naps": "[1]"]))))
+        #expect(!FirstRunRestore.acceptable(Data("nope".utf8)))
     }
 
     @Test func statsCountEachKindInOrder() {

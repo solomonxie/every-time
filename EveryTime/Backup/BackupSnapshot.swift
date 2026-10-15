@@ -77,15 +77,9 @@ struct BackupSnapshot {
         }
     }
 
-    /// Any list or object with items: what a user made, as opposed to a remembered setting.
+    /// Items in a user list (cities, events, logs…), as opposed to settings and tab pins the app writes itself.
     var hasUserContent: Bool {
-        entries.values.contains { data in
-            switch Self.json(data) {
-            case let array as [Any]: !array.isEmpty
-            case let object as [String: Any]: !object.isEmpty
-            default: false
-            }
-        }
+        stats.contains { $0.count > 0 }
     }
 
     var fingerprint: String {
@@ -133,6 +127,7 @@ struct BackupSnapshot {
         ("timers.leetcodeHistory", "LeetCode session", "LeetCode sessions", "chevron.left.forwardslash.chevron.right"),
         ("timers.workLog", "work session", "work sessions", "briefcase"),
         ("timers.activityLog", "activity mark", "activity marks", "hand.tap"),
+        ("timers.feelings", "feeling", "feelings", "face.smiling"),
         ("sleep.naps", "nap", "naps", "moon.zzz"),
         ("sleep.jetlag.trips", "trip", "trips", "airplane"),
     ]
