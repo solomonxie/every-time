@@ -92,17 +92,20 @@ struct FeelingLog {
         marks.filter { $0.start <= now && ($0.end ?? $0.start.addingTimeInterval(Self.maxOpen)) > now && $0.end.map { $0 > now } ?? true }
     }
 
-    /// Starts `feeling` at `time`, ending any open feeling of the same kind then.
+    /// Starts `feeling` at `time`, ending any open feeling of the same kind then
+    /// (or where it faded out), and running only until the next one of its kind.
     func starting(_ feeling: Feeling, at time: Date) -> FeelingLog {
+        let sameKind = { (mark: FeelingMark) in
+            feeling.kind != .other && Feeling.all.first(where: { $0.id == mark.feeling })?.kind == feeling.kind
+        }
         var marks = marks.map { mark -> FeelingMark in
-            guard mark.end == nil, mark.start < time, feeling.kind != .other,
-                  Feeling.all.first(where: { $0.id == mark.feeling })?.kind == feeling.kind
-            else { return mark }
+            guard mark.end == nil, mark.start < time, sameKind(mark) else { return mark }
             var ended = mark
-            ended.end = time
+            ended.end = min(time, mark.start.addingTimeInterval(Self.maxOpen))
             return ended
         }
-        marks.append(FeelingMark(feeling: feeling.id, start: time))
+        let next = marks.filter { $0.start > time && sameKind($0) }.map(\.start).min()
+        marks.append(FeelingMark(feeling: feeling.id, start: time, end: next))
         return FeelingLog(marks: marks)
     }
 
