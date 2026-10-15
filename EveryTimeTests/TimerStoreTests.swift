@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import Testing
 @testable import EveryTime
 
@@ -34,5 +35,26 @@ struct TimerStoreTests {
 
     @Test func liveTimersStayOutOfBackups() {
         #expect(!BackupSnapshot.isBackedUp(TimerStore.liveKey))
+    }
+}
+
+struct TimesUpTests {
+    @Test func timesUpNotificationDelay() throws {
+        let now = date(2026, 10, 1, 9)
+        let running = ElapsedClock.State(startedAt: now.addingTimeInterval(-300), accumulated: 300)
+        let request = try #require(TimerStore.timesUp(.interview, running, minutes: 45, now: now))
+        #expect(request.fire == now.addingTimeInterval(35 * 60))
+        #expect(request.feature == .timer && request.timeSensitive)
+        let trigger = try #require(request.notification(now: now).trigger as? UNTimeIntervalNotificationTrigger)
+        #expect(abs(trigger.timeInterval - 35 * 60) < 0.001)
+
+        let paused = ElapsedClock.State(startedAt: nil, accumulated: 600)
+        #expect(TimerStore.timesUp(.interview, paused, minutes: 45, now: now) == nil)
+        let pending = [NotificationBudget.Pending(id: request.id, fingerprint: request.fingerprint, fire: request.fire)]
+        #expect(NotificationBudget.diff(pending: pending, wanted: [], now: now).remove == [request.id])
+
+        let over = ElapsedClock.State(startedAt: now.addingTimeInterval(-11 * 60), accumulated: 0)
+        #expect(TimerStore.timesUp(.rehearsal, over, minutes: 10, now: now) == nil)
+        #expect(TimerStore.timesUp(.rehearsal, running, minutes: 10, now: now)?.id != request.id)
     }
 }

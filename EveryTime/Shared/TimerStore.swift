@@ -50,6 +50,28 @@ final class TimerStore {
                         rehearsal: rehearsal.state, leetcode: leetcode.clock.state,
                         problem: leetcode.problem, difficulty: leetcode.difficulty)
         defaults.encode(live, Self.liveKey)
+        let counting = interview.isRunning || rehearsal.isRunning
+        Task { @MainActor in NotificationBudget.refresh(requestingAuthorization: counting) }
+    }
+
+    /// Time's-up for the running Interview and Rehearsal clocks, so zero is marked with the app closed.
+    static func wanted(now: Date) -> [NotificationBudget.Request] {
+        guard let live: Live = UserDefaults.standard.decoded(liveKey) else { return [] }
+        let interviewMinutes: Int = AppData.defaults.decoded(interviewMinutesKey) ?? defaultInterviewMinutes
+        let rehearsalMinutes: Int = AppData.defaults.decoded(rehearsalMinutesKey) ?? defaultRehearsalMinutes
+        return [timesUp(.interview, live.interview, minutes: interviewMinutes, now: now),
+                timesUp(.rehearsal, live.rehearsal, minutes: rehearsalMinutes, now: now)].compactMap { $0 }
+    }
+
+    /// Nil while paused or once past zero.
+    static func timesUp(_ kind: TimerKind, _ state: ElapsedClock.State, minutes: Int, now: Date) -> NotificationBudget.Request? {
+        guard let startedAt = state.startedAt else { return nil }
+        let fire = startedAt.addingTimeInterval(TimeInterval(minutes * 60) - state.accumulated)
+        guard fire > now else { return nil }
+        return NotificationBudget.Request(id: NotificationBudget.Feature.timer.prefix + kind.rawValue.lowercased(), feature: .timer,
+                                          fire: fire, title: "⏰ \(kind.rawValue) — time's up",
+                                          body: kind == .rehearsal ? "\(minutes) min are up; overtime is counting." : "Your \(minutes) min are up.",
+                                          timeSensitive: true)
     }
 }
 

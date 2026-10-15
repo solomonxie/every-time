@@ -7,6 +7,10 @@ final class ElapsedClock {
     struct State: Codable, Equatable {
         var startedAt: Date?
         var accumulated: TimeInterval = 0
+
+        func elapsed(at now: Date) -> TimeInterval {
+            accumulated + (startedAt.map { max(0, now.timeIntervalSince($0)) } ?? 0)
+        }
     }
 
     private(set) var startedAt: Date?
@@ -21,10 +25,7 @@ final class ElapsedClock {
     var isRunning: Bool { startedAt != nil }
     var hasTime: Bool { isRunning || accumulated > 0 }
 
-    func elapsed(at now: Date = .now) -> TimeInterval {
-        guard let startedAt else { return accumulated }
-        return accumulated + max(0, now.timeIntervalSince(startedAt))
-    }
+    func elapsed(at now: Date = .now) -> TimeInterval { state.elapsed(at: now) }
 
     func start() {
         guard startedAt == nil else { return }

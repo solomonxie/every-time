@@ -130,7 +130,8 @@ enum NotificationBudget {
     }
 
     private static func wanted(now: Date) -> [Request] {
-        WindDown.wanted(now: now)
+        TimerStore.wanted(now: now)
+            + WindDown.wanted(now: now)
             + ActivityAlarms.wanted(now: now)
             + CountdownNotifications.wanted(now: now)
             + ImportantEventNotifications.wanted(now: now)
