@@ -94,7 +94,9 @@ targets:
         OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "AlarmKit"]
     scheme:
       testTargets:
-        - EveryTimeTests
+        # Serial: sleep math reads the SleepSuggestion statics, which setDemo and restore re-apply.
+        - name: EveryTimeTests
+          parallelizable: false
 
   EveryTimeTests:
     type: bundle.unit-test

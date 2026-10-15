@@ -11,10 +11,6 @@ enum BackupRestore {
     static func replace(with snapshot: BackupSnapshot, before operation: String) throws {
         guard LocalBackups.writeBefore(operation) else { throw Failure.couldNotSaveCurrent }
         snapshot.apply()
-        JetLagNotifications.reschedule()
-        ImportantEventNotifications.reschedule()
-        CountdownNotifications.reschedule()
-        LunarNotifications.reschedule()
-        GlancePublisher.shared.publish()
+        AppData.didReplaceStore()
     }
 }

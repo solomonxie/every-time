@@ -7,6 +7,7 @@ struct EveryTimeApp: App {
     @AppStorage(AppData.demoKey, store: .standard) private var demoOn = false
 
     init() {
+        guard !AppData.isTestHost else { return }
         ScreenshotHook.apply()
         if AppData.isDemo { DemoSeed.seedIfNeeded() }
         NapAlarm.register()
@@ -15,14 +16,19 @@ struct EveryTimeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(timers)
-                .timerAlarms(timers)
-                .defaultAppStorage(AppData.defaults)
-                .id(demoOn)
-                .task { await FirstRunRestore.runIfNeeded() }
+            if AppData.isTestHost {
+                Color.clear
+            } else {
+                ContentView()
+                    .environment(timers)
+                    .timerAlarms(timers)
+                    .defaultAppStorage(AppData.defaults)
+                    .id(demoOn)
+                    .task { await FirstRunRestore.runIfNeeded() }
+            }
         }
         .onChange(of: scenePhase) { _, phase in
+            guard !AppData.isTestHost else { return }
             GlancePublisher.shared.publish()
             switch phase {
             case .active:

@@ -15,18 +15,32 @@ enum AppData {
     /// Notifications and widget show real data; demo mode inside the real app leaves them alone.
     static var drivesSystem: Bool { !isDemo }
 
+    /// Unit tests run inside the app; the host then skips launch work that touches the real store.
+    static let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     /// Seeds first, so views never see an empty demo store.
     @MainActor
     static func setDemo(_ on: Bool) {
         if on { DemoSeed.seed() }
         UserDefaults.standard.set(on, forKey: demoKey)
-        if !on {
-            CountdownNotifications.reschedule()
-            ImportantEventNotifications.reschedule()
-            LunarNotifications.reschedule()
-            JetLagNotifications.reschedule()
-            GlancePublisher.shared.publish()
-        }
+        didReplaceStore()
+    }
+
+    /// After a demo switch or a restore: globals and caches read from the store again, and the system shows its data.
+    @MainActor
+    static func didReplaceStore() {
+        SleepCycle.current.apply()
+        Activity.customStyles = defaults.decoded(ActivityLog.stylesKey) ?? [:]
+        Feeling.custom = defaults.decoded(CustomFeeling.key) ?? []
+        guard drivesSystem else { return }
+        CountdownNotifications.reschedule()
+        ImportantEventNotifications.reschedule()
+        LunarNotifications.reschedule()
+        JetLagNotifications.reschedule()
+        let marks: [ActivityMark] = defaults.decoded(ActivityLog.key) ?? []
+        Task { await ActivityAlarms.sync(marks) }
+        NapAlarm.restore()
+        GlancePublisher.shared.publish()
     }
 }
 

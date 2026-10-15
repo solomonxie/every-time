@@ -3,6 +3,8 @@ import Testing
 @testable import EveryTime
 
 struct SleepSuggestionTests {
+    init() { useDefaultCycle() }
+
     @Test func bedtimesCountBackWholeCyclesPlusFallingAsleep() {
         let bedtimes = SleepSuggestion.bedtimes(wakingAt: date(2026, 3, 11, 7))
         #expect(bedtimes.map(\.cycles) == [6, 5, 4, 3])

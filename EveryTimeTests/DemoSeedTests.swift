@@ -59,3 +59,19 @@ struct DemoSeedTests {
         #expect(AppData.demoSuite != Bundle.main.bundleIdentifier)
     }
 }
+
+struct DemoSwitchTests {
+    @MainActor @Test func setDemoReappliesCycle() {
+        let was = AppData.isDemo
+        defer {
+            AppData.setDemo(was)
+            useDefaultCycle()
+        }
+        for on in [!was, was] {
+            SleepSuggestion.cycleLength = 60
+            AppData.setDemo(on)
+            #expect(SleepSuggestion.cycleLength == Double(SleepCycle.current.minutes) * 60)
+            #expect(SleepSuggestion.fallAsleepTime == Double(SleepCycle.current.fallAsleepMinutes) * 60)
+        }
+    }
+}

@@ -3,6 +3,8 @@ import Testing
 @testable import EveryTime
 
 struct ActivityLogTests {
+    init() { useDefaultCycle() }
+
     private func log(_ marks: [(Date, String?)]) -> ActivityLog {
         ActivityLog(marks: marks.map { ActivityMark(time: $0.0, tag: $0.1) }, calendar: gregorian())
     }

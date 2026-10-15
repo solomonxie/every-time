@@ -25,6 +25,7 @@ enum FirstRunRestore {
             return
         }
         snapshot.apply()
+        AppData.didReplaceStore()
         finish()
         AutoBackup.shared.enableAfterRestore()
     }
