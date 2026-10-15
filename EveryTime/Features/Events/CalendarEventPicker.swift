@@ -1,7 +1,7 @@
 import EventKit
 import SwiftUI
 
-/// A calendar event reduced to what the picker shows; recurring events collapse to their earliest occurrence.
+/// A calendar event reduced to what the picker shows; recurring events collapse to their series start.
 struct CalendarHit: Identifiable, Sendable {
     let id: String
     let title: String
@@ -44,19 +44,20 @@ enum CalendarEventIndex {
             while start < end {
                 let chunkEnd = min(calendar.date(byAdding: .year, value: 4, to: start) ?? end, end)
                 let predicate = store.predicateForEvents(withStart: start, end: chunkEnd, calendars: nil)
-                for event in store.events(matching: predicate) {
+                store.enumerateEvents(matching: predicate) { event, _ in
                     let id = event.calendarItemIdentifier
-                    guard !(event.title ?? "").isEmpty else { continue }
-                    if let kept = earliest[id], kept.startDate <= event.startDate { continue }
+                    guard !(event.title ?? "").isEmpty else { return }
+                    if let kept = earliest[id], kept.startDate <= event.startDate { return }
                     earliest[id] = event
                 }
                 start = chunkEnd
             }
             return earliest.map { id, event in
-                CalendarHit(
+                let master = event.hasRecurrenceRules ? store.calendarItem(withIdentifier: id) as? EKEvent : nil
+                return CalendarHit(
                     id: id,
                     title: event.title ?? "",
-                    date: event.startDate,
+                    date: CalendarEventIndex.startDate(occurrence: event.startDate, seriesStart: master?.startDate, calendar: calendar),
                     calendarTitle: event.calendar?.title ?? "",
                     color: Color(cgColor: event.calendar?.cgColor ?? CGColor(gray: 0.5, alpha: 1)),
                     isBirthdayCalendar: event.calendar?.type == .birthday,
@@ -65,6 +66,16 @@ enum CalendarEventIndex {
             }
             .sorted { $0.date > $1.date }
         }.value
+    }
+
+    /// Contacts with no birth year carry a placeholder year (1604) in their Birthdays series.
+    static let earliestKnownYear = 1700
+
+    /// The series start when it's earlier and has a real year, so a 1980 birthday isn't dated to the search window's first year.
+    static func startDate(occurrence: Date, seriesStart: Date?, calendar: Calendar) -> Date {
+        guard let seriesStart, seriesStart < occurrence,
+              calendar.component(.year, from: seriesStart) >= earliestKnownYear else { return occurrence }
+        return seriesStart
     }
 }
 
