@@ -32,13 +32,13 @@ enum AppData {
         SleepCycle.current.apply()
         Activity.customStyles = defaults.decoded(ActivityLog.stylesKey) ?? [:]
         Feeling.custom = defaults.decoded(CustomFeeling.key) ?? []
+        ActivityLog.migrateRepeats()
         guard drivesSystem else { return }
         CountdownNotifications.reschedule()
         ImportantEventNotifications.reschedule()
         LunarNotifications.reschedule()
         JetLagNotifications.reschedule()
-        let marks: [ActivityMark] = defaults.decoded(ActivityLog.key) ?? []
-        Task { await ActivityAlarms.sync(marks) }
+        ActivityAlarms.reschedule()
         NapAlarm.restore()
         GlancePublisher.shared.publish()
     }

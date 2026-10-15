@@ -9,7 +9,7 @@ struct ActivityMark: Identifiable, Codable, Hashable {
     var tag: String?
     /// Planned (ahead of now) and wants a notification when its time comes.
     var alarm: Bool?
-    /// "daily": the same pin shows up at this clock time on the days after.
+    /// "daily": in the editor, repeat as an `ActivityRule`; stored only by older versions.
     var repeats: String?
 
     var isDaily: Bool { repeats == "daily" }
@@ -131,63 +131,36 @@ struct ActivityLog {
     static let maxOpen: TimeInterval = 12 * 3600
 
     var marks: [ActivityMark]
+    var rules: [ActivityRule] = []
     var calendar = Calendar.current
 
     var current: ActivityMark? { marks.max { $0.time < $1.time } }
 
-    /// Days ahead a daily pin is shown for.
+    /// Days ahead of now a daily pin is shown for.
     static let repeatDays = 14
 
-    /// Pins ahead of now: plans, plus each daily pin's next occurrences. Each runs to the next plan, else for `maxOpen` within its day.
+    /// Pins ahead of now: plans, plus each daily pin's next days. Each runs to the next plan, else for `maxOpen` within its day.
     func planned(at now: Date) -> [ActivitySpan] {
-        var ahead = marks.filter { $0.time > now }.map { ($0, $0.id, $0.isDaily, nil as UUID?) }
-        for mark in marks where mark.isDaily {
-            for day in 1...Self.repeatDays {
-                guard let time = calendar.date(byAdding: .day, value: day, to: mark.time), time > now,
-                      !marks.contains(where: { $0.tag == mark.tag && abs($0.time.timeIntervalSince(time)) < 120 })
-                else { continue }
-                ahead.append((ActivityMark(id: Self.occurrenceID(mark.id, day: day), time: time, tag: mark.tag, alarm: mark.alarm), mark.id, true, mark.id))
-            }
-        }
-        ahead.sort { $0.0.time < $1.0.time }
+        let horizon = calendar.date(byAdding: .day, value: Self.repeatDays, to: now) ?? now
+        let daily = occurrences(through: horizon).filter { $0.mark.time > now }.map { ($0.mark, $0.rule as UUID?) }
+        let ahead = (marks.filter { $0.time > now }.map { ($0, nil as UUID?) } + daily).sorted { $0.0.time < $1.0.time }
         return ahead.indices.map { i in
-            let (mark, _, daily, source) = ahead[i]
+            let (mark, source) = ahead[i]
             let dayEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: mark.time)) ?? mark.time
             let next = ahead.indices.contains(i + 1) ? ahead[i + 1].0.time : nil
             let end = Activity.of(mark.tag).isMoment ? mark.time : next ?? min(dayEnd, mark.time.addingTimeInterval(Self.maxOpen))
-            return ActivitySpan(id: mark.id, tag: mark.tag, start: mark.time, end: end, isOpen: false, source: source, isDaily: daily)
+            return ActivitySpan(id: mark.id, tag: mark.tag, start: mark.time, end: end, isOpen: false, source: source, isDaily: source != nil)
         }
-    }
-
-    /// Daily pins whose time has come since the last look, as real pins to add (one per missed day).
-    func dueRepeats(at now: Date) -> [ActivityMark] {
-        var due: [ActivityMark] = []
-        for mark in marks where mark.isDaily {
-            for day in 1...Self.repeatDays {
-                guard let time = calendar.date(byAdding: .day, value: day, to: mark.time), time <= now else { break }
-                let taken = (marks + due).contains { $0.tag == mark.tag && abs($0.time.timeIntervalSince(time)) < 120 }
-                if !taken { due.append(ActivityMark(time: time, tag: mark.tag)) }
-            }
-        }
-        return due
-    }
-
-    /// The same id every time for a daily pin's occurrence `day` days on.
-    static func occurrenceID(_ id: UUID, day: Int) -> UUID {
-        var bytes = id.uuid
-        bytes.15 = bytes.15 &+ UInt8(day)
-        bytes.14 = bytes.14 ^ 0x5A
-        return UUID(uuid: bytes)
     }
 
     /// Coffee and feelings: pinned, but they don't split the timeline.
     func moments(at now: Date) -> [ActivityMark] {
-        marks.filter { $0.time <= now && Activity.of($0.tag).isMoment }.sorted { $0.time < $1.time }
+        pins(through: now).filter { $0.time <= now && Activity.of($0.tag).isMoment }.sorted { $0.time < $1.time }
     }
 
     /// Oldest first; the last one stays open until `now`, for at most `maxOpen`. Moments are left out.
     func spans(at now: Date) -> [ActivitySpan] {
-        let sorted = marks.filter { $0.time <= now && !Activity.of($0.tag).isMoment }.sorted { $0.time < $1.time }
+        let sorted = pins(through: now).filter { $0.time <= now && !Activity.of($0.tag).isMoment }.sorted { $0.time < $1.time }
         return sorted.indices.map { i in
             let next = sorted.indices.contains(i + 1) ? sorted[i + 1].time : nil
             let cap = sorted[i].time.addingTimeInterval(Self.maxOpen)
@@ -214,7 +187,7 @@ struct ActivityLog {
 
     /// The last `days` days up to now, starting no earlier than the first mark.
     func recent(days: Int, at now: Date) -> DateInterval? {
-        guard let first = marks.map(\.time).min(), first < now else { return nil }
+        guard let first = pins(through: now).map(\.time).min(), first < now else { return nil }
         let from = calendar.date(byAdding: .day, value: -days, to: now) ?? now
         return DateInterval(start: max(from, first), end: now)
     }
@@ -250,7 +223,7 @@ struct ActivityLog {
     func typical(days: Int = 7, at now: Date) -> ActivityTypical {
         guard let window = recent(days: days, at: now) else { return ActivityTypical() }
         let nights = nights(at: now).filter { window.contains($0.end) }
-        let meals = marks.filter { $0.tag == Activity.eat.id && window.contains($0.time) }.count
+        let meals = pins(through: now).filter { $0.tag == Activity.eat.id && window.contains($0.time) }.count
         let dayCount = max(1, (window.duration / 86_400).rounded(.up))
         return ActivityTypical(
             nights: nights.count,
@@ -285,7 +258,7 @@ extension ActivityLog {
     /// A pin of the same sort (moment or stretch) within 2 min is reused, so a wrong tap is fixed by tapping the right tag.
     func recording(_ activity: Activity, at time: Date, starts: Bool, now: Date) -> ActivityLog {
         let spans = self.spans(at: now)
-        let near = marks.first {
+        let near = pins(through: time.addingTimeInterval(120)).first {
             abs($0.time.timeIntervalSince(time)) < 120 && Activity.of($0.tag).isMoment == activity.isMoment
         }
         if starts {
@@ -301,9 +274,9 @@ extension ActivityLog {
         return appending(ActivityMark(time: time, tag: nil)).settingTag(ending.id, activity.id)
     }
 
-    /// Changes only the tag; time, repeat and alarm stay.
+    /// Changes only the tag; time, repeat and alarm stay. A daily pin's day becomes a pin of its own.
     func settingTag(_ id: UUID, _ tag: String?) -> ActivityLog {
-        var log = self
+        var log = detaching(id)
         if let i = log.marks.firstIndex(where: { $0.id == id }) { log.marks[i].tag = tag }
         return log
     }
@@ -352,25 +325,57 @@ extension ActivityLog {
 /// Notifications for planned pins that asked for one.
 enum ActivityAlarms {
     private static let prefix = "activity."
+    /// Days of a daily pin's alarms queued ahead; refreshed each time the app comes forward.
+    static let dailyDays = 7
+    @MainActor private static let queue = SerialScheduler()
+
+    struct Request: Equatable {
+        let id: String
+        let fire: Date
+        let title: String
+        let body: String
+    }
+
+    /// One request per plan with an alarm and per day ahead of a daily pin with one; skipped days and stopped repeats have none.
+    static func wanted(_ log: ActivityLog, at now: Date) -> [Request] {
+        let plans = log.marks.filter { $0.alarm == true && $0.time > now }.map {
+            Request(id: prefix + $0.id.uuidString, fire: $0.time, title: Activity.of($0.tag).title, body: "Planned for \(SleepNow.clock($0.time)).")
+        }
+        let alarmed = Set(log.rules.filter { $0.alarm == true }.map(\.id))
+        let horizon = log.calendar.date(byAdding: .day, value: dailyDays, to: now) ?? now
+        let daily = log.occurrences(through: horizon).filter { alarmed.contains($0.rule) && $0.mark.time > now }.map {
+            Request(id: prefix + $0.mark.id.uuidString, fire: $0.mark.time, title: Activity.of($0.mark.tag).title,
+                    body: "Every day at \(SleepNow.clock($0.mark.time)).")
+        }
+        return plans + daily
+    }
 
     @MainActor
-    static func sync(_ marks: [ActivityMark], now: Date = .now) async {
-        let center = UNUserNotificationCenter.current()
-        let wanted = marks.filter { $0.alarm == true && ($0.time > now || $0.isDaily) }
-        let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(prefix) }
-        let keep = Set(wanted.map { prefix + $0.id.uuidString })
-        center.removePendingNotificationRequests(withIdentifiers: pending.filter { !keep.contains($0) })
-        guard !wanted.isEmpty, (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
-        for mark in wanted where !pending.contains(prefix + mark.id.uuidString) {
-            let activity = Activity.of(mark.tag)
-            let content = UNMutableNotificationContent()
-            content.title = activity.title
-            content.body = (mark.isDaily ? "Every day at " : "Planned for ") + SleepNow.clock(mark.time) + "."
-            content.sound = .default
-            let trigger: UNNotificationTrigger = mark.isDaily
-                ? UNCalendarNotificationTrigger(dateMatching: Calendar.current.dateComponents([.hour, .minute], from: mark.time), repeats: true)
-                : UNTimeIntervalNotificationTrigger(timeInterval: max(1, mark.time.timeIntervalSince(now)), repeats: false)
-            try? await center.add(UNNotificationRequest(identifier: prefix + mark.id.uuidString, content: content, trigger: trigger))
+    static func reschedule() {
+        guard AppData.drivesSystem else { return }
+        sync(.stored())
+    }
+
+    /// Queued, so an older sync can't add back what a newer one removed.
+    @MainActor
+    static func sync(_ log: ActivityLog) {
+        queue.enqueue { token in
+            let center = UNUserNotificationCenter.current()
+            let wanted = wanted(log, at: .now)
+            let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(prefix) }
+            guard queue.isCurrent(token) else { return }
+            let keep = Set(wanted.map(\.id))
+            center.removePendingNotificationRequests(withIdentifiers: pending.filter { !keep.contains($0) })
+            guard !wanted.isEmpty, (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
+            for request in wanted where !pending.contains(request.id) {
+                guard queue.isCurrent(token) else { return }
+                let content = UNMutableNotificationContent()
+                content.title = request.title
+                content.body = request.body
+                content.sound = .default
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, request.fire.timeIntervalSinceNow), repeats: false)
+                try? await center.add(UNNotificationRequest(identifier: request.id, content: content, trigger: trigger))
+            }
         }
     }
 }

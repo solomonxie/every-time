@@ -3,6 +3,7 @@ import SwiftUI
 /// One continuous timeline split by pins; each range between pins can be tagged with what it was.
 struct WhatDidView: View {
     @Stored(ActivityLog.key) private var marks: [ActivityMark] = []
+    @Stored(ActivityLog.rulesKey) private var rules: [ActivityRule] = []
     @Stored(ActivityLog.tagsKey) private var customTags: [String] = []
     @Stored(ActivityLog.stylesKey) private var tagStyles: [String: TagStyle] = [:]
     @State private var editing: ActivityMark?
@@ -19,7 +20,16 @@ struct WhatDidView: View {
     /// The tile whose Start/End choice is showing, as "section:id".
     @State private var choosing: String?
 
-    private var log: ActivityLog { ActivityLog(marks: marks) }
+    private var log: ActivityLog { ActivityLog(marks: marks, rules: rules) }
+
+    /// Writes a change; daily pins whose time has come are written out first.
+    @discardableResult
+    private func update(_ change: (ActivityLog) -> ActivityLog) -> ActivityLog {
+        let new = change(log.caughtUp(at: .now))
+        if new.rules != rules { rules = new.rules }
+        if new.marks != marks { marks = new.marks }
+        return new
+    }
     @Stored(ActivityLog.orderKey) private var tagOrder: [String] = []
     @Stored(JetLagKey.profile) private var profile: JetLagProfile? = nil
 
@@ -50,7 +60,7 @@ struct WhatDidView: View {
             let spans = log.spans(at: now)
             let moments = log.moments(at: now)
             let planned = log.planned(at: now)
-            let due = log.dueRepeats(at: now)
+            let behind = log.isBehind(at: now)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                 Section { hero(now: now, spans: spans, moments: moments, planned: planned).whatDidRow() }
@@ -80,29 +90,35 @@ struct WhatDidView: View {
                 }
             }
             .onScrollPhaseChange { _, phase in if phase != .idle { choosing = nil } }
-            // A daily pin whose time has come becomes a real pin.
-            .task(id: now) { if !due.isEmpty { marks += due } }
+            // A daily pin's day whose time has come is written out once.
+            .task(id: now) { if behind { update { $0 } } }
         }
         .onChange(of: cursor) { choosing = nil }
         .onChange(of: selected) { choosing = nil }
-        .onChange(of: marks) { Task { await ActivityAlarms.sync(marks) } }
-        .task { await ActivityAlarms.sync(marks) }
+        .onChange(of: marks) { ActivityAlarms.sync(log) }
+        .onChange(of: rules) { ActivityAlarms.sync(log) }
         .animation(.snappy, value: marks.count)
         .sensoryFeedback(.impact(weight: .medium), trigger: marks.count)
         .navigationTitle("What did I do?")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { mark in
             MarkEditor(mark: mark, activities: activities) { edited in
-                marks = marks.map { $0.id == edited.id ? edited : $0 }
+                update { $0.saving(edited, at: .now) }
             } onDelete: {
-                marks.removeAll { $0.id == mark.id }
+                update { $0.removing(mark.id) }
             }
         }
         .confirmationDialog("Pin at \(held.map { SleepNow.clock($0.time) } ?? "")",
                             isPresented: Binding { held != nil } set: { if !$0 { held = nil } },
                             titleVisibility: .visible, presenting: held) { mark in
-            Button("Edit") { editing = mark }
-            Button("Delete", role: .destructive) { marks.removeAll { $0.id == mark.id } }
+            if mark.isDaily {
+                Button("Edit this day") { editing = update { $0.detaching(mark.id) }.marks.first { $0.id == mark.id } }
+                Button("Edit every day") { editing = log.pin(mark.id, at: .now) }
+                Button("Skip this day", role: .destructive) { update { $0.removing(mark.id) } }
+            } else {
+                Button("Edit") { editing = mark }
+                Button("Delete", role: .destructive) { update { $0.removing(mark.id) } }
+            }
         }
         .sheet(item: $tagEditor) { target in
             let id = target.id
@@ -115,6 +131,8 @@ struct WhatDidView: View {
         .onAppear {
             Activity.customStyles = tagStyles
             if marks.contains(where: { ActivityLog.oldTags.contains($0.tag ?? "") }) { marks = ActivityLog.migrateTags(marks) }
+            if marks.contains(where: \.isDaily) { update { $0.migratingRepeats(at: .now) } }
+            ActivityAlarms.sync(log)
         }
     }
 
@@ -139,7 +157,7 @@ struct WhatDidView: View {
                     .foregroundStyle(.secondary)
             }
             ActivityRing(spans: spans, moments: moments, planned: planned, start: window.start, now: now, selected: target?.id, noCoffee: noCoffee(now: now),
-                         cursor: $cursor, focus: $focus) { id in held = marks.first { $0.id == id } }
+                         cursor: $cursor, focus: $focus) { id in held = heldPin(id, planned: planned) }
                 .frame(maxWidth: 300)
                 .frame(maxWidth: .infinity)
             VStack(alignment: .leading, spacing: 8) {
@@ -149,7 +167,7 @@ struct WhatDidView: View {
                     .foregroundStyle(.secondary)
                 tagGrid(activities, target: target, section: "all", showsNew: true)
                 if let target = selectedSpan {
-                    Button("Edit or remove this pin", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == target.id } }
+                    Button("Edit or remove this pin", systemImage: "slider.horizontal.3") { editing = log.pin(target.id, at: .now) }
                         .buttonStyle(.borderless)
                         .font(.label)
                 }
@@ -162,6 +180,12 @@ struct WhatDidView: View {
     private func noCoffee(now: Date) -> DateInterval {
         let bed = NapAdvice(profile: profile ?? JetLagProfile()).current(at: now).bed
         return DateInterval(start: Caffeine.cutoff(bed: bed), end: bed)
+    }
+
+    /// A long-pressed pin; a daily pin's day keeps its own id so it can be skipped or edited alone.
+    private func heldPin(_ id: UUID, planned: [ActivitySpan]) -> ActivityMark? {
+        marks.first { $0.id == id } ?? planned.first { $0.id == id && $0.isDaily }
+            .map { ActivityMark(id: $0.id, time: $0.start, tag: $0.tag, repeats: "daily") }
     }
 
     /// The range an Activities tap picked, if any.
@@ -357,16 +381,18 @@ struct WhatDidView: View {
                         focus = plan.start
                     }
                 } label: {
-                    let pin = plan.source ?? plan.id
-                    PlanRow(span: plan, isOn: plan.id == selected, hasAlarm: marks.first { $0.id == pin }?.alarm == true) {
-                        marks = marks.map { $0.id == pin ? ActivityMark(id: $0.id, time: $0.time, tag: $0.tag, alarm: $0.alarm != true, repeats: $0.repeats) : $0 }
+                    PlanRow(span: plan, isOn: plan.id == selected, hasAlarm: log.pin(plan.id, at: .now)?.alarm == true) {
+                        update { $0.togglingAlarm(plan.id) }
                     }
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
-                    Button("Edit", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == (plan.source ?? plan.id) } }
-                    Button(plan.source == nil ? "Delete" : "Stop repeating", systemImage: "trash", role: .destructive) {
-                        marks.removeAll { $0.id == (plan.source ?? plan.id) }
+                    Button("Edit", systemImage: "slider.horizontal.3") { editing = log.pin(plan.id, at: .now) }
+                    if let source = plan.source {
+                        Button("Skip this day", systemImage: "calendar.badge.minus") { update { $0.removing(plan.id) } }
+                        Button("Stop repeating", systemImage: "trash", role: .destructive) { update { $0.removing(source) } }
+                    } else {
+                        Button("Delete", systemImage: "trash", role: .destructive) { update { $0.removing(plan.id) } }
                     }
                 }
                 .whatDidRow()
@@ -405,7 +431,7 @@ struct WhatDidView: View {
                     Text("From the Sleep page")
                 } else {
                     Button("Edit", systemImage: "slider.horizontal.3") { editing = marks.first { $0.id == span.id } }
-                    Button("Delete", systemImage: "trash", role: .destructive) { marks.removeAll { $0.id == span.id } }
+                    Button("Delete", systemImage: "trash", role: .destructive) { update { $0.removing(span.id) } }
                 }
             }
             .whatDidRow()
@@ -417,11 +443,11 @@ struct WhatDidView: View {
     private func record(_ activity: Activity, starts: Bool) {
         let now = Date.now
         if let span = target(in: log.spans(at: now)) {
-            marks = log.settingTag(span.id, activity.id).marks
+            update { $0.settingTag(span.id, activity.id) }
             selected = nil
             return
         }
-        marks = log.recording(activity, at: ActivityLog.rounded(cursor ?? now), starts: starts, now: now).marks
+        update { $0.recording(activity, at: ActivityLog.rounded(cursor ?? now), starts: starts, now: now) }
     }
 }
 
@@ -804,14 +830,15 @@ private struct MarkEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                DatePicker(mark.time > .now ? "Planned for" : "Started", selection: $mark.time)
+                DatePicker(mark.isDaily ? "Every day at" : mark.time > .now ? "Planned for" : "Started", selection: $mark.time,
+                           displayedComponents: mark.isDaily ? .hourAndMinute : [.date, .hourAndMinute])
                 Section {
                     Toggle("Repeat every day", isOn: Binding(get: { mark.isDaily }, set: { mark.repeats = $0 ? "daily" : nil }))
                     if mark.time > .now || mark.isDaily {
                         Toggle("Alarm", isOn: Binding(get: { mark.alarm == true }, set: { mark.alarm = $0 }))
                     }
                 } footer: {
-                    if mark.isDaily { Text("Shows up at \(SleepNow.clock(mark.time)) on the days after, for two weeks ahead.") }
+                    if mark.isDaily { Text("Shows up at \(SleepNow.clock(mark.time)) every day until you stop it.") }
                 }
                 Section("Activity") {
                     FlowLayout(spacing: 8) {

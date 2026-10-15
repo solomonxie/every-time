@@ -127,6 +127,7 @@ struct BackupSnapshot {
         ("timers.leetcodeHistory", "LeetCode session", "LeetCode sessions", "chevron.left.forwardslash.chevron.right"),
         ("timers.workLog", "work session", "work sessions", "briefcase"),
         ("timers.activityLog", "activity mark", "activity marks", "hand.tap"),
+        ("timers.activityRules", "daily pin", "daily pins", "repeat"),
         ("timers.feelings", "feeling", "feelings", "face.smiling"),
         ("sleep.naps", "nap", "naps", "moon.zzz"),
         ("sleep.jetlag.trips", "trip", "trips", "airplane"),
