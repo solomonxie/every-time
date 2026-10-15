@@ -181,14 +181,32 @@ struct BackupArchiveNameTests {
     private let when = gregorian(.current).date(from: DateComponents(year: 2026, month: 9, day: 25, hour: 14, minute: 2, second: 33))!
 
     @Test func names() {
+        let utc = date(2026, 9, 25, 14, 2, 33, in: .gmt)
         #expect(BackupArchiveName.daily(when) == "20260925-daily-every-time.zip")
         #expect(BackupArchiveName.base(when) == "20260925-daily-every-time")
-        #expect(BackupArchiveName.before("import", at: when) == "20260925140233-before-import-every-time.zip")
+        #expect(BackupArchiveName.before("import", at: utc) == "20260925140233Z-before-import-every-time.zip")
+        #expect(BackupArchiveName.auto(utc) == "20260925140233Z-auto-every-time.zip")
+    }
+
+    @Test func namesOrderAcrossZones() {
+        let tokyo = date(2026, 10, 16, 8, in: TimeZone(identifier: "Asia/Tokyo")!)
+        let sanFrancisco = date(2026, 10, 15, 18, in: TimeZone(identifier: "America/Los_Angeles")!)
+        let names = [BackupArchiveName.auto(tokyo), BackupArchiveName.auto(sanFrancisco)]
+        #expect(BackupArchiveName.newestFirst(names).first == BackupArchiveName.auto(sanFrancisco))
+        #expect(BackupArchiveName.date(of: names[0]) == tokyo)
+        #expect(BackupArchiveName.date(of: names[1]) == sanFrancisco)
+    }
+
+    @Test func oldLocalNamesStillParse() {
+        #expect(BackupArchiveName.date(of: "20260925140233-auto-every-time.zip") == when)
+        #expect(BackupArchiveName.kind(of: "20260925140233Z-auto-every-time.zip") == "Automatic")
+        #expect(!BackupArchiveName.isOurs("20260925Z-daily-every-time.zip"))
     }
 
     @Test func recognisesOwnNames() {
         #expect(BackupArchiveName.isOurs("20260925-daily-every-time.zip"))
         #expect(BackupArchiveName.isOurs("20260925140233-before-import-every-time.zip"))
+        #expect(BackupArchiveName.isOurs("20260925140233Z-auto-every-time.zip"))
         #expect(!BackupArchiveName.isOurs("2026-daily-every-time.zip"))
         #expect(!BackupArchiveName.isOurs("20260925-daily-every-time.json"))
         #expect(!BackupArchiveName.isOurs("backup.zip"))

@@ -28,13 +28,13 @@ Except `BackupSnapshot.deviceKeys` (running nap, its system alarm id, Health ask
 ## Format
 
 ```
-20260925140233-auto-every-time.zip            automatic (tier 1 + 2)
-20260925140233-before-import-every-time.zip   before an import/restore (tier 1)
-20260925-daily-every-time.zip                 export, and older automatic copies
+20260925140233Z-auto-every-time.zip           automatic (tier 1 + 2), UTC
+20260925140233Z-before-import-every-time.zip  before an import/restore (tier 1), UTC
+20260925-daily-every-time.zip                 export, and older automatic copies (local day)
 └── snapshot.json   {version, createdAt, appVersion, entries: {key: <embedded JSON>}, settings: {key: <plain value>}}
 ```
 
-Store-only zip (`ZipArchive`). Decoding is hand-written; newer versions and empty snapshots are refused.
+Older names without `Z` are local time; ordering and retention use the parsed instant. Store-only zip (`ZipArchive`). Decoding is hand-written; newer versions and empty snapshots are refused.
 
 ## Restore
 
