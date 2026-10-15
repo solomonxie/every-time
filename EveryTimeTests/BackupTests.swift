@@ -4,8 +4,8 @@ import Testing
 
 private func json(_ text: String) -> Data { Data(text.utf8) }
 
-private func snapshot(_ entries: [String: String], createdAt: Date? = nil) -> BackupSnapshot {
-    BackupSnapshot(createdAt: createdAt, appVersion: "1.2.3", entries: entries.mapValues(json))
+private func snapshot(_ entries: [String: String], settings: [String: String] = [:], createdAt: Date? = nil) -> BackupSnapshot {
+    BackupSnapshot(createdAt: createdAt, appVersion: "1.2.3", entries: entries.mapValues(json), settings: settings.mapValues(json))
 }
 
 struct BackupSnapshotTests {
@@ -14,16 +14,20 @@ struct BackupSnapshotTests {
         #expect(BackupSnapshot.isBackedUp("sleep.naps"))
         #expect(!BackupSnapshot.isBackedUp("AppleLanguages"))
         #expect(!BackupSnapshot.isBackedUp("worldcities"))
+        #expect(!BackupSnapshot.isBackedUp("sleep.nap.alarm.system"))
+        #expect(!BackupSnapshot.isBackedUp("sleep.nap.active"))
     }
 
     @Test func jsonRoundTrip() throws {
         let original = snapshot(["world.cities": #"[{"b":1,"a":"x"}]"#, "app.theme": #""dark""#, "sleep.on": "true"],
+                                settings: ["app.tab": #""sleep""#, "sleep.nap.minutes": "20"],
                                 createdAt: date(2026, 9, 25, 14, 2, 33))
         let decoded = try BackupSnapshot(json: original.encoded())
         #expect(decoded.version == BackupSnapshot.currentVersion)
         #expect(decoded.createdAt == original.createdAt)
         #expect(decoded.appVersion == "1.2.3")
         #expect(Set(decoded.entries.keys) == Set(original.entries.keys))
+        #expect(decoded.settings == original.settings)
         #expect(decoded.fingerprint == original.fingerprint)
     }
 
@@ -58,6 +62,7 @@ struct BackupSnapshotTests {
         #expect(snapshot(["world.cities": "[]", "app.prefs": "{}"]).isEmpty)
         #expect(!snapshot(["world.cities": "[1]"]).isEmpty)
         #expect(!snapshot(["app.flag": "false"]).isEmpty)
+        #expect(!snapshot([:], settings: ["app.tab": #""sleep""#]).isEmpty)
     }
 
     @Test func summaryCountsListsThenSettings() {
@@ -79,13 +84,56 @@ struct BackupSnapshotTests {
 
         let current = BackupSnapshot.current(in: defaults)
         #expect(Set(current.entries.keys) == ["world.cities", "timers.leetcodeHistory"])
+        #expect(current.settings == ["app.string": json(#""plain""#)])
 
         snapshot(["world.cities": "[9]", "sleep.naps": "[]"]).apply(to: defaults)
         #expect(defaults.data(forKey: "world.cities") == json("[9]"))
         #expect(defaults.data(forKey: "sleep.naps") == json("[]"))
         #expect(defaults.object(forKey: "timers.leetcodeHistory") == nil)
-        #expect(defaults.object(forKey: "app.string") == nil)
+        #expect(defaults.string(forKey: "app.string") == "plain")
         #expect(defaults.data(forKey: "unrelated") == json("[4]"))
+    }
+
+    @Test func applyKeepsPlainAppStorage() throws {
+        let suite = "EveryTimeTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("world", forKey: "app.tab")
+        defaults.set(20, forKey: "sleep.nap.minutes")
+        defaults.set(true, forKey: "sleep.health.asked")
+        defaults.set("old", forKey: "sleep.woke.dismissed")
+        defaults.set("alarm-id", forKey: "sleep.nap.alarm.system")
+        defaults.set(json("{}"), forKey: "sleep.nap.active")
+
+        let carried = BackupSnapshot.current(in: defaults)
+        #expect(Set(carried.settings.keys) == ["app.tab", "sleep.nap.minutes", "sleep.woke.dismissed"])
+        #expect(carried.entries.isEmpty)
+
+        snapshot(["world.cities": "[1]"], settings: ["app.tab": #""sleep""#, "sleep.nap.minutes": "30"]).apply(to: defaults)
+        #expect(defaults.string(forKey: "app.tab") == "sleep")
+        #expect(defaults.integer(forKey: "sleep.nap.minutes") == 30)
+        #expect(defaults.bool(forKey: "sleep.health.asked"))
+        #expect(defaults.string(forKey: "sleep.woke.dismissed") == "old")
+        #expect(defaults.string(forKey: "sleep.nap.alarm.system") == "alarm-id")
+        #expect(defaults.data(forKey: "sleep.nap.active") == json("{}"))
+    }
+
+    @Test func settingsRoundTripTheirType() throws {
+        let suite = "EveryTimeTests.\(UUID().uuidString)"
+        let source = try #require(UserDefaults(suiteName: suite))
+        let target = try #require(UserDefaults(suiteName: suite + ".target"))
+        defer { [suite, suite + ".target"].forEach { source.removePersistentDomain(forName: $0) } }
+        source.set(true, forKey: "app.flag")
+        source.set(45, forKey: "sleep.nap.minutes")
+        source.set(1.5, forKey: "tools.ratio")
+        source.set("nap", forKey: "sleep.kind")
+
+        let restored = try BackupArchive.read(BackupArchive.make(BackupSnapshot.current(in: source)))
+        restored.apply(to: target)
+        #expect(target.object(forKey: "app.flag") as? Bool == true)
+        #expect(target.integer(forKey: "sleep.nap.minutes") == 45)
+        #expect(target.double(forKey: "tools.ratio") == 1.5)
+        #expect(target.string(forKey: "sleep.kind") == "nap")
     }
 }
 

@@ -1,7 +1,8 @@
 # Backup
 
-All user data is small Codable JSON in UserDefaults (`@Stored`). Backed up = every key with prefix
+All user data is small Codable JSON in UserDefaults (`@Stored`), plus plain `@AppStorage` values (Bool, number, String). Backed up = every key with prefix
 `world.` `calendar.` `timers.` `sleep.` `tools.` `app.` `boards.` (`BackupSnapshot.keyPrefixes`; board cards live in Reminders, only board settings here) — new keys travel automatically.
+Except `BackupSnapshot.deviceKeys` (running nap, its system alarm id, Health asked): never saved, restored or cleared.
 
 ## Tiers
 
@@ -30,14 +31,15 @@ All user data is small Codable JSON in UserDefaults (`@Stored`). Backed up = eve
 20260925140233-auto-every-time.zip            automatic (tier 1 + 2)
 20260925140233-before-import-every-time.zip   before an import/restore (tier 1)
 20260925-daily-every-time.zip                 export, and older automatic copies
-└── snapshot.json   {version, createdAt, appVersion, entries: {key: <embedded JSON>}}
+└── snapshot.json   {version, createdAt, appVersion, entries: {key: <embedded JSON>}, settings: {key: <plain value>}}
 ```
 
 Store-only zip (`ZipArchive`). Decoding is hand-written; newer versions and empty snapshots are refused.
 
 ## Restore
 
-Replaces the backed-up keys (absent keys revert to defaults); `@AppStorage` views refresh themselves.
+Replaces the `@Stored` keys (absent keys revert to defaults) and writes the carried settings in their native type;
+plain values the backup lacks (older files have no `settings`) are kept. `@AppStorage` views refresh themselves.
 Deviation from "restore creates a new dataset": there is no database to swap, so the before-import zip is the undo.
 
 ## Signing

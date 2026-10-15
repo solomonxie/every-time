@@ -14,19 +14,24 @@ enum BackupError: LocalizedError {
     }
 }
 
-/// Every user-data key in UserDefaults, as embedded JSON. Keys are picked by prefix so new `@Stored` keys travel automatically.
+/// Every user-data key in UserDefaults: `@Stored` values as embedded JSON, plain `@AppStorage` values as settings.
+/// Keys are picked by prefix so new keys travel automatically.
 struct BackupSnapshot {
     static let currentVersion = 1
     static let keyPrefixes = ["world.", "calendar.", "timers.", "sleep.", "tools.", "app.", "boards."]
+    /// State of this device right now, never carried or replaced: a running nap, its system alarm, Health access.
+    static let deviceKeys: Set<String> = ["sleep.nap.active", "sleep.nap.alarm.system", "sleep.health.asked"]
     static let fileName = "snapshot.json"
 
     var version = currentVersion
     var createdAt: Date?
     var appVersion = ""
     var entries: [String: Data] = [:]
+    /// Plain values (Bool, number, String) as JSON fragments; written back as their native type.
+    var settings: [String: Data] = [:]
 
     static func isBackedUp(_ key: String) -> Bool {
-        keyPrefixes.contains { key.hasPrefix($0) }
+        keyPrefixes.contains { key.hasPrefix($0) } && !deviceKeys.contains(key)
     }
 
     static func storedKeys(in defaults: UserDefaults = .standard) -> [String] {
@@ -34,28 +39,35 @@ struct BackupSnapshot {
     }
 
     static func current(in defaults: UserDefaults = .standard) -> BackupSnapshot {
-        let entries = defaults.dictionaryRepresentation()
-            .filter { isBackedUp($0.key) }
-            .compactMapValues { value -> Data? in
-                guard let data = value as? Data, json(data) != nil else { return nil }
-                return data
+        var entries: [String: Data] = [:]
+        var settings: [String: Data] = [:]
+        for (key, value) in defaults.dictionaryRepresentation() where isBackedUp(key) {
+            if let data = value as? Data {
+                if json(data) != nil { entries[key] = data }
+            } else if let plain = plain(value) {
+                settings[key] = plain
             }
+        }
         let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
-        return BackupSnapshot(createdAt: .now, appVersion: appVersion, entries: entries)
+        return BackupSnapshot(createdAt: .now, appVersion: appVersion, entries: entries, settings: settings)
     }
 
-    /// Replaces every backed-up key; keys absent from the snapshot fall back to their defaults.
+    /// Replaces every backed-up `@Stored` key (absent ones fall back to their defaults) and writes the carried settings.
+    /// Plain values the snapshot doesn't carry stay as they are.
     func apply(to defaults: UserDefaults = .standard) {
-        for key in Self.storedKeys(in: defaults) where entries[key] == nil {
+        for key in Self.storedKeys(in: defaults) where entries[key] == nil && defaults.object(forKey: key) is Data {
             defaults.removeObject(forKey: key)
         }
         for (key, data) in entries {
             defaults.set(data, forKey: key)
         }
+        for (key, data) in settings {
+            if let value = Self.json(data) { defaults.set(value, forKey: key) }
+        }
     }
 
     var isEmpty: Bool {
-        !entries.values.contains { data in
+        settings.isEmpty && !entries.values.contains { data in
             switch Self.json(data) {
             case let array as [Any]: !array.isEmpty
             case let object as [String: Any]: !object.isEmpty
@@ -77,7 +89,8 @@ struct BackupSnapshot {
     }
 
     var fingerprint: String {
-        let canonical = (try? JSONSerialization.data(withJSONObject: embeddedEntries, options: [.sortedKeys, .fragmentsAllowed])) ?? Data()
+        let all = embeddedEntries.merging(settings.compactMapValues(Self.json)) { entry, _ in entry }
+        let canonical = (try? JSONSerialization.data(withJSONObject: all, options: [.sortedKeys, .fragmentsAllowed])) ?? Data()
         return SHA256.hash(data: canonical).map { String(format: "%02x", $0) }.joined()
     }
 
@@ -101,7 +114,7 @@ struct BackupSnapshot {
     /// Stored values that aren't counted lists: tab bar, timer lengths, sleep profile…
     var settingsCount: Int {
         let counted = Set(stats.map(\.key))
-        return entries.keys.filter { !counted.contains($0) }.count
+        return entries.keys.filter { !counted.contains($0) }.count + settings.count
     }
 
     /// "4 cities · 2 lunar events · 12 LeetCode sessions · saved Sep 25, 2026"
@@ -132,6 +145,7 @@ struct BackupSnapshot {
             "appVersion": appVersion,
             "entries": embeddedEntries,
         ]
+        if !settings.isEmpty { object["settings"] = settings.compactMapValues(Self.json) }
         if let createdAt { object["createdAt"] = ISO8601DateFormatter().string(from: createdAt) }
         return try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
     }
@@ -149,12 +163,17 @@ struct BackupSnapshot {
         entries = raw
             .filter { Self.isBackedUp($0.key) }
             .compactMapValues { try? JSONSerialization.data(withJSONObject: $0, options: .fragmentsAllowed) }
+        let plain = object["settings"] as? [String: Any] ?? [:]
+        settings = plain
+            .filter { Self.isBackedUp($0.key) && entries[$0.key] == nil }
+            .compactMapValues(Self.plain)
     }
 
-    init(createdAt: Date?, appVersion: String, entries: [String: Data]) {
+    init(createdAt: Date?, appVersion: String, entries: [String: Data], settings: [String: Data] = [:]) {
         self.createdAt = createdAt
         self.appVersion = appVersion
         self.entries = entries
+        self.settings = settings
     }
 
     private var embeddedEntries: [String: Any] {
@@ -163,6 +182,12 @@ struct BackupSnapshot {
 
     private static func json(_ data: Data) -> Any? {
         try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
+    }
+
+    /// Bool, number or String as a JSON fragment; anything else (dates, arrays) isn't a setting.
+    private static func plain(_ value: Any) -> Data? {
+        guard value is NSNumber || value is String, JSONSerialization.isValidJSONObject([value]) else { return nil }
+        return try? JSONSerialization.data(withJSONObject: value, options: .fragmentsAllowed)
     }
 }
 
