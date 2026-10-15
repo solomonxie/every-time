@@ -22,6 +22,10 @@ struct WhatDidView: View {
 
     private var log: ActivityLog { ActivityLog(marks: marks, rules: rules) }
 
+    private func syncAlarms() {
+        NotificationBudget.refresh(requestingAuthorization: !ActivityAlarms.wanted(log, at: .now).isEmpty)
+    }
+
     /// Writes a change; daily pins whose time has come are written out first.
     @discardableResult
     private func update(_ change: (ActivityLog) -> ActivityLog) -> ActivityLog {
@@ -95,8 +99,8 @@ struct WhatDidView: View {
         }
         .onChange(of: cursor) { choosing = nil }
         .onChange(of: selected) { choosing = nil }
-        .onChange(of: marks) { ActivityAlarms.sync(log) }
-        .onChange(of: rules) { ActivityAlarms.sync(log) }
+        .onChange(of: marks) { syncAlarms() }
+        .onChange(of: rules) { syncAlarms() }
         .animation(.snappy, value: marks.count)
         .sensoryFeedback(.impact(weight: .medium), trigger: marks.count)
         .navigationTitle("What did I do?")
@@ -132,7 +136,7 @@ struct WhatDidView: View {
             Activity.customStyles = tagStyles
             if marks.contains(where: { ActivityLog.oldTags.contains($0.tag ?? "") }) { marks = ActivityLog.migrateTags(marks) }
             if marks.contains(where: \.isDaily) { update { $0.migratingRepeats(at: .now) } }
-            ActivityAlarms.sync(log)
+            syncAlarms()
         }
     }
 

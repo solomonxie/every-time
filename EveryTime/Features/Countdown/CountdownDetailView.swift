@@ -50,6 +50,8 @@ struct CountdownDetailView: View {
                     content(countdown, now: context.date)
                 }
                 .task(id: countdown) { await watch(countdown) }
+                .onAppear { NotificationBudget.showing = CountdownNotifications.id(id) }
+                .onDisappear { if NotificationBudget.showing == CountdownNotifications.id(id) { NotificationBudget.showing = nil } }
             } else {
                 ContentUnavailableView("Countdown deleted", systemImage: "hourglass")
             }

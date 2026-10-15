@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import Testing
 @testable import EveryTime
 
@@ -52,5 +53,37 @@ struct NotificationBudgetTests {
         let change = Budget.diff(pending: pending, wanted: [same, moved], now: now)
         #expect(change.remove == ["lunar.gone"])
         #expect(change.add == [moved])
+    }
+}
+
+@MainActor
+struct NotificationPolicyTests {
+    @Test func editedAlarmIsReplaced() {
+        let id = UUID()
+        let at2 = date(2026, 10, 1, 14)
+        let now = date(2026, 10, 1, 9)
+        let before = ActivityLog(marks: [ActivityMark(id: id, time: at2, tag: "work", alarm: true)], calendar: gregorian())
+        let pending = ActivityAlarms.wanted(before, at: now).map {
+            NotificationBudget.Pending(id: $0.id, fingerprint: $0.fingerprint, fire: $0.fire)
+        }
+        #expect(NotificationBudget.diff(pending: pending, wanted: ActivityAlarms.wanted(before, at: now), now: now).add.isEmpty)
+        let after = ActivityLog(marks: [ActivityMark(id: id, time: date(2026, 10, 1, 15, 30), tag: "work", alarm: true)], calendar: gregorian())
+        let change = NotificationBudget.diff(pending: pending, wanted: ActivityAlarms.wanted(after, at: now), now: now)
+        #expect(change.add.map(\.fire) == [date(2026, 10, 1, 15, 30)])
+        #expect(change.add.map(\.id) == pending.map(\.id))
+        #expect(change.remove.isEmpty)
+        let off = ActivityLog(marks: [ActivityMark(id: id, time: at2, tag: "work", alarm: false)], calendar: gregorian())
+        #expect(NotificationBudget.diff(pending: pending, wanted: ActivityAlarms.wanted(off, at: now), now: now).remove == pending.map(\.id))
+    }
+
+    @Test func foregroundShowsCountdownBanner() {
+        let shown: UNNotificationPresentationOptions = [.banner, .sound, .list]
+        #expect(NotificationBudget.presentation(for: "countdown.x") == shown)
+        for id in ["timer.interview", "important.x", "lunar.x.0", "jetlag.x", "activity.x", "sleep.winddown"] {
+            #expect(NotificationBudget.presentation(for: id) == shown)
+        }
+        #expect(NotificationBudget.presentation(for: "countdown.x", showing: "countdown.x").isEmpty)
+        #expect(NotificationBudget.presentation(for: "nap.alarm.0", category: NapAlarm.category) == shown)
+        #expect(NotificationBudget.presentation(for: "nap.alarm.0", category: NapAlarm.category, napRinging: true).isEmpty)
     }
 }

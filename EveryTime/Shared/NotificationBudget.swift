@@ -7,13 +7,14 @@ enum NotificationBudget {
     nonisolated static let systemCap = 64
 
     enum Feature: CaseIterable {
-        case nap, windDown, timer, countdown, event, lunar, jetLag
+        case nap, windDown, timer, activity, countdown, event, lunar, jetLag
 
         var prefix: String {
             switch self {
             case .nap: "nap."
             case .windDown: "sleep.winddown"
             case .timer: "timer."
+            case .activity: "activity."
             case .countdown: "countdown."
             case .event: "important."
             case .lunar: "lunar."
@@ -34,15 +35,15 @@ enum NotificationBudget {
         /// The soonest few kept even when other features fill the rest earlier.
         var minimum: Int {
             switch self {
-            case .jetLag: 8
+            case .activity, .jetLag: 8
             case .countdown, .event: 4
             case .lunar: 2
             default: 0
             }
         }
 
-        /// Scheduled here; the rest only hold their reserve.
-        var isManaged: Bool { reserve == 0 }
+        /// The nap chain is scheduled by `NapAlarm`; the budget only holds its slots.
+        var isManaged: Bool { self != .nap }
 
         static func managing(_ id: String) -> Bool {
             allCases.contains { $0.isManaged && id.hasPrefix($0.prefix) }
@@ -91,6 +92,19 @@ enum NotificationBudget {
     private nonisolated static let firing: TimeInterval = 2
     private static let queue = SerialScheduler()
     private static var asking = false
+    /// The id of a notification whose own screen is up and celebrates in place, e.g. an open countdown.
+    static var showing: String?
+
+    static func register() {
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+    }
+
+    /// While the app is open: everything shows, except a nap alarm the app is already ringing and what its open screen shows.
+    nonisolated static func presentation(for id: String, category: String = "", napRinging: Bool = false,
+                                         showing: String? = nil) -> UNNotificationPresentationOptions {
+        if category == NapAlarm.category { return napRinging ? [] : [.banner, .sound, .list] }
+        return id == showing ? [] : [.banner, .sound, .list]
+    }
 
     /// Re-plans every feature's notifications; a later call supersedes one still waiting.
     static func refresh(requestingAuthorization: Bool = false) {
@@ -116,7 +130,9 @@ enum NotificationBudget {
     }
 
     private static func wanted(now: Date) -> [Request] {
-        CountdownNotifications.wanted(now: now)
+        WindDown.wanted(now: now)
+            + ActivityAlarms.wanted(now: now)
+            + CountdownNotifications.wanted(now: now)
             + ImportantEventNotifications.wanted(now: now)
             + LunarNotifications.wanted(now: now)
             + JetLagNotifications.wanted(now: now)
@@ -169,5 +185,30 @@ enum NotificationBudget {
         default:
             return false
         }
+    }
+}
+
+/// Applies the budget's foreground policy, and handles "I'm up" from the lock screen.
+final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = NotificationDelegate()
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        let request = notification.request
+        MainActor.assumeIsolated {
+            completionHandler(NotificationBudget.presentation(for: request.identifier, category: request.content.categoryIdentifier,
+                                                              napRinging: NapRinger.shared.isRinging, showing: NotificationBudget.showing))
+        }
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        MainActor.assumeIsolated {
+            if response.notification.request.content.categoryIdentifier == NapAlarm.category,
+               response.actionIdentifier == NapAlarm.upAction {
+                NapSession.finish()
+            }
+        }
+        completionHandler()
     }
 }

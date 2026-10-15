@@ -35,7 +35,6 @@ enum AppData {
         ActivityLog.migrateRepeats()
         guard drivesSystem else { return }
         NotificationBudget.refresh()
-        ActivityAlarms.reschedule()
         NapAlarm.restore()
         GlancePublisher.shared.publish()
     }

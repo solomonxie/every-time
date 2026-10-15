@@ -29,9 +29,8 @@ enum NapSession {
     static func resume(_ nap: ActiveNap) {
         AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
         ActivityLog.record(kind(nap.minutes), at: nap.start)
-        WindDown.cancel()
         NapAlarm.schedule(nap)
-        if nap.start.addingTimeInterval(-WindDown.lead) > .now { Task { await WindDown.schedule(bed: nap.start) } }
+        NotificationBudget.refresh(requestingAuthorization: WindDown.request(bed: nap.start, now: .now) != nil)
     }
 
     /// What did's tag for any stretch of sleep; it reads as a nap by its length.
@@ -97,10 +96,10 @@ enum NapSession {
     @discardableResult
     static func cancel() -> ActiveNap? {
         NapAlarm.cancel()
-        WindDown.cancel()
         let nap: ActiveNap? = AppData.defaults.decoded(NapKey.active)
         if let nap { unrecord(at: nap.start) }
         AppData.defaults.encode(nil as ActiveNap?, NapKey.active)
+        NotificationBudget.refresh()
         return nap
     }
 }
@@ -112,7 +111,7 @@ enum NapSession {
 enum NapAlarm {
     enum Kind { case system, app }
 
-    static let category = "nap.alarm"
+    nonisolated static let category = "nap.alarm"
     static let upAction = "nap.up"
     static let sound = "nap-alarm.caf"
     private static let chain = (0..<8).map { "nap.alarm.\($0)" }
@@ -123,11 +122,9 @@ enum NapAlarm {
 
     static var kind: Kind { AppData.defaults.string(forKey: systemKey) == nil ? .app : .system }
 
-    /// Delegate and "I'm up" action; call at launch so a tap from the lock screen is handled.
+    /// The "I'm up" action; call at launch so a tap from the lock screen is handled.
     static func register() {
-        let center = UNUserNotificationCenter.current()
-        center.delegate = NapNotificationDelegate.shared
-        center.setNotificationCategories([
+        UNUserNotificationCenter.current().setNotificationCategories([
             UNNotificationCategory(identifier: category,
                                    actions: [UNNotificationAction(identifier: upAction, title: "I'm up")],
                                    intentIdentifiers: []),
@@ -363,30 +360,6 @@ final class NapRinger {
         }
         pending = item
         DispatchQueue.main.asyncAfter(wallDeadline: .now() + max(0, delay), execute: item)
-    }
-}
-
-/// Handles "I'm up" from the lock screen, and keeps nap banners quiet while the app is ringing.
-final class NapNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-    static let shared = NapNotificationDelegate()
-
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        guard notification.request.content.categoryIdentifier == NapAlarm.category else { return completionHandler([]) }
-        MainActor.assumeIsolated {
-            completionHandler(NapRinger.shared.isRinging ? [] : [.banner, .sound, .list])
-        }
-    }
-
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        MainActor.assumeIsolated {
-            if response.notification.request.content.categoryIdentifier == NapAlarm.category,
-               response.actionIdentifier == NapAlarm.upAction {
-                NapSession.finish()
-            }
-        }
-        completionHandler()
     }
 }
 

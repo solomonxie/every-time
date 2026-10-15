@@ -1,5 +1,4 @@
 import SwiftUI
-import UserNotifications
 
 /// A tap on the What did page: the moment something started. It runs until the next mark.
 struct ActivityMark: Identifiable, Codable, Hashable {
@@ -324,58 +323,27 @@ extension ActivityLog {
 
 /// Notifications for planned pins that asked for one.
 enum ActivityAlarms {
-    private static let prefix = "activity."
+    private static let prefix = NotificationBudget.Feature.activity.prefix
     /// Days of a daily pin's alarms queued ahead; refreshed each time the app comes forward.
     static let dailyDays = 7
-    @MainActor private static let queue = SerialScheduler()
 
-    struct Request: Equatable {
-        let id: String
-        let fire: Date
-        let title: String
-        let body: String
-    }
+    static func wanted(now: Date) -> [NotificationBudget.Request] { wanted(.stored(), at: now) }
 
     /// One request per plan with an alarm and per day ahead of a daily pin with one; skipped days and stopped repeats have none.
-    static func wanted(_ log: ActivityLog, at now: Date) -> [Request] {
+    static func wanted(_ log: ActivityLog, at now: Date) -> [NotificationBudget.Request] {
         let plans = log.marks.filter { $0.alarm == true && $0.time > now }.map {
-            Request(id: prefix + $0.id.uuidString, fire: $0.time, title: Activity.of($0.tag).title, body: "Planned for \(SleepNow.clock($0.time)).")
+            request($0, body: "Planned for \(SleepNow.clock($0.time)).")
         }
         let alarmed = Set(log.rules.filter { $0.alarm == true }.map(\.id))
         let horizon = log.calendar.date(byAdding: .day, value: dailyDays, to: now) ?? now
         let daily = log.occurrences(through: horizon).filter { alarmed.contains($0.rule) && $0.mark.time > now }.map {
-            Request(id: prefix + $0.mark.id.uuidString, fire: $0.mark.time, title: Activity.of($0.mark.tag).title,
-                    body: "Every day at \(SleepNow.clock($0.mark.time)).")
+            request($0.mark, body: "Every day at \(SleepNow.clock($0.mark.time)).")
         }
         return plans + daily
     }
 
-    @MainActor
-    static func reschedule() {
-        guard AppData.drivesSystem else { return }
-        sync(.stored())
-    }
-
-    /// Queued, so an older sync can't add back what a newer one removed.
-    @MainActor
-    static func sync(_ log: ActivityLog) {
-        queue.enqueue { token in
-            let center = UNUserNotificationCenter.current()
-            let wanted = wanted(log, at: .now)
-            let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(prefix) }
-            guard queue.isCurrent(token) else { return }
-            let keep = Set(wanted.map(\.id))
-            center.removePendingNotificationRequests(withIdentifiers: pending.filter { !keep.contains($0) })
-            guard !wanted.isEmpty, (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
-            for request in wanted where !pending.contains(request.id) {
-                guard queue.isCurrent(token) else { return }
-                let content = UNMutableNotificationContent()
-                content.title = request.title
-                content.body = request.body
-                content.sound = .default
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, request.fire.timeIntervalSinceNow), repeats: false)
-                try? await center.add(UNNotificationRequest(identifier: request.id, content: content, trigger: trigger))
-            }
-        }
+    private static func request(_ mark: ActivityMark, body: String) -> NotificationBudget.Request {
+        NotificationBudget.Request(id: prefix + mark.id.uuidString, feature: .activity, fire: mark.time,
+                                   title: Activity.of(mark.tag).title, body: body)
     }
 }

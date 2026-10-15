@@ -10,6 +10,7 @@ struct EveryTimeApp: App {
         guard !AppData.isTestHost else { return }
         ScreenshotHook.apply()
         if AppData.isDemo { DemoSeed.seedIfNeeded() }
+        NotificationBudget.register()
         NapAlarm.register()
         SleepCycle.current.apply()
     }
@@ -34,9 +35,8 @@ struct EveryTimeApp: App {
             case .active:
                 if AppData.isDemo { DemoSeed.seedIfNeeded() }
                 Task { await AutoBackup.shared.refresh() }
-                NotificationBudget.refresh()
                 ActivityLog.migrateRepeats()
-                ActivityAlarms.reschedule()
+                NotificationBudget.refresh()
                 NapAlarm.reconcile()
                 NapAlarm.restore()
             case .background:
