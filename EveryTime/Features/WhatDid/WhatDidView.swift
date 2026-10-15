@@ -414,34 +414,14 @@ struct WhatDidView: View {
     // MARK: Changes
 
     /// One tap: retags a picked range; otherwise pins `cursor` or now and tags the range it starts or ends.
-    /// A pin at the same time is reused, so a wrong tap is fixed by tapping the right tag.
     private func record(_ activity: Activity, starts: Bool) {
-        let spans = log.spans(at: .now)
-        if let span = target(in: spans) {
-            setTag(span.id, activity.id)
+        let now = Date.now
+        if let span = target(in: log.spans(at: now)) {
+            marks = log.settingTag(span.id, activity.id).marks
             selected = nil
             return
         }
-        let time = ActivityLog.rounded(cursor ?? .now)
-        let near = marks.first { abs($0.time.timeIntervalSince(time)) < 120 }
-        if starts {
-            if let near { setTag(near.id, activity.id) } else { marks.append(ActivityMark(time: time, tag: activity.id)) }
-            return
-        }
-        guard let ending = spans.last(where: { $0.start < time }) else {
-            marks.append(ActivityMark(time: time, tag: activity.id))
-            return
-        }
-        if let near, let before = spans.last(where: { $0.start < near.time }) {
-            setTag(before.id, activity.id)
-        } else {
-            marks.append(ActivityMark(time: time, tag: nil))
-            setTag(ending.id, activity.id)
-        }
-    }
-
-    private func setTag(_ id: UUID, _ tag: String?) {
-        marks = marks.map { $0.id == id ? ActivityMark(id: id, time: $0.time, tag: tag) : $0 }
+        marks = log.recording(activity, at: ActivityLog.rounded(cursor ?? now), starts: starts, now: now).marks
     }
 }
 

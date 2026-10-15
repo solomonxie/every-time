@@ -235,7 +235,7 @@ struct ActivityLog {
 
     /// When you last got up: the end of the last night. Nil while asleep.
     func upSince(at now: Date) -> Date? {
-        let spans = spans(at: now)
+        let spans = self.spans(at: now)
         guard let last = spans.last, last.tag != Activity.sleep.id else { return nil }
         guard let end = nights(at: now).first?.end, now.timeIntervalSince(end) < 86_400 else { return nil }
         return end
@@ -270,6 +270,42 @@ struct ActivityLog {
     static func duration(_ interval: TimeInterval) -> String {
         let minutes = Int(interval) / 60
         return minutes < 60 ? "\(minutes)m" : minutes % 60 == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(minutes % 60)m"
+    }
+}
+
+/// Taps on the What did page.
+extension ActivityLog {
+    /// Pins `activity` at `time` (already rounded) and tags the range it starts or ends.
+    /// A pin of the same sort (moment or stretch) within 2 min is reused, so a wrong tap is fixed by tapping the right tag.
+    func recording(_ activity: Activity, at time: Date, starts: Bool, now: Date) -> ActivityLog {
+        let spans = self.spans(at: now)
+        let near = marks.first {
+            abs($0.time.timeIntervalSince(time)) < 120 && Activity.of($0.tag).isMoment == activity.isMoment
+        }
+        if starts {
+            if let near { return settingTag(near.id, activity.id) }
+            return appending(ActivityMark(time: time, tag: activity.id))
+        }
+        guard let ending = spans.last(where: { $0.start < time }) else {
+            return appending(ActivityMark(time: time, tag: activity.id))
+        }
+        if let near, let before = spans.last(where: { $0.start < near.time }) {
+            return settingTag(before.id, activity.id)
+        }
+        return appending(ActivityMark(time: time, tag: nil)).settingTag(ending.id, activity.id)
+    }
+
+    /// Changes only the tag; time, repeat and alarm stay.
+    func settingTag(_ id: UUID, _ tag: String?) -> ActivityLog {
+        var log = self
+        if let i = log.marks.firstIndex(where: { $0.id == id }) { log.marks[i].tag = tag }
+        return log
+    }
+
+    private func appending(_ mark: ActivityMark) -> ActivityLog {
+        var log = self
+        log.marks.append(mark)
+        return log
     }
 }
 

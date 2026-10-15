@@ -70,4 +70,36 @@ struct ActivityLogTests {
         #expect(typical.wake == 7 * 60 + 30)
         #expect(typical.sleep == 7.5 * 3600)
     }
+
+    @Test func setTagKeepsRepeatAndAlarm() {
+        let gym = ActivityMark(time: date(2026, 9, 28, 7), tag: "work", alarm: true, repeats: "daily")
+        let mark = ActivityLog(marks: [gym], calendar: gregorian()).settingTag(gym.id, "fun").marks[0]
+        #expect(mark.tag == "fun")
+        #expect(mark.isDaily && mark.alarm == true)
+    }
+
+    @Test func momentDoesNotReuseSpanPin() {
+        let now = date(2026, 9, 28, 9, 5)
+        let coffee = Activity.of("coffee"), work = Activity.of("work")
+        let afterWork = log([]).recording(work, at: date(2026, 9, 28, 9), starts: true, now: now)
+            .recording(coffee, at: date(2026, 9, 28, 9), starts: true, now: now)
+        #expect(afterWork.marks.map(\.tag) == ["work", "coffee"])
+        let afterCoffee = log([]).recording(coffee, at: date(2026, 9, 28, 9), starts: true, now: now)
+            .recording(work, at: date(2026, 9, 28, 9), starts: true, now: now)
+        #expect(afterCoffee.marks.map(\.tag) == ["coffee", "work"])
+    }
+
+    @Test func aWrongTapIsFixedByTheRightTag() {
+        let now = date(2026, 9, 28, 9, 5)
+        let log = log([]).recording(Activity.of("work"), at: date(2026, 9, 28, 9), starts: true, now: now)
+            .recording(Activity.of("fun"), at: date(2026, 9, 28, 9), starts: true, now: now)
+        #expect(log.marks.map(\.tag) == ["fun"])
+    }
+
+    @Test func endingTagsTheRangeBeforeThePin() {
+        let log = log([(date(2026, 9, 28, 13), nil)])
+            .recording(.eat, at: date(2026, 9, 28, 14), starts: false, now: date(2026, 9, 28, 14, 5))
+        #expect(log.marks.map(\.tag) == ["eat", nil])
+        #expect(log.marks.map(\.time) == [date(2026, 9, 28, 13), date(2026, 9, 28, 14)])
+    }
 }
