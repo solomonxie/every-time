@@ -30,10 +30,8 @@ enum NapSession {
         AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
         ActivityLog.record(kind(nap.minutes), at: nap.start)
         WindDown.cancel()
-        Task {
-            await NapAlarm.schedule(nap)
-            if nap.start.addingTimeInterval(-WindDown.lead) > .now { await WindDown.schedule(bed: nap.start) }
-        }
+        NapAlarm.schedule(nap)
+        if nap.start.addingTimeInterval(-WindDown.lead) > .now { Task { await WindDown.schedule(bed: nap.start) } }
     }
 
     /// What did's tag for any stretch of sleep; it reads as a nap by its length.
@@ -84,7 +82,7 @@ enum NapSession {
         nap.minutes = max(1, Int((time.timeIntervalSince(nap.start) / 60).rounded()))
         nap.alarmOff = nil
         AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
-        Task { await NapAlarm.schedule(nap) }
+        NapAlarm.schedule(nap)
     }
 
     static func rate(_ id: UUID, energy: Int?) {
@@ -121,6 +119,7 @@ enum NapAlarm {
     private static let bannerID = "nap.alarm.now"
     private static let chainGap: TimeInterval = 30
     private static let systemKey = "sleep.nap.alarm.system"
+    private static let queue = SerialScheduler()
 
     static var kind: Kind { AppData.defaults.string(forKey: systemKey) == nil ? .app : .system }
 
@@ -135,14 +134,35 @@ enum NapAlarm {
         ])
     }
 
-    static func schedule(_ nap: ActiveNap) async {
+    /// Replaces any alarm; runs after earlier schedules, and a later schedule or cancel undoes this one.
+    static func schedule(_ nap: ActiveNap) {
         cancel()
-        if #available(iOS 26, *), let id = await SystemAlarm.schedule(nap) {
-            AppData.defaults.set(id.uuidString, forKey: systemKey)
-            return
+        queue.enqueue { token in
+            if #available(iOS 26, *), let id = await SystemAlarm.schedule(nap) {
+                guard queue.isCurrent(token) else { return SystemAlarm.cancel(id) }
+                AppData.defaults.set(id.uuidString, forKey: systemKey)
+                return
+            }
+            guard queue.isCurrent(token) else { return }
+            NapRinger.shared.arm(for: nap)
+            await scheduleChain(nap, token: token)
         }
-        NapRinger.shared.arm(for: nap)
-        await scheduleChain(nap)
+    }
+
+    /// A system alarm stopped while the app was away: end the sleep when it rang.
+    static func reconcile(now: Date = .now) {
+        guard #available(iOS 26, *), let id = AppData.defaults.string(forKey: systemKey).flatMap(UUID.init),
+              let alarms = try? AlarmManager.shared.alarms,
+              let end = stoppedAt(active: AppData.defaults.decoded(NapKey.active), systemID: id,
+                                  systemIDs: Set(alarms.map(\.id)), now: now)
+        else { return }
+        NapSession.finish(at: end)
+    }
+
+    /// The alarm time, once it has passed and AlarmKit no longer holds the nap's alarm.
+    nonisolated static func stoppedAt(active nap: ActiveNap?, systemID: UUID?, systemIDs: Set<UUID>, now: Date) -> Date? {
+        guard let nap, nap.ringsAlarm, let systemID, !systemIDs.contains(systemID), now >= nap.alarm else { return nil }
+        return nap.alarm
     }
 
     /// After a relaunch, re-arms the in-app ringer for a nap still under way.
@@ -154,6 +174,7 @@ enum NapAlarm {
     }
 
     static func cancel() {
+        queue.invalidate()
         NapRinger.shared.stop()
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: chain + [bannerID])
@@ -177,7 +198,7 @@ enum NapAlarm {
         center.add(UNNotificationRequest(identifier: bannerID, content: content, trigger: nil))
     }
 
-    private static func scheduleChain(_ nap: ActiveNap) async {
+    private static func scheduleChain(_ nap: ActiveNap, token: SerialScheduler.Token) async {
         let center = UNUserNotificationCenter.current()
         switch await center.notificationSettings().authorizationStatus {
         case .notDetermined:
@@ -188,6 +209,7 @@ enum NapAlarm {
             break
         }
         for (i, id) in chain.enumerated() {
+            guard queue.isCurrent(token) else { return }
             let content = UNMutableNotificationContent()
             content.title = i == 0 ? "Time to get up" : "Still asleep? Get up now"
             content.body = i == 0 ? "Your \(NapAdvice.hours(Double(nap.minutes) / 60)) of sleep is over." : "Sleeping on past a cycle's end leaves you groggier."
@@ -198,6 +220,7 @@ enum NapAlarm {
             let fire = nap.alarm.addingTimeInterval(5 + Double(i) * chainGap)
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, fire.timeIntervalSinceNow), repeats: false)
             try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            if !queue.isCurrent(token) { return center.removePendingNotificationRequests(withIdentifiers: [id]) }
         }
     }
 

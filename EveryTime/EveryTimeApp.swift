@@ -38,6 +38,7 @@ struct EveryTimeApp: App {
                 ImportantEventNotifications.reschedule()
                 CountdownNotifications.reschedule()
                 LunarNotifications.reschedule()
+                NapAlarm.reconcile()
                 NapAlarm.restore()
             case .background:
                 LocalBackups.runIfDue()
