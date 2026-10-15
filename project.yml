@@ -18,6 +18,7 @@ targets:
   EveryTime:
     type: application
     platform: iOS
+    # PrivacyInfo.xcprivacy (app and widget) is copied as a resource by the source globs.
     sources:
       - path: EveryTime
         excludes:
