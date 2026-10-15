@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TimelineRow: Identifiable {
     static let localID = "local"
+    static let excludedKey = "world.overlapExcluded"
+    static let localIDMigratedKey = "world.localIDMigrated"
 
     let city: WorldCity
     let isLocal: Bool
@@ -22,6 +24,18 @@ struct TimelineRow: Identifiable {
         var rows = cities.map { TimelineRow(city: $0, isLocal: false) }
         rows.insert(TimelineRow(city: local, isLocal: true), at: min(max(localIndex, 0), rows.count))
         return rows
+    }
+
+    /// Exclusions saved before the local row was "local" named it by the device's zone.
+    static func migrateLocalID(in defaults: UserDefaults = AppData.defaults, oldID: String = TimeZone.current.identifier) {
+        guard !defaults.bool(forKey: localIDMigratedKey) else { return }
+        defaults.set(true, forKey: localIDMigratedKey)
+        var excluded: [String] = defaults.decoded(excludedKey) ?? []
+        guard excluded.contains(oldID), !excluded.contains(localID) else { return }
+        let cities: [WorldCity] = defaults.decoded(WorldCity.storageKey) ?? WorldCity.defaults
+        if !cities.contains(where: { $0.id == oldID }) { excluded.removeAll { $0 == oldID } }
+        excluded.append(localID)
+        defaults.encode(excluded, excludedKey)
     }
 
     /// Order after dropping row `id` onto `targetID`; nil when either is missing.

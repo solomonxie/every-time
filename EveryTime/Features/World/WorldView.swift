@@ -14,7 +14,7 @@ struct WorldView: View {
     @State private var editingTarget = false
     @State private var gridOverlaps: [Range<Date>] = []
     /// Cities left out of the overlap; new ones count by default.
-    @Stored("world.overlapExcluded") private var overlapExcluded: [String] = []
+    @Stored(TimelineRow.excludedKey) private var overlapExcluded: [String] = []
     /// Every city ever added, newest first.
     @Stored("world.recentCities") private var recent: [WorldCity] = []
 
@@ -60,7 +60,10 @@ struct WorldView: View {
             CityPickerView(excluded: Set(cities.map(\.id) + [WorldCity.local.id])) { add($0) }
         }
         .sensoryFeedback(.selection, trigger: target)
-        .onAppear { jumpToNow(animated: false) }
+        .onAppear {
+            TimelineRow.migrateLocalID()
+            jumpToNow(animated: false)
+        }
         .onChange(of: OverlapInputs(cities: cities, localIndex: localIndex, target: target,
                                     excluded: overlapExcluded, start: start), initial: true) { refreshGridOverlaps() }
         .task { await tickWhileFollowingNow() }

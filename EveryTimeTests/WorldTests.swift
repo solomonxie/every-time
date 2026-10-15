@@ -22,6 +22,32 @@ struct WorldTests {
         #expect(up.localIndex == 0)
     }
 
+    @Test func migratesExcludedLocalIDOnce() throws {
+        let suite = "EveryTimeTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.encode([london], WorldCity.storageKey)
+        defaults.encode(["Asia/Tokyo", "Europe/Berlin"], TimelineRow.excludedKey)
+
+        TimelineRow.migrateLocalID(in: defaults, oldID: "Asia/Tokyo")
+        #expect(defaults.decoded(TimelineRow.excludedKey) == ["Europe/Berlin", TimelineRow.localID])
+
+        defaults.encode(["Europe/Berlin"], TimelineRow.excludedKey)
+        TimelineRow.migrateLocalID(in: defaults, oldID: "Europe/Berlin")
+        #expect(defaults.decoded(TimelineRow.excludedKey) == ["Europe/Berlin"])
+    }
+
+    @Test func migrationKeepsSavedCityInLocalZone() throws {
+        let suite = "EveryTimeTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.encode([london], WorldCity.storageKey)
+        defaults.encode([london.id], TimelineRow.excludedKey)
+
+        TimelineRow.migrateLocalID(in: defaults, oldID: london.id)
+        #expect(defaults.decoded(TimelineRow.excludedKey) == [london.id, TimelineRow.localID])
+    }
+
     @Test func overlapHalfHourZone() {
         let tz = TimeZone(identifier: "Europe/London")!
         let day = date(2026, 7, 1, 12, in: tz)
