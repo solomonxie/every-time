@@ -100,7 +100,7 @@ struct ImportantEventsView: View {
     private func delete(_ shown: [EventInfo], at offsets: IndexSet) {
         let ids = Set(offsets.map { shown[$0].id })
         events.removeAll { ids.contains($0.id) }
-        ImportantEventNotifications.reschedule()
+        NotificationBudget.refresh()
     }
 
     private func save(_ event: ImportantEvent) {
@@ -110,7 +110,7 @@ struct ImportantEventsView: View {
             events.append(event)
         }
         sheet = nil
-        ImportantEventNotifications.reschedule(requestingAuthorization: event.notify)
+        NotificationBudget.refresh(requestingAuthorization: event.notify)
     }
 }
 

@@ -66,7 +66,7 @@ struct CountdownListView: View {
     private func delete(_ shown: [Countdown], at offsets: IndexSet) {
         let ids = Set(offsets.map { shown[$0].id })
         countdowns.removeAll { ids.contains($0.id) }
-        CountdownNotifications.reschedule()
+        NotificationBudget.refresh()
     }
 
     private func add(_ countdown: Countdown) {
@@ -74,7 +74,7 @@ struct CountdownListView: View {
         countdown.createdAt = .now
         countdowns.append(countdown)
         isAdding = false
-        CountdownNotifications.reschedule(requestingAuthorization: countdown.notification)
+        NotificationBudget.refresh(requestingAuthorization: countdown.notification)
     }
 }
 

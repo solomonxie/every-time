@@ -15,7 +15,7 @@ struct JetLagPlanView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             trips[index].notifications.toggle()
-                            JetLagNotifications.reschedule(requestingAuthorization: true)
+                            NotificationBudget.refresh(requestingAuthorization: true)
                         } label: {
                             Image(systemName: trip.notifications ? "bell.fill" : "bell.slash")
                         }

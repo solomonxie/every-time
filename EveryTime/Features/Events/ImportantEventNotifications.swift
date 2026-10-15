@@ -1,68 +1,21 @@
-import UserNotifications
+import Foundation
 
-/// One non-repeating notification per event at 9:00 on its next anniversary (the ordinal changes yearly).
-/// Shares iOS's 64-pending cap with jet lag, so at most 20 and never past the free slots.
+/// One notification per event: at its time while it's ahead, then at 9:00 on its next anniversary (the ordinal changes yearly).
 enum ImportantEventNotifications {
-    private static let prefix = "important."
-    private static let limit = 20
-    private static let systemCap = 64
+    private static let prefix = NotificationBudget.Feature.event.prefix
     private static let hour = 9
-    @MainActor private static var queue: Task<Void, Never>?
 
-    @MainActor
-    static func reschedule(requestingAuthorization: Bool = false) {
-        guard AppData.drivesSystem else { return }
-        let previous = queue
-        queue = Task {
-            await previous?.value
-            await run(requestingAuthorization: requestingAuthorization)
+    static func wanted(now: Date, calendar: Calendar = .current) -> [NotificationBudget.Request] {
+        let events: [ImportantEvent] = AppData.defaults.decoded(ImportantEvent.storageKey) ?? []
+        return events.filter(\.notify).compactMap { event in
+            guard let (day, fire) = nextFire(for: event, now: now, calendar: calendar) else { return nil }
+            let years = Anniversary.years(at: day, since: event.date, calendar: calendar)
+            return NotificationBudget.Request(
+                id: prefix + event.id.uuidString, feature: .event, fire: fire,
+                title: years == 0 ? "⏰ \(event.name) — it's here" : ImportantEventCopy.todayTitle(event, years: years),
+                body: "\(event.name) · \(event.date.formatted(date: .long, time: .omitted))",
+                floating: !(event.hasTime && fire == event.date))
         }
-    }
-
-    private static func run(requestingAuthorization: Bool) async {
-        let center = UNUserNotificationCenter.current()
-        let pending = await center.pendingNotificationRequests().map(\.identifier)
-        let stale = pending.filter { $0.hasPrefix(prefix) }
-        center.removePendingNotificationRequests(withIdentifiers: stale)
-
-        let free = systemCap - (pending.count - stale.count)
-        let requests = upcomingRequests(now: .now).prefix(max(0, min(limit, free)))
-        guard !requests.isEmpty, await isAuthorized(center, requesting: requestingAuthorization) else { return }
-        for request in requests { try? await center.add(request) }
-    }
-
-    private static func isAuthorized(_ center: UNUserNotificationCenter, requesting: Bool) async -> Bool {
-        switch await center.notificationSettings().authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            return true
-        case .notDetermined where requesting:
-            return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
-        default:
-            return false
-        }
-    }
-
-    private static func upcomingRequests(now: Date) -> [UNNotificationRequest] {
-        let calendar = Calendar.current
-        let events = AppData.defaults.data(forKey: ImportantEvent.storageKey)
-            .flatMap { try? JSONDecoder().decode([ImportantEvent].self, from: $0) } ?? []
-        return events.filter(\.notify)
-            .compactMap { event -> (event: ImportantEvent, day: Date, fire: Date)? in
-                guard let (day, fire) = nextFire(for: event, now: now, calendar: calendar) else { return nil }
-                return (event, day, fire)
-            }
-            .sorted { $0.fire < $1.fire }
-            .map { item in
-                let years = Anniversary.years(at: item.day, since: item.event.date, calendar: calendar)
-                let content = UNMutableNotificationContent()
-                content.title = years == 0 ? "⏰ \(item.event.name) — it's here" : ImportantEventCopy.todayTitle(item.event, years: years)
-                content.body = "\(item.event.name) · \(item.event.date.formatted(date: .long, time: .omitted))"
-                content.sound = .default
-                var when = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: item.fire)
-                when.second = 0
-                let trigger = UNCalendarNotificationTrigger(dateMatching: when, repeats: false)
-                return UNNotificationRequest(identifier: prefix + item.event.id.uuidString, content: content, trigger: trigger)
-            }
     }
 
     /// The event itself while it's ahead (its time, or 9:00 for all-day), then the next anniversary whose 9:00 is ahead.

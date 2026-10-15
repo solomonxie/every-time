@@ -34,10 +34,7 @@ struct EveryTimeApp: App {
             case .active:
                 if AppData.isDemo { DemoSeed.seedIfNeeded() }
                 Task { await AutoBackup.shared.refresh() }
-                JetLagNotifications.reschedule()
-                ImportantEventNotifications.reschedule()
-                CountdownNotifications.reschedule()
-                LunarNotifications.reschedule()
+                NotificationBudget.refresh()
                 ActivityLog.migrateRepeats()
                 ActivityAlarms.reschedule()
                 NapAlarm.reconcile()

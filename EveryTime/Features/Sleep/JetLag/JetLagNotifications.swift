@@ -1,45 +1,11 @@
-import UserNotifications
+import Foundation
 
-/// Local notifications at each action start; iOS keeps at most 64 pending, so jet lag takes the next 40 and leaves room for important events.
+/// A notification at each action start.
 enum JetLagNotifications {
-    private static let prefix = "jetlag."
-    private static let limit = 40
+    private static let prefix = NotificationBudget.Feature.jetLag.prefix
     private static let silentKinds: Set<ActionKind> = [.flight, .caffeineOK]
-    @MainActor private static var queue: Task<Void, Never>?
 
-    /// Replaces all pending jet lag notifications from stored profile and trips.
-    @MainActor
-    static func reschedule(requestingAuthorization: Bool = false) {
-        guard AppData.drivesSystem else { return }
-        let previous = queue
-        queue = Task {
-            await previous?.value
-            await run(requestingAuthorization: requestingAuthorization)
-        }
-    }
-
-    private static func run(requestingAuthorization: Bool) async {
-        let center = UNUserNotificationCenter.current()
-        let stale = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(prefix) }
-        center.removePendingNotificationRequests(withIdentifiers: stale)
-
-        let requests = upcomingRequests(now: .now)
-        guard !requests.isEmpty, await isAuthorized(center, requesting: requestingAuthorization) else { return }
-        for request in requests { try? await center.add(request) }
-    }
-
-    private static func isAuthorized(_ center: UNUserNotificationCenter, requesting: Bool) async -> Bool {
-        switch await center.notificationSettings().authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            return true
-        case .notDetermined where requesting:
-            return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
-        default:
-            return false
-        }
-    }
-
-    private static func upcomingRequests(now: Date) -> [UNNotificationRequest] {
+    static func wanted(now: Date) -> [NotificationBudget.Request] {
         guard let profile = load(JetLagProfile.self, JetLagKey.profile), profile.notifications else { return [] }
         let trips = load([Trip].self, JetLagKey.trips) ?? []
         let items = trips.filter(\.notifications).flatMap { trip in
@@ -50,14 +16,9 @@ enum JetLagNotifications {
         var seen = Set<String>()
         return items
             .filter { !silentKinds.contains($0.action.kind) && $0.action.start > now && seen.insert($0.id).inserted }
-            .sorted { $0.action.start < $1.action.start }
-            .prefix(limit)
             .map { item in
-                let content = UNMutableNotificationContent()
-                (content.title, content.body) = copy(for: item.action, in: item.timeZone)
-                content.sound = .default
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: item.action.start.timeIntervalSince(now), repeats: false)
-                return UNNotificationRequest(identifier: item.id, content: content, trigger: trigger)
+                let (title, body) = copy(for: item.action, in: item.timeZone)
+                return NotificationBudget.Request(id: item.id, feature: .jetLag, fire: item.action.start, title: title, body: body)
             }
     }
 

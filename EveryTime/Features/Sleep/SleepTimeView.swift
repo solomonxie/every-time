@@ -60,7 +60,10 @@ struct SleepTimeView: View {
         .sheet(item: $sheet) { kind in
             switch kind {
             case .profile:
-                JetLagProfileSheet(profile: storedProfile ?? JetLagProfile(), showsAdvice: false) { storedProfile = $0 }
+                JetLagProfileSheet(profile: storedProfile ?? JetLagProfile(), showsAdvice: false) {
+                    storedProfile = $0
+                    NotificationBudget.refresh()
+                }
             case .log:
                 LogNapSheet { log($0) }
             }

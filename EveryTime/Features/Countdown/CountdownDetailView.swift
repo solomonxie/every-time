@@ -148,7 +148,7 @@ struct CountdownDetailView: View {
             countdowns[index] = edited
         }
         isEditing = false
-        CountdownNotifications.reschedule(requestingAuthorization: edited.notification)
+        NotificationBudget.refresh(requestingAuthorization: edited.notification)
     }
 }
 

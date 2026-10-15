@@ -46,8 +46,8 @@ struct LunarCalendarView: View {
             }
         }
         .sensoryFeedback(.success, trigger: events.count) { old, new in new > old }
-        .onChange(of: events.map(\.notify)) { LunarNotifications.reschedule(requestingAuthorization: events.contains(where: \.notify)) }
-        .onChange(of: events.map(\.id)) { LunarNotifications.reschedule() }
+        .onChange(of: events.map(\.notify)) { NotificationBudget.refresh(requestingAuthorization: events.contains(where: \.notify)) }
+        .onChange(of: events.map(\.id)) { NotificationBudget.refresh() }
         .alert("Calendar", isPresented: Binding(get: { calendarMessage != nil }, set: { if !$0 { calendarMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {

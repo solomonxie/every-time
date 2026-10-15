@@ -34,10 +34,7 @@ enum AppData {
         Feeling.custom = defaults.decoded(CustomFeeling.key) ?? []
         ActivityLog.migrateRepeats()
         guard drivesSystem else { return }
-        CountdownNotifications.reschedule()
-        ImportantEventNotifications.reschedule()
-        LunarNotifications.reschedule()
-        JetLagNotifications.reschedule()
+        NotificationBudget.refresh()
         ActivityAlarms.reschedule()
         NapAlarm.restore()
         GlancePublisher.shared.publish()

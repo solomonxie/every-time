@@ -29,8 +29,8 @@ struct JetLagTripsView: View {
                 NewTripSheet(profile: profile ?? JetLagProfile()) { trips.append($0) }
             }
         }
-        .onChange(of: trips) { JetLagNotifications.reschedule(requestingAuthorization: true) }
-        .onChange(of: profile) { JetLagNotifications.reschedule(requestingAuthorization: true) }
+        .onChange(of: trips) { NotificationBudget.refresh(requestingAuthorization: true) }
+        .onChange(of: profile) { NotificationBudget.refresh(requestingAuthorization: true) }
     }
 
     private func list(now: Date) -> some View {
