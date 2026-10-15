@@ -3,6 +3,8 @@ import Foundation
 
 /// No DST, so fixed-offset arithmetic in the app matches wall-clock time.
 let shanghai = TimeZone(identifier: "Asia/Shanghai")!
+/// DST fixture: Mar 8 2026 has 23 h, Nov 1 2026 has 25 h.
+let newYork = TimeZone(identifier: "America/New_York")!
 
 func gregorian(_ timeZone: TimeZone = shanghai) -> Calendar {
     var calendar = Calendar(identifier: .gregorian)

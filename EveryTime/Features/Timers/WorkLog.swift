@@ -43,8 +43,23 @@ struct WorkLog {
     mutating func startBreak(at now: Date = .now) { begin(.rest, at: now) }
     mutating func clockOut(at now: Date = .now) { close(at: now) }
 
+    /// Removes that day's hours only; spans crossing midnight keep their other days.
     mutating func deleteDay(_ date: Date, calendar: Calendar = .current) {
-        spans.removeAll { calendar.isDate($0.start, inSameDayAs: date) }
+        guard let day = calendar.dateInterval(of: .day, for: date) else { return }
+        spans = spans.flatMap { span -> [WorkSpan] in
+            let end = span.end ?? .distantFuture
+            guard span.start < day.end, end > day.start else { return [span] }
+            var parts: [WorkSpan] = []
+            if span.start < day.start {
+                var head = span
+                head.end = day.start
+                parts.append(head)
+            }
+            if let end = span.end, end > day.end {
+                parts.append(WorkSpan(kind: span.kind, start: day.end, end: end))
+            }
+            return parts
+        }
     }
 
     private mutating func begin(_ kind: WorkSpan.Kind, at now: Date) {
