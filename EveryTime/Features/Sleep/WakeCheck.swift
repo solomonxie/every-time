@@ -98,14 +98,21 @@ struct SleepCycle: Codable, Equatable {
             .map { Double($0.minutes - ($0.isResleep(among: naps) ? quick : fallAsleep)) }
             .filter { $0 >= 60 }
         guard wakes.count >= minCount else { return nil }
-        let best = cycleRange.min { a, b in cost(a, wakes) < cost(b, wakes) } ?? defaultMinutes
+        let best = cycleRange.min { a, b in
+            (cost(a, wakes), abs(a - defaultMinutes)) < (cost(b, wakes), abs(b - defaultMinutes))
+        } ?? defaultMinutes
         return (best, wakes.count)
     }
 
+    /// Pull toward the average per wake and minute off it, so a harmonic (75 or 112 for 90) doesn't win.
+    private static let prior = 0.001
+
+    /// How far each wake lands from a cycle end, as a share of a cycle, so short lengths gain nothing.
     private static func cost(_ length: Int, _ asleep: [Double]) -> Double {
-        asleep.reduce(0) { sum, minutes in
-            let cycles = max(1, (minutes / Double(length)).rounded())
-            return sum + abs(minutes - cycles * Double(length))
+        let off = prior * Double(abs(length - defaultMinutes))
+        return asleep.reduce(0) { sum, minutes in
+            let phase = minutes / Double(length)
+            return sum + abs(phase - max(1, phase.rounded())) + off
         }
     }
 
