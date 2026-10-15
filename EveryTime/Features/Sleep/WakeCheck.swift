@@ -1,5 +1,26 @@
 import Foundation
 
+/// Cycle ends of a sleep that started at `start`: asleep after `latency`, then one every `cycle`.
+struct CycleGrid: Equatable {
+    let start: Date
+    let latency: TimeInterval
+    let cycle: TimeInterval
+
+    var asleep: Date { start.addingTimeInterval(latency) }
+
+    func end(_ n: Int) -> Date { asleep.addingTimeInterval(Double(n) * cycle) }
+
+    /// The first cycle end after `date`.
+    func next(after date: Date) -> Date {
+        end(max(0, Int((date.timeIntervalSince(asleep) / cycle).rounded(.down))) + 1)
+    }
+
+    func ends(from: Date = .distantPast, through: Date) -> [Date] {
+        let first = max(1, Int((from.timeIntervalSince(asleep) / cycle).rounded(.up)))
+        return Array(sequence(first: first) { $0 + 1 }.lazy.map(end).prefix { $0 <= through })
+    }
+}
+
 /// Where a sleep that started at `start` stands at `now`: whole cycles done, and whether this is a good moment to get up.
 struct WakeCheck: Equatable {
     static var cycle: TimeInterval { SleepSuggestion.cycleLength }
@@ -13,6 +34,7 @@ struct WakeCheck: Equatable {
     let now: Date
     var latency = Self.fallAsleep
 
+    var grid: CycleGrid { CycleGrid(start: start, latency: latency, cycle: Self.cycle) }
     var elapsed: TimeInterval { max(0, now.timeIntervalSince(start)) }
     private var asleep: TimeInterval { max(0, elapsed - latency) }
 
@@ -20,8 +42,8 @@ struct WakeCheck: Equatable {
     var isFirstMinutes: Bool { asleep < Self.slack }
     /// Time since the last cycle ended, or into the first one.
     var intoCycle: TimeInterval { asleep - Double(cycles) * Self.cycle }
-    var toCycleEnd: TimeInterval { Self.cycle - intoCycle }
-    var nextCycleEnd: Date { now.addingTimeInterval(toCycleEnd) }
+    var nextCycleEnd: Date { grid.next(after: now) }
+    var toCycleEnd: TimeInterval { nextCycleEnd.timeIntervalSince(now) }
 
     var isAtCycleEnd: Bool { !isFirstMinutes && (intoCycle <= Self.slack || toCycleEnd <= Self.slack) }
 

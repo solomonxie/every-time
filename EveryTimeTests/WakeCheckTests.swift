@@ -32,6 +32,20 @@ struct WakeCheckTests {
         #expect(check.nextCycleEnd == date(2026, 3, 11, 3, 45))
         #expect(check.detail == "2 cycles done · 45 min to the next end, ~\(SleepNow.clock(date(2026, 3, 11, 3, 45)))")
     }
+
+    @Test func nextCycleEndDuringLatency() {
+        let check = WakeCheck(start: start, now: date(2026, 3, 10, 23, 2))
+        #expect(check.nextCycleEnd == date(2026, 3, 11, 0, 45))
+        #expect(check.toCycleEnd == 103 * 60)
+    }
+
+    @Test func ringGridAnchorsToBed() {
+        let nap = ActiveNap(start: start, minutes: 375)
+        let ends = [date(2026, 3, 11, 0, 45), date(2026, 3, 11, 2, 15), date(2026, 3, 11, 3, 45), date(2026, 3, 11, 5, 15)]
+        for now in [date(2026, 3, 11, 1), date(2026, 3, 11, 4, 30)] {
+            #expect(SleepRing(now: now, plan: nap).grid.ends(through: nap.alarm) == ends)
+        }
+    }
 }
 
 struct ResleepTests {

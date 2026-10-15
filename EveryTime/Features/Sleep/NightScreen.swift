@@ -120,8 +120,7 @@ struct NightScreen: View {
     /// Cycle ends on the night's own grid, from now to one past the alarm, with the alarm itself.
     private func upAt(_ nap: ActiveNap, check: WakeCheck) -> [Date] {
         let soonest = now.addingTimeInterval(10 * 60)
-        var times = (0..<12).map { check.nextCycleEnd.addingTimeInterval(Double($0) * WakeCheck.cycle) }
-            .filter { $0 >= soonest && $0 <= nap.alarm.addingTimeInterval(WakeCheck.cycle + WakeCheck.slack) }
+        var times = check.grid.ends(from: soonest, through: nap.alarm.addingTimeInterval(WakeCheck.cycle + WakeCheck.slack))
         if nap.ringsAlarm, nap.alarm >= soonest, !times.contains(where: { abs($0.timeIntervalSince(nap.alarm)) < 120 }) {
             times.append(nap.alarm)
         }
@@ -151,7 +150,7 @@ struct NightScreen: View {
     // MARK: Woke
 
     private func woke(_ nap: Nap) -> some View {
-        let check = WakeCheck(start: nap.start, now: nap.end)
+        let check = WakeCheck(start: nap.start, now: nap.end, latency: nap.resleep == true ? WakeCheck.fallBackAsleep : WakeCheck.fallAsleep)
         let hour = Calendar.current.component(.hour, from: nap.end)
         return Group {
             clock(nap.end)

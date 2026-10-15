@@ -110,6 +110,8 @@ struct SleepRing: View {
     private var fallAsleep: TimeInterval { isResleep ? WakeCheck.fallBackAsleep : SleepSuggestion.fallAsleepTime }
     private var isNap: Bool { !isResleep && length < Nap.nightLength }
     private var fit: WakeFit { WakeFit.of(length: length, isNap: isNap, resleep: isResleep) }
+    /// Anchored to bed, so it stays put through the night.
+    var grid: CycleGrid { CycleGrid(start: plan?.start ?? date(start), latency: fallAsleep, cycle: SleepSuggestion.cycleLength) }
 
     var body: some View {
         GeometryReader { geo in
@@ -127,12 +129,8 @@ struct SleepRing: View {
                 if let plan {
                     arc(start, end, color: .indigo.opacity(0.35), width: track - 6, radius: radius, center: center)
                     if showsCutoffs { cutoffs(radius: radius, track: track, center: center) }
-                    if isAsleep {
-                        arc(start, min(end, max(start, offset(now))), color: .indigo, width: track - 6, radius: radius, center: center)
-                    } else {
-                        if !crowded(point, radius: radius, size: track - 14) {
-                            marker("bed.double.fill", size: track - 14, tint: .indigo).position(point(Double(start), radius))
-                        }
+                    if !isAsleep, !crowded(point, radius: radius, size: track - 14) {
+                        marker("bed.double.fill", size: track - 14, tint: .indigo).position(point(Double(start), radius))
                     }
                     marker("alarm.fill", size: track - 14, tint: plan.ringsAlarm ? .indigo : .secondary)
                         .position(point(Double(end), radius))
@@ -197,9 +195,9 @@ struct SleepRing: View {
 
     /// From lying down on: each cycle's deep-sleep stretch shaded, a tick where it ends. Shown across the next 12 h.
     private func cycles(radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
-        let fall = fallAsleep / 60, cycle = SleepSuggestion.cycleLength / 60
-        let origin = Double(start)
-        let starts: [Double] = (0..<12).map { origin + fall + Double($0) * cycle }.filter { $0 < origin + 720 && $0 + cycle > 0 }
+        let grid = self.grid, cycle = grid.cycle / 60
+        let origin = grid.asleep.timeIntervalSince(top) / 60
+        let starts: [Double] = (0..<12).map { origin + Double($0) * cycle }.filter { $0 < max(0, origin) + 720 && $0 + cycle > 0 }
         return ZStack {
             ForEach(Array(starts.enumerated()), id: \.offset) { i, s in
                 let from = max(0, min(Double(Self.day), s + cycle * WakeFit.deep.lowerBound))
