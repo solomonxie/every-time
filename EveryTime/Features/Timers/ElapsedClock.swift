@@ -4,8 +4,19 @@ import Observation
 /// Date-based elapsed time: survives backgrounding because nothing ticks.
 @Observable
 final class ElapsedClock {
+    struct State: Codable, Equatable {
+        var startedAt: Date?
+        var accumulated: TimeInterval = 0
+    }
+
     private(set) var startedAt: Date?
     private(set) var accumulated: TimeInterval = 0
+    @ObservationIgnored var onChange: (() -> Void)?
+
+    var state: State {
+        get { State(startedAt: startedAt, accumulated: accumulated) }
+        set { (startedAt, accumulated) = (newValue.startedAt, newValue.accumulated) }
+    }
 
     var isRunning: Bool { startedAt != nil }
     var hasTime: Bool { isRunning || accumulated > 0 }
@@ -18,16 +29,19 @@ final class ElapsedClock {
     func start() {
         guard startedAt == nil else { return }
         startedAt = .now
+        onChange?()
     }
 
     func pause() {
         accumulated = elapsed()
         startedAt = nil
+        onChange?()
     }
 
     func reset() {
         startedAt = nil
         accumulated = 0
+        onChange?()
     }
 }
 

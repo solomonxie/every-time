@@ -19,8 +19,8 @@ enum BackupError: LocalizedError {
 struct BackupSnapshot {
     static let currentVersion = 1
     static let keyPrefixes = ["world.", "calendar.", "timers.", "sleep.", "tools.", "app.", "boards."]
-    /// State of this device right now, never carried or replaced: a running nap, its system alarm, Health access.
-    static let deviceKeys: Set<String> = ["sleep.nap.active", "sleep.nap.alarm.system", "sleep.health.asked"]
+    /// State of this device right now, never carried or replaced: a running nap, its system alarm, Health access, live timers.
+    static let deviceKeys: Set<String> = ["sleep.nap.active", "sleep.nap.alarm.system", "sleep.health.asked", TimerStore.liveKey]
     static let fileName = "snapshot.json"
 
     var version = currentVersion

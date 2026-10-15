@@ -3,8 +3,12 @@ import SwiftUI
 @Observable
 final class LeetCodeModel {
     let clock = ElapsedClock()
-    var problem = ""
-    var difficulty = Difficulty.medium
+    var problem = "" {
+        didSet { clock.onChange?() }
+    }
+    var difficulty = Difficulty.medium {
+        didSet { clock.onChange?() }
+    }
 }
 
 struct LeetCodeView: View {

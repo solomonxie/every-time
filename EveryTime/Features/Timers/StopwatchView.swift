@@ -3,7 +3,9 @@ import SwiftUI
 @Observable
 final class StopwatchModel {
     let clock = ElapsedClock()
-    private(set) var laps: [TimeInterval] = []
+    var laps: [TimeInterval] = [] {
+        didSet { clock.onChange?() }
+    }
 
     func lap() {
         laps.append(clock.elapsed() - laps.reduce(0, +))
