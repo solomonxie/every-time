@@ -12,6 +12,7 @@ struct WorldView: View {
     @State private var showingWall = false
     @Stored("world.targetHours") private var target = TargetHours.work
     @State private var editingTarget = false
+    @State private var gridOverlaps: [Range<Date>] = []
     /// Cities left out of the overlap; new ones count by default.
     @Stored("world.overlapExcluded") private var overlapExcluded: [String] = []
     /// Every city ever added, newest first.
@@ -22,9 +23,7 @@ struct WorldView: View {
     private let hours = 24 * (Self.daysBack + 1 + Self.daysAhead)
 
     private var rows: [TimelineRow] {
-        var rows = cities.map { TimelineRow(city: $0, isLocal: false) }
-        rows.insert(TimelineRow(city: .local, isLocal: true), at: min(max(localIndex, 0), rows.count))
-        return rows
+        TimelineRow.rows(cities: cities, local: .local, localIndex: localIndex)
     }
 
     var body: some View {
@@ -32,7 +31,7 @@ struct WorldView: View {
             VStack(alignment: .leading, spacing: 24) {
                 hero.screen()
                 VStack(alignment: .leading, spacing: Theme.spacing) {
-                    TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, overlaps: overlapRanges(from: start, hours: hours),
+                    TimelineGrid(rows: rows, start: start, hours: hours, cursor: cursor, overlaps: gridOverlaps,
                                  overlapRowIDs: Set(rows.map(\.id).filter { !overlapExcluded.contains($0) }), position: $position,
                                  isEditing: isEditing, snaps: !followsNow,
                                  onScroll: { if !followsNow { cursor = date(atOffset: $0) } },
@@ -62,6 +61,8 @@ struct WorldView: View {
         }
         .sensoryFeedback(.selection, trigger: target)
         .onAppear { jumpToNow(animated: false) }
+        .onChange(of: OverlapInputs(cities: cities, localIndex: localIndex, target: target,
+                                    excluded: overlapExcluded, start: start), initial: true) { refreshGridOverlaps() }
         .task { await tickWhileFollowingNow() }
     }
 
@@ -115,7 +116,7 @@ struct WorldView: View {
                 Divider().overlay(Theme.hairline)
                 targetRow
                 if editingTarget { targetEditor }
-                if rows.count > 1 { cityPicks }
+                if !cities.isEmpty { cityPicks }
             }
         }
     }
@@ -218,22 +219,19 @@ struct WorldView: View {
         .buttonStyle(.plain)
     }
 
-    /// Hour blocks of the cursor's local day where every row is inside the target hours.
-    private var overlapRanges: [Range<Date>] { overlapRanges(from: Calendar.current.startOfDay(for: cursor), hours: 24) }
+    private var comparedCalendars: [Calendar] {
+        let excluded = overlapExcluded
+        return rows.filter { !excluded.contains($0.id) }.map(\.calendar)
+    }
 
-    private func overlapRanges(from first: Date, hours: Int) -> [Range<Date>] {
-        let instants = (0..<hours).map { first.addingTimeInterval(Double($0) * 3600) }
-        let compared = rows.filter { !overlapExcluded.contains($0.id) }
-        var ranges: [Range<Date>] = []
-        for instant in instants where compared.allSatisfy({ target.contains($0.calendar.component(.hour, from: instant)) }) {
-            let end = instant.addingTimeInterval(3600)
-            if let last = ranges.last, last.upperBound == instant {
-                ranges[ranges.count - 1] = last.lowerBound..<end
-            } else {
-                ranges.append(instant..<end)
-            }
-        }
-        return ranges
+    /// The cursor's local day, cut to where every compared row is inside the target hours.
+    private var overlapRanges: [Range<Date>] {
+        OverlapFinder.ranges(onDayOf: cursor, in: .current, calendars: comparedCalendars, target: target)
+    }
+
+    private func refreshGridOverlaps() {
+        gridOverlaps = OverlapFinder.ranges(from: start, to: start.addingTimeInterval(Double(hours) * 3600),
+                                            calendars: comparedCalendars, target: target)
     }
 
     // MARK: Recent
@@ -320,12 +318,9 @@ struct WorldView: View {
     }
 
     private func move(_ id: String, onto targetID: String) {
-        var ids = rows.map(\.id)
-        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: targetID) else { return }
-        ids.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
-        let localID = WorldCity.local.id
-        localIndex = ids.firstIndex(of: localID) ?? 0
-        cities = ids.filter { $0 != localID }.compactMap { id in cities.first { $0.id == id } }
+        guard let moved = TimelineRow.move(id, onto: targetID, cities: cities, localIndex: localIndex) else { return }
+        localIndex = moved.localIndex
+        cities = moved.cities
     }
 
     /// Exact current time (no 15-min snap); the cursor keeps following now until the user drags.
@@ -350,6 +345,14 @@ struct WorldView: View {
         let x = CGFloat(date.timeIntervalSince(start) / 3600) * TimelineGrid.cellWidth
         withAnimation(animated ? .snappy : nil) { position.scrollTo(x: x) }
     }
+}
+
+private struct OverlapInputs: Equatable {
+    let cities: [WorldCity]
+    let localIndex: Int
+    let target: TargetHours
+    let excluded: [String]
+    let start: Date
 }
 
 #Preview {

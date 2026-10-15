@@ -1,27 +1,36 @@
 import SwiftUI
 
 struct TimelineRow: Identifiable {
+    static let localID = "local"
+
     let city: WorldCity
     let isLocal: Bool
-    var id: String { city.id }
+    let calendar: Calendar
 
-    var calendar: Calendar {
+    /// The local row has its own id, so a saved city in the device's zone stays a separate row.
+    var id: String { isLocal ? Self.localID : city.id }
+
+    init(city: WorldCity, isLocal: Bool) {
+        self.city = city
+        self.isLocal = isLocal
         var calendar = Calendar.current
         calendar.timeZone = city.timeZone
-        return calendar
+        self.calendar = calendar
     }
-}
 
-/// Local hours every city should share; `end` before `start` wraps past midnight.
-struct TargetHours: Codable, Equatable {
-    var start = 8
-    var end = 18
+    static func rows(cities: [WorldCity], local: WorldCity, localIndex: Int) -> [TimelineRow] {
+        var rows = cities.map { TimelineRow(city: $0, isLocal: false) }
+        rows.insert(TimelineRow(city: local, isLocal: true), at: min(max(localIndex, 0), rows.count))
+        return rows
+    }
 
-    static let work = TargetHours()
-    static let awake = TargetHours(start: 7, end: 23)
-
-    func contains(_ hour: Int) -> Bool {
-        start < end ? (start..<end).contains(hour) : hour >= start || hour < end
+    /// Order after dropping row `id` onto `targetID`; nil when either is missing.
+    static func move(_ id: String, onto targetID: String, cities: [WorldCity], localIndex: Int) -> (cities: [WorldCity], localIndex: Int)? {
+        var ids = rows(cities: cities, local: .local, localIndex: localIndex).map(\.id)
+        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: targetID) else { return nil }
+        ids.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
+        let reordered = ids.filter { $0 != localID }.compactMap { id in cities.first { $0.id == id } }
+        return (reordered, ids.firstIndex(of: localID) ?? 0)
     }
 }
 
@@ -195,7 +204,7 @@ private struct CursorLabel: View {
     let onRemove: () -> Void
 
     var body: some View {
-        let tz = row.city.timeZone
+        let tz = row.calendar.timeZone
         HStack(spacing: 8) {
             if isEditing && !row.isLocal {
                 Button("Remove \(row.city.name)", systemImage: "minus.circle.fill", role: .destructive, action: onRemove)
