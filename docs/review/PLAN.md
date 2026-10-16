@@ -82,3 +82,4 @@ Branch `review-fixes`. One commit per batch, following SUMMARY.md section 4. Tes
 - 2026-10-15 14:51: group E done (15 commits total, 202 device tests pass). F started.
 - 2026-10-15 15:03: group F done (18 commits total, 208 device tests pass). G started.
 - 2026-10-15 15:35: group G done. All 21 batches committed (21 commits, 214 device tests pass, make preflight passes). Hourly check stopped.
+- 2026-10-15 22:57: batch 13 (#10 cycle learning) reverted at user request (f9096ff); 03-P1-3 reopened.
