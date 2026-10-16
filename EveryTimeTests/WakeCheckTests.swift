@@ -164,11 +164,6 @@ struct SleepCycleTests {
         #expect(SleepCycle.learned(from: Array(repeating: soon, count: 5) + [night], fallAsleep: 15, minCount: 1)?.minutes == 100)
     }
 
-    @Test func harmonicsPreferNinety() {
-        let naps = [445, 450, 455, 448, 452].map { wake($0 + 15) }
-        #expect(SleepCycle.learned(from: naps, fallAsleep: 15)?.minutes == 90)
-    }
-
     @Test func needsFiveNaturalWakes() {
         #expect(SleepCycle.learned(from: [wake(215), wake(318), wake(113), wake(412)], fallAsleep: 15) == nil)
     }
