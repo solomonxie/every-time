@@ -3,7 +3,7 @@
 -include .env
 STORE   ?= us
 SCHEME  := EveryTime
-DERIVED := build
+DERIVED := /tmp/everytime-build
 APP     := EveryTime.app
 APP_ID  := $(shell sed -n 's/^APP_BUNDLE_ID *= *//p' Local.xcconfig)
 SIM     ?= iPhone 18 Pro

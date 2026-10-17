@@ -60,7 +60,7 @@ else
   team_arg=()
   [[ -n ${TEAM_ID:-} ]] && team_arg=("DEVELOPMENT_TEAM=$TEAM_ID")
   xcodegen generate --quiet
-  if nice -n 10 xcodebuild test -scheme EveryTime -destination "id=$DEVICE_UDID" -derivedDataPath build \
+  if nice -n 10 xcodebuild test -scheme EveryTime -destination "id=$DEVICE_UDID" -derivedDataPath /tmp/everytime-build \
       -allowProvisioningUpdates -quiet ${team_arg[@]+"${team_arg[@]}"}; then
     pass "tests on device"
   else
