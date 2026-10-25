@@ -89,9 +89,10 @@ struct StoredModelFixtureTests {
 
     @Test func nap() throws {
         let nap = try decode(Nap.self, #"{"id":"\#(id)","start":800000000,"end":800001200}"#)
-        #expect(nap.minutes == 20 && nap.night == nil && nap.natural == nil)
-        let night = try decode(Nap.self, #"{"id":"\#(id)","start":800000000,"end":800028800,"night":"good","energy":4,"natural":true}"#)
-        #expect(night.night == .good && night.energy == 4)
+        #expect(nap.minutes == 20 && nap.energy == nil && nap.natural == nil)
+        // Fields since dropped ("night", "bed") are ignored, so old saves still load.
+        let night = try decode(Nap.self, #"{"id":"\#(id)","start":800000000,"end":800028800,"night":"good","bed":800000000,"energy":4,"natural":true}"#)
+        #expect(night.energy == 4 && night.natural == true)
     }
 
     @Test func activeNap() throws {

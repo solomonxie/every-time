@@ -78,8 +78,8 @@ struct SleepHistoryRow<Lead: View>: View {
     let date: Date
     let detail: String
     var energy: Int? = nil
-    var symbol: Nap.Night? = nil
     let duration: String
+    var note: String? = nil
     @ViewBuilder let lead: () -> Lead
 
     var body: some View {
@@ -93,20 +93,24 @@ struct SleepHistoryRow<Lead: View>: View {
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+            .layoutPriority(1)
             Spacer(minLength: 4)
-            Text(energy.map(Nap.energyTitle) ?? "")
-                .font(.label)
-                .foregroundStyle(.secondary)
-                .frame(width: 56, alignment: .trailing)
-            Image(systemName: symbol?.symbol ?? "circle")
-                .foregroundStyle(.secondary)
-                .opacity(symbol == nil ? 0 : 1)
-                .frame(width: 24)
-                .accessibilityLabel(symbol?.title ?? "")
-            Text(duration)
-                .font(.clock(20, weight: .regular))
-                .frame(width: 76, alignment: .trailing)
+            Image(systemName: Nap.energySymbol(energy ?? 0))
+                .font(.subheadline)
+                .foregroundStyle(EnergyChart.tint(energy ?? 0))
+                .opacity(energy == nil ? 0 : 1)
+                .frame(width: 32)
+                .accessibilityLabel(energy.map { "Felt \(Nap.energyTitle($0).lowercased())" } ?? "")
+                .accessibilityHidden(energy == nil)
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(duration).font(.clock(20, weight: .regular))
+                if let note { Text(note).font(.label).foregroundStyle(.secondary) }
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .frame(minWidth: 84, alignment: .trailing)
         }
         .accessibilityElement(children: .combine)
     }
@@ -119,34 +123,38 @@ struct NapRow: View {
     var body: some View {
         SleepHistoryRow(
             date: nap.start,
-            detail: "\(nap.start.formatted(date: .omitted, time: .shortened)) – \(nap.end.formatted(date: .omitted, time: .shortened))",
+            detail: "\(SleepNow.clock(nap.start)) – \(SleepNow.clock(nap.end))",
             energy: nap.energy,
-            symbol: nap.night,
-            duration: nap.isNight ? NapAdvice.hours((nap.duration / 60).rounded() / 60) : "\(nap.minutes) min"
+            duration: "\(nap.minutes) min"
         ) {
-            Image(systemName: "sofa.fill").font(.title3).foregroundStyle(level.tint)
+            Image(systemName: "sofa.fill").font(.title3).frame(width: 30, height: 22).foregroundStyle(level.tint)
         }
     }
 }
 
+/// A sleep the app didn't see, logged after: in-bed times and how rested you feel.
 struct LogNapSheet: View {
     let onSave: (Nap) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var start = Calendar.current.date(byAdding: .minute, value: -30, to: .now) ?? .now
-    @State private var minutes = NapAdvice.suggestedMinutes
-    @State private var natural = true
+    @State private var start: Date
+    @State private var end: Date
+    @State private var energy: Int?
+
+    init(draft: Nap? = nil, onSave: @escaping (Nap) -> Void) {
+        let end = min(draft?.end ?? .now, .now)
+        self.onSave = onSave
+        _start = State(initialValue: min(draft?.start ?? end.addingTimeInterval(-Double(NapAdvice.suggestedMinutes) * 60), end))
+        _end = State(initialValue: end)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                DatePicker("Fell asleep", selection: $start, in: ...Date.now)
-                Stepper(minutes < 60 ? "\(minutes) min" : NapAdvice.hours(Double(minutes) / 60), value: $minutes, in: 5...720, step: 5)
-                    .monospacedDigit()
-                Toggle(isOn: $natural) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Woke on my own")
-                        Text("Not by an alarm — these teach your cycle length").font(.caption).foregroundStyle(.secondary)
-                    }
+                DatePicker("Went to bed", selection: $start, in: ...Date.now)
+                DatePicker("Woke up", selection: $end, in: start...Date.now)
+                LabeledContent(Night.isNap(end.timeIntervalSince(start)) ? "Nap" : "Night", value: ActivityLog.duration(max(0, end.timeIntervalSince(start))))
+                Section {
+                    SleepFeedback(energy: $energy).padding(.vertical, 4)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -157,25 +165,18 @@ struct LogNapSheet: View {
             }
             .bottomBar {
                 Button("Save") {
-                    onSave(Nap(start: start, end: start.addingTimeInterval(Double(minutes) * 60), natural: natural))
+                    onSave(Nap(start: start, end: end, energy: energy))
                     dismiss()
                 }
                 .buttonStyle(.primary)
+                .disabled(end <= start)
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
 
-extension View {
-    func napRow() -> some View {
-        listRowInsets(EdgeInsets(top: 10, leading: Theme.padding, bottom: 10, trailing: Theme.padding))
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-    }
-}
-
-/// Change a logged sleep's times, whether you woke on your own, or remove it.
+/// Change a logged sleep's times and how it went, or remove it.
 struct SleepEditor: View {
     @State var nap: Nap
     let onSave: (Nap) -> Void
@@ -186,14 +187,11 @@ struct SleepEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                DatePicker("Fell asleep", selection: $nap.start, in: ...Date.now)
+                DatePicker("Went to bed", selection: $nap.start, in: ...Date.now)
                 DatePicker("Woke up", selection: $nap.end, in: nap.start...Date.now)
                 LabeledContent(nap.isNight ? "Night" : "Nap", value: ActivityLog.duration(nap.duration))
-                Toggle(isOn: Binding(get: { nap.natural == true }, set: { nap.natural = $0 })) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Woke on my own")
-                        Text("Not by an alarm — these teach your cycle length").font(.caption).foregroundStyle(.secondary)
-                    }
+                Section {
+                    SleepFeedback(energy: $nap.energy).padding(.vertical, 4)
                 }
                 Section {
                     Button("Remove", role: .destructive) { confirmsDelete = true }
@@ -220,5 +218,36 @@ struct SleepEditor: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// How rested you feel after any sleep, nap or night. Tap again to clear.
+struct SleepFeedback: View {
+    var question = "How rested do you feel?"
+    @Binding var energy: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(question).font(.subheadline.weight(.medium))
+            HStack(spacing: 6) {
+                ForEach(Array(Nap.energyRange), id: \.self) { level in
+                    let isOn = energy == level
+                    let tint = EnergyChart.tint(level)
+                    Button { energy = isOn ? nil : level } label: {
+                        Text(Nap.energyTitle(level))
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .foregroundStyle(isOn ? Color.white : tint)
+                            .background(isOn ? AnyShapeStyle(tint) : AnyShapeStyle(tint.opacity(0.15)),
+                                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Nap.energyTitle(level))
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                }
+            }
+        }
     }
 }

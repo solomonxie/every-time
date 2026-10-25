@@ -16,7 +16,7 @@ struct WakeChoice: Equatable {
     var isNow: Bool { bed.timeIntervalSince(now) <= Double(SleepRing.step) * 30 }
     var minutes: Int { max(1, Int((wake.timeIntervalSince(bed) / 60).rounded())) }
     var length: TimeInterval { Double(minutes) * 60 }
-    var isNap: Bool { !resleep && length < Nap.nightLength }
+    var isNap: Bool { Night.isNap(length, resleep: resleep) }
     var fit: WakeFit { WakeFit.of(length: length, isNap: isNap, resleep: resleep) }
     var cycles: Double { max(0, length - fallAsleep) / SleepSuggestion.cycleLength }
 
@@ -65,7 +65,7 @@ struct SleepHero: View {
                 HStack(spacing: 8) {
                     Button { editsNap = true } label: { stat("sofa.fill", "Nap", "\(napMinutes) min", "Tap for exact") }
                         .buttonStyle(.plain)
-                    stat("alarm.fill", "Wake up", SleepNow.clock(choice.wake), "Today")
+                    stat("alarm.fill", "Wake up", SleepNow.clock(choice.wake), Self.dayText(choice.wake))
                 }
             } else {
                 HStack(spacing: 8) {
@@ -87,12 +87,12 @@ struct SleepHero: View {
                       nap: kind == .nap ? napMinutes : nil, minLength: Int(choice.minLength / 60), resleep: choice.resleep)
                 .frame(maxWidth: 300)
                 .frame(maxWidth: .infinity)
-            if kind == .sleep, !choice.resleep, !choice.isNap { CutoffLegend(bed: choice.bed, wake: choice.wake, now: now) }
             kindTiles
             if kind == .nap { napChips } else { chips }
             Text(verdict)
                 .font(.footnote)
-                .foregroundStyle(sleepNow.zone == .evening && sleepNow.sleepOptions.first?.level == .high ? Theme.Tone.bad : .secondary)
+                .foregroundStyle(kind == .sleep && sleepNow.zone == .evening && sleepNow.sleepOptions.first?.level == .high
+                                 ? Theme.Tone.bad : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .animation(.snappy, value: choice)
@@ -118,6 +118,8 @@ struct SleepHero: View {
             tile(.nap, "sofa.fill", "\(napMinutes) min")
             tile(.sleep, "moon.zzz.fill", kind == .sleep ? "up \(SleepNow.clock(choice.wake))" : "bed & alarm")
         }
+        .alert("Nap unavailable", isPresented: $showsNapTip) { Button("OK", role: .cancel) {} } message: { Text(napBlockedTip ?? "") }
+        .sensoryFeedback(.selection, trigger: kind)
     }
 
     private func tile(_ tile: SleepKind, _ symbol: String, _ detail: String) -> some View {
@@ -139,8 +141,6 @@ struct SleepHero: View {
             .opacity(blocked ? 0.4 : 1)
         }
         .buttonStyle(.plain)
-        .alert("Nap unavailable", isPresented: $showsNapTip) { Button("OK", role: .cancel) {} } message: { Text(napBlockedTip ?? "") }
-        .sensoryFeedback(.selection, trigger: kind)
         .accessibilityAddTraits(picked ? .isSelected : [])
     }
 
@@ -180,7 +180,7 @@ struct SleepHero: View {
                     Image(systemName: "chevron.down").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                         .rotationEffect(.degrees(open == end ? 180 : 0))
                 }
-                Text(end == .bed && choice.isNow ? "Now" : Calendar.current.isDateInToday(time) ? "Today" : "Tomorrow")
+                Text(end == .bed && choice.isNow ? "Now" : Self.dayText(time))
                     .font(.footnote).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -260,8 +260,12 @@ struct SleepHero: View {
         .scrollClipDisabled()
     }
 
+    private static func dayText(_ time: Date) -> String {
+        Calendar.current.isDateInToday(time) ? "Today" : "Tomorrow"
+    }
+
     private var verdict: String {
-        let (headline, reason) = sleepNow.verdict
+        let (headline, reason) = sleepNow.verdict(isNap: kind == .nap)
         var text = "\(headline) — \(reason.prefix(1).lowercased() + reason.dropFirst())"
         if let tip = sleepNow.tip { text += " \(tip)" }
         return text

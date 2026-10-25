@@ -8,7 +8,7 @@ tap does before touching views.
 
 - [x] T1.1 `SleepNow.picks` — wake chips for now: night zones → whole-cycle wakes (before the usual wake first, one past it as "sleep in") + one nap; day → naps 10/20/30/90; evening → night then naps, split night `.high`. Default pick = existing `isRecommended`. Drop `bedAt` / `waitForBed` as options; keep `bedEarlier` for the "Bed by" line. Headline / button text from the pick. Update `SleepNowTests` — see `EveryTime/Features/Sleep/SleepNow.swift` — depends: none
 - [x] T1.2 `NapSession` — remove `plan(bed:wake:)`, `inBedNow()`, `NightPlan`, `NapKey.night`; `start(wake:)`; `start` cancels a pending wind-down; `canCancel` (≤ 15 min) and `turnOffAlarm()` (cancel alarm, keep the sleep). Energy rating 1 / 3 / 5. Update `NapAdviceTests` — see `EveryTime/Features/Sleep/Nap/` — depends: none
-- [x] T1.3 `MorningLog` — first open after the usual wake with no night logged → proposed interval (Health night if present, else usual hours); `Profile.fromHealth` median bed/wake over 14 nights — see `EveryTime/Features/Sleep/PastNights.swift` — depends: none
+- [x] T1.3 `MorningLog` — first open after the usual wake with no night logged or in Health → proposed interval at the usual hours; `usualHours` median bed/wake over 7+ nights — see `EveryTime/Features/Sleep/MorningLog.swift` — depends: none
 
 ## Phase 2: Views
 Ring first (the hero depends on its new API), then the hero, then the night-mode states which
@@ -24,6 +24,12 @@ only rearrange existing rows.
 - [x] T3.1 Remove dead code: `AsleepCard` / `WokeCard` / `LadderRow` / `SleepPlan.wakeTimes(includesNap:)` once `NightScreen` replaces them — depends: T2.3
 - [ ] T3.2 On-device pass in the dark: S1, S5, S6, S7 at real hours, alarm through silent mode, brightness restore; `make device` — depends: T2.*
 - [ ] T3.3 Refresh `docs/release/screenshots/02-sleep.jpg`; `demo/sleep.json` still seeds — depends: T3.2
+
+## Phase 3b: Review fixes
+- [x] T3.4 One night rule (3 h) everywhere; per-night score bars; Health asleep vs in-bed per night — depends: none
+- [x] T3.5 `SleepPlan.resolve` (pure, tested) out of the view; History, Insights, `UndoToast`, `MorningLog` in own files — depends: none
+- [x] T3.6 Log sleep: went to bed + woke up, capped at now, records into Activities; `Asleep already`; late alarm "Up at {alarm}" — depends: none
+- [x] T3.7 Night screen: per-second ticks only in the last hour; Health refresh on return, throttled — depends: none
 
 ## Phase 4: Zero-tap entries (later)
 Lock screen does the work; the app isn't opened at all.

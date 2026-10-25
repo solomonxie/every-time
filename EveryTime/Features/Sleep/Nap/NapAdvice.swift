@@ -11,22 +11,19 @@ extension Calendar {
         let day = self.date(byAdding: .day, value: daysAfter, to: startOfDay(for: date)) ?? date
         return self.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: day) ?? day
     }
+
+    /// Wall-clock minutes after midnight.
+    func minutesOfDay(_ date: Date) -> Int {
+        let c = dateComponents([.hour, .minute], from: date)
+        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    }
 }
 
 struct Nap: Identifiable, Codable, Hashable {
-    /// How that night's sleep went, rated the next day.
-    enum Night: String, Codable, CaseIterable, Identifiable {
-        case good, slow, poor
-        var id: String { rawValue }
-    }
-
     var id = UUID()
     var start: Date
     var end: Date
-    var night: Night?
-    /// That night's planned bedtime, if it wasn't the usual one.
-    var bed: Date?
-    /// How you felt on waking, 1 (drained) to 5 (fresh).
+    /// How rested you felt on waking, 1 (drained) to 5 (fresh).
     var energy: Int?
     /// Woke on your own, before the alarm (or with none): these teach your cycle length.
     var natural: Bool?
@@ -35,17 +32,17 @@ struct Nap: Identifiable, Codable, Hashable {
 
     var minutes: Int { max(0, Int(end.timeIntervalSince(start) / 60)) }
     var duration: TimeInterval { end.timeIntervalSince(start) }
-    /// 3 h or more counts as a night, as Health's nights do; shorter is a nap.
-    var isNight: Bool { duration >= EveryTime.Night.minLength }
+    var isNight: Bool { !EveryTime.Night.isNap(duration) }
+    /// Slept from the app rather than logged afterwards.
+    var isTracked: Bool { natural != nil }
 
     /// Back to sleep soon after a night, or from the wake screen: falls asleep in minutes.
     func isResleep(among naps: [Nap]) -> Bool {
         resleep == true || naps.contains { $0.isNight && $0.id != id && (0..<PastNight.resleepWindow).contains(start.timeIntervalSince($0.end)) }
     }
 
-    static var nightLength: TimeInterval { SleepSuggestion.fallAsleepTime + SleepSuggestion.cycleLength }
     static let energyRange = 1...5
-    /// The three the page asks for: drained, OK, fresh.
+    /// The three the wake screen asks for: drained, OK, fresh.
     static let energyChoices = [1, 3, 5]
 
     static func energyTitle(_ level: Int) -> String {
@@ -55,6 +52,16 @@ struct Nap: Identifiable, Codable, Hashable {
         case 3: "OK"
         case 4: "Good"
         default: "Fresh"
+        }
+    }
+
+    static func energySymbol(_ level: Int) -> String {
+        switch level {
+        case ...1: "battery.0percent"
+        case 2: "battery.25percent"
+        case 3: "battery.50percent"
+        case 4: "battery.75percent"
+        default: "battery.100percent"
         }
     }
 }
@@ -70,6 +77,7 @@ struct ActiveNap: Codable, Equatable {
     var alarm: Date { start.addingTimeInterval(Double(minutes) * 60) }
     var fallAsleep: TimeInterval { resleep == true ? WakeCheck.fallBackAsleep : SleepSuggestion.fallAsleepTime }
     var ringsAlarm: Bool { alarmOff != true }
+    var isNap: Bool { Night.isNap(Double(minutes) * 60, resleep: resleep == true) }
 }
 
 /// Rule-of-thumb nap guidance from usual sleep hours and age. A rough guide, not a sleep model.
@@ -81,8 +89,8 @@ struct NapAdvice {
 
     static var lengths: [Int] { [10, 20, 30, longMinutes] }
     static let suggestedMinutes = 20
-    /// Falling asleep plus one cycle, on a 5-minute mark and just short of a night.
-    static var longMinutes: Int { (Int(Nap.nightLength / 60) - 1) / 5 * 5 }
+    /// Falling asleep plus one cycle, on a 5-minute mark.
+    static var longMinutes: Int { (Int((SleepSuggestion.fallAsleepTime + SleepSuggestion.cycleLength) / 60) - 1) / 5 * 5 }
 
     var profile: JetLagProfile
     var calendar = Calendar.current
@@ -127,10 +135,16 @@ struct NapAdvice {
         return DateInterval(start: start, end: end)
     }
 
+    /// The bed a nap at `start` eats into: tonight's, or past it, the next one.
+    func nextBed(after start: Date) -> Date {
+        let bed = current(at: start).bed
+        return bed > start ? bed : day(of: start).bed
+    }
+
     /// Later and longer naps weigh more; a long nap is fine with plenty of waking time left before bed.
     func tonight(start: Date, minutes: Int, bed: Date? = nil) -> Level {
         let end = start.addingTimeInterval(Double(minutes) * 60)
-        let hoursLeft = (bed ?? day(of: start).bed).timeIntervalSince(end) / 3600
+        let hoursLeft = (bed ?? nextBed(after: start)).timeIntervalSince(end) / 3600
         let timing = hoursLeft >= calmHours ? 0 : hoursLeft >= riskyHours ? 1 : 2
         let length = hoursLeft >= calmHours + 3 || minutes <= (isOlder ? 20 : 30) ? 0
             : minutes <= (isOlder ? 60 : Self.longMinutes) ? 1 : 2
@@ -173,7 +187,7 @@ struct NapAdvice {
         45–75 reaches deep sleep, so waking feels heavy; 90–100 ends a full cycle. The later \
         and longer a nap, the more it eats into the sleep pressure you need at bedtime. \
         Limits are stricter from age 60 and looser under 25. Sex isn't used: there's no \
-        well-established difference for naps. Rate your nights to see your own pattern.
+        well-established difference for naps.
         """
 }
 
@@ -183,24 +197,6 @@ extension NapAdvice.Level {
         case .low: Theme.Tone.good
         case .some: Theme.Tone.warn
         case .high: Theme.Tone.bad
-        }
-    }
-}
-
-extension Nap.Night {
-    var title: String {
-        switch self {
-        case .good: "Slept well"
-        case .slow: "Took longer"
-        case .poor: "Slept poorly"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .good: "face.smiling"
-        case .slow: "hourglass"
-        case .poor: "cloud.rain"
         }
     }
 }

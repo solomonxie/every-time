@@ -188,20 +188,23 @@ enum SleepTrend {
         guard let since = recent.map(\.start).min() else { return 0 }
         let byDay = Dictionary(grouping: recent) { calendar.startOfDay(for: $0.end) }.values
             .map { $0.reduce(0) { $0 + $1.asleep } }
-        let napped = naps.filter { nap in !nap.isNight && nap.start >= since && !nights.contains { $0.covers(nap) } }
+        let napped = naps.filter { !$0.isNight && $0.start >= since }
             .reduce(0) { $0 + max(0, $1.duration - SleepSuggestion.fallAsleepTime) }
         return max(0, byDay.reduce(0) { $0 + need - $1 } - napped)
     }
 
-    /// Newest-first nights in a row that ended within `slack` of the usual wake.
+    /// Days in a row, newest first, whose night ended within `slack` of the usual wake; a day with no night breaks it.
     static func wakeStreak(_ nights: [PastNight], usualWake: Int, slack: Int = 30, calendar: Calendar = .current) -> Int {
         var streak = 0
+        var last: Date?
         for night in nights {
-            let parts = calendar.dateComponents([.hour, .minute], from: night.end)
-            let minutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
-            let off = abs(minutes - usualWake)
+            let day = calendar.startOfDay(for: night.end)
+            if day == last { continue }
+            if let last, calendar.dateComponents([.day], from: day, to: last).day != 1 { break }
+            let off = abs(calendar.minutesOfDay(night.end) - usualWake)
             guard min(off, 1440 - off) <= slack else { break }
             streak += 1
+            last = day
         }
         return streak
     }

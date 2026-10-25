@@ -46,7 +46,7 @@ enum WakeFit: Equatable {
     var color: Color {
         switch self {
         case .good: Theme.Tone.good
-        case .okay: .yellow
+        case .okay: Theme.Tone.warn
         case .poor: Theme.Tone.bad
         }
     }
@@ -108,7 +108,7 @@ struct SleepRing: View {
     private var length: TimeInterval { Double(end - start) * 60 }
     private var isResleep: Bool { plan.map { $0.resleep == true } ?? resleep }
     private var fallAsleep: TimeInterval { isResleep ? WakeCheck.fallBackAsleep : SleepSuggestion.fallAsleepTime }
-    private var isNap: Bool { !isResleep && length < Nap.nightLength }
+    private var isNap: Bool { Night.isNap(length, resleep: isResleep) }
     private var fit: WakeFit { WakeFit.of(length: length, isNap: isNap, resleep: isResleep) }
     /// Anchored to bed, so it stays put through the night.
     var grid: CycleGrid { CycleGrid(start: plan?.start ?? date(start), latency: fallAsleep, cycle: SleepSuggestion.cycleLength) }
@@ -128,7 +128,6 @@ struct SleepRing: View {
                 if nap == nil { cycles(radius: radius, track: track, center: center) }
                 if let plan {
                     arc(start, end, color: .indigo.opacity(0.35), width: track - 6, radius: radius, center: center)
-                    if showsCutoffs { cutoffs(radius: radius, track: track, center: center) }
                     if !isAsleep, !crowded(point, radius: radius, size: track - 14) {
                         marker("bed.double.fill", size: track - 14, tint: .indigo).position(point(Double(start), radius))
                     }
@@ -138,7 +137,6 @@ struct SleepRing: View {
                     marker("sofa.fill", size: track - 8, tint: fit.color).position(point(0, radius))
                 } else {
                     arc(start, end, color: fit.color, width: track - 6, radius: radius, center: center)
-                    if showsCutoffs { cutoffs(radius: radius, track: track, center: center) }
                     if bed != nil, !crowded(point, radius: radius, size: track - 8) {
                         marker("bed.double.fill", size: track - 8, tint: .indigo, isGrabbed: dragging == .bed || isMovingWhole)
                             .position(point(Double(start), radius))
@@ -156,11 +154,17 @@ struct SleepRing: View {
             .gesture(drag(center: center, radius: radius, track: track), including: plan == nil ? .all : .subviews)
         }
         .aspectRatio(1, contentMode: .fit)
-        .sensoryFeedback(.selection, trigger: end)
+        .sensoryFeedback(.selection, trigger: end) { _, _ in dragging != nil }
         .sensoryFeedback(.impact(weight: .medium), trigger: detents)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Sleep ring")
         .accessibilityValue("\(SleepNow.clock(date(start))) to \(SleepNow.clock(date(end))), \(fit.text(isNap: isNap))")
+        .accessibilityAdjustableAction { direction in
+            guard let wake, plan == nil, nap == nil else { return }
+            let alarm = end + (direction == .increment ? Self.step : -Self.step)
+            guard alarm - start >= minLength, alarm - start <= Self.lengths.upperBound, alarm <= Self.day else { return }
+            wake.wrappedValue = date(alarm)
+        }
     }
 
     /// Only the ring's track takes touches, so the page scrolls from the space around and inside it.
@@ -218,28 +222,12 @@ struct SleepRing: View {
         }
     }
 
-    /// Before a night: no coffee and no food from the cutoff until up, one thin lane each on the track's inner half, from now at the earliest.
-    private var showsCutoffs: Bool { nap == nil && !isNap && !isResleep && !isAsleep }
-
-    private func cutoffs(radius: CGFloat, track: CGFloat, center: CGPoint) -> some View {
-        let bed = date(start)
-        return ZStack {
-            ForEach(Array(Cutoff.allCases.enumerated()), id: \.offset) { lane, cutoff in
-                let from = max(0, offset(cutoff.time(bed: bed)))
-                if from < end {
-                    arc(from, end, color: cutoff.color, width: track * 0.16,
-                        radius: radius - track * (0.38 - 0.2 * Double(lane)), center: center)
-                }
-            }
-        }
-    }
-
-    /// Clock hours, placed relative to now.
+    /// Clock hours at the real time until each, so a clock change shifts them.
     private func face(radius: CGFloat, point: @escaping (Double, CGFloat) -> CGPoint) -> some View {
-        let shift = Self.wrap(-minutesOfDay(top))
+        let offsets = Self.hourOffsets(from: top)
         return ZStack {
             ForEach(0..<24, id: \.self) { hour in
-                let offset = Double(Self.wrap(hour * 60 + shift))
+                let offset = Double(offsets[hour])
                 let isMajor = hour % 3 == 0
                 Capsule()
                     .fill(Color.primary.opacity(isMajor ? 0.35 : 0.15))
@@ -282,7 +270,7 @@ struct SleepRing: View {
             let cycles = max(0, length - fallAsleep) / SleepSuggestion.cycleLength
             VStack(spacing: 2) {
                 Text(ActivityLog.duration(length))
-                    .font(.clock(side * 0.1, weight: .semibold))
+                    .font(.clock(side * 0.1, weight: .semibold, scales: false))
                     .contentTransition(.numericText())
                 Text(isNap ? "nap" : "\(cycles.formatted(.number.precision(.fractionLength(cycles.rounded() == cycles ? 0 : 1)))) cycles")
                     .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -363,13 +351,17 @@ struct SleepRing: View {
 
     static func wrap(_ minutes: Int) -> Int { (minutes % day + day) % day }
 
-    private func minutesOfDay(_ date: Date) -> Int {
-        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
-        return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    /// Minutes from `top` to each wall-clock hour in the next 24 h.
+    static func hourOffsets(from top: Date, calendar: Calendar = .current) -> [Int] {
+        (0..<24).map { hour in
+            var time = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: top) ?? top
+            if time < top { time = calendar.date(byAdding: .day, value: 1, to: time) ?? time }
+            return wrap(Int((time.timeIntervalSince(top) / 60).rounded()))
+        }
     }
 
     /// Clock face: midnight at the top, so an offset from now sits at its clock time.
-    private var rotation: Int { minutesOfDay(top) }
+    private var rotation: Int { Calendar.current.minutesOfDay(top) }
 
     private func degrees(_ offset: Double) -> Double { (offset + Double(rotation)) / Double(Self.day) * 360 }
 
@@ -417,34 +409,58 @@ enum Cutoff: CaseIterable {
         }
     }
 
-    func text(bed: Date, wake: Date, now: Date) -> String {
-        let time = time(bed: bed)
-        let up = SleepNow.clock(wake)
+    var name: String {
         switch self {
-        case .caffeine: return time > now ? "No coffee after \(SleepNow.clock(time))" : "No coffee till \(up)"
-        case .food: return time > now ? "Last meal by \(SleepNow.clock(time))" : "Fasting till \(up)"
+        case .caffeine: "Coffee"
+        case .food: "Food"
         }
     }
 }
 
-/// The ring's coffee and food bands, spelled out.
+/// Before a night: how long coffee and food are still fine, as a countdown that drains toward the cutoff.
 struct CutoffLegend: View {
     let bed: Date
     let wake: Date
     let now: Date
 
+    /// The bar runs from a typical 16 h before bed (roughly when the day started) to the cutoff.
+    private static let dayLength: TimeInterval = 16 * 3600
+
     var body: some View {
-        HStack(spacing: 14) {
-            ForEach(Cutoff.allCases, id: \.self) { cutoff in
-                Label {
-                    Text(cutoff.text(bed: bed, wake: wake, now: now))
-                } icon: {
-                    Image(systemName: cutoff.symbol).foregroundStyle(cutoff.color)
-                }
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-            }
+        VStack(spacing: 10) {
+            ForEach(Cutoff.allCases, id: \.self) { row($0) }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func row(_ cutoff: Cutoff) -> some View {
+        let time = cutoff.time(bed: bed)
+        let left = time.timeIntervalSince(now)
+        let span = max(1, time.timeIntervalSince(bed.addingTimeInterval(-Self.dayLength)))
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: cutoff.symbol).foregroundStyle(cutoff.color).frame(width: 22)
+                Text(left > 0 ? "No \(cutoff.name.lowercased()) after \(SleepNow.clock(time))"
+                              : "No \(cutoff.name.lowercased()) till \(SleepNow.clock(wake))")
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 4)
+                if left > 0 {
+                    Text("in \(ActivityLog.duration(left))").font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            if left > 0 {
+                GeometryReader { geo in
+                    Capsule().fill(Theme.cardFill)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(cutoff.color.opacity(0.7)).frame(width: geo.size.width * min(1, left / span))
+                        }
+                }
+                .frame(height: 6)
+                .padding(.leading, 30)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }

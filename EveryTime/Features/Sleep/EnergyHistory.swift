@@ -3,19 +3,22 @@ import SwiftUI
 
 /// Energy on waking, one bar per wake, latest on the right.
 struct EnergyChart: View {
-    let naps: [Nap]
+    /// From `rated(_:)`.
+    let rated: [Nap]
 
+    /// The last `shown` rated wakes, oldest first.
     static func rated(_ naps: [Nap]) -> [Nap] {
         Array(naps.filter { $0.energy != nil }.sorted { $0.end < $1.end }.suffix(shown))
     }
 
-    static func mean(_ naps: [Nap]) -> Double? {
-        let levels = rated(naps).compactMap(\.energy)
+    /// Mean of the ratings from the last `days` days.
+    static func mean(_ rated: [Nap], days: Int = 14, now: Date = .now) -> Double? {
+        let from = now.addingTimeInterval(-Double(days) * 86_400)
+        let levels = rated.filter { $0.end >= from }.compactMap(\.energy)
         return levels.isEmpty ? nil : Double(levels.reduce(0, +)) / Double(levels.count)
     }
 
     var body: some View {
-        let rated = Self.rated(naps)
         Chart(rated) { nap in
             BarMark(x: .value("Wake", nap.end, unit: .hour), y: .value("Energy", nap.energy ?? 0))
                 .foregroundStyle(Self.tint(nap.energy ?? 0))

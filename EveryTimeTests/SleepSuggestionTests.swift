@@ -14,12 +14,6 @@ struct SleepSuggestionTests {
         #expect(bedtimes.map(\.hours) == [9, 7.5, 6, 4.5])
     }
 
-    @Test func wakeTimesCountForwardFromBed() {
-        let wakes = SleepSuggestion.wakeTimes(goingToBedAt: date(2026, 3, 10, 23))
-        #expect(wakes.map(\.time) == [date(2026, 3, 11, 8, 15), date(2026, 3, 11, 6, 45),
-                                      date(2026, 3, 11, 5, 15), date(2026, 3, 11, 3, 45)])
-    }
-
     @Test func nextOccurrenceIsStrictlyAfterNow() {
         let calendar = gregorian()
         let wake = 7 * 60 + 30

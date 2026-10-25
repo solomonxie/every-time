@@ -24,11 +24,11 @@ possible; doing nothing is always safe.
 
 ## Around the night
 
-- **S10 Bed later tonight** — 9:00 PM. Bed at 11, up at 6:35. Done: drag 🛏 to 11:00 (or tap the readout → wheel), `Bed at 11:00 PM · up at 6:35 AM`. **2 taps.** Night screen counts down to bed, wind-down reminder at 10:30, asleep by itself at 11 (`Asleep already` if earlier). Cancel keeps 11:00 / 6:35 set.
+- **S10 Bed later tonight** — 9:00 PM. Bed at 11, up at 6:35. Done: drag 🛏 to 11:00 (or tap the readout → wheel), `Start schedule · bed 11:00 PM`. **2 taps.** Night screen counts down to bed, wind-down reminder at 10:30, asleep by itself at 11 (`Asleep already` if earlier). Cancel keeps 11:00 / 6:35 set.
 - **S11 Wrong hour** — 7:00 PM wanting to sleep for the night → red split-night line, can still do it. 1:30 AM → wake times that still fit before 7:00. **1 tap** either way.
 - **S12 Morning after** — first open after waking, half awake. Done: `Good morning · 7h 13m · 5 cycles`, three big feel buttons, optional. **0–1 tap.**
-- **S13 Forgot to tap** — slept without the app. Done: morning card "Did you sleep last night? `Yes · 11:00 PM – 7:05 AM`" (Health-filled when connected). **1 tap.**
-- **S14 Coffee** — 3:00 PM, can I? "Coffee OK until 3:00 PM" in the day verdict; log a cup in the tile. **0–1 tap.**
+- **S13 Forgot to tap** — slept without the app. Done: morning card "Did you sleep last night? `Yes · 11:00 PM – 7:05 AM`" (usual hours; not shown when Health already has the night). `Edit…` opens Log sleep with those times. **1 tap.**
+- **S14 Coffee** — 3:00 PM, can I? With a night planned, "Before bed" shows "No coffee after 2:00 PM · in 1h". **0 taps.**
 - **S15 Weekly review** — how am I doing? Scroll: score trend, debt, nights, naps. **0 taps.**
 - **S16 First run** — no profile. Defaults 11 PM–7 AM apply; one line offers to set hours, or to take them from Health. `Sleep now` already works. **1 tap** to sleep.
 

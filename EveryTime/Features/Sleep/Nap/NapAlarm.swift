@@ -19,25 +19,40 @@ enum NapSession {
         start(minutes: max(1, Int((wake.timeIntervalSinceNow / 60).rounded())), resleep: resleep)
     }
 
-    /// Bed later tonight: alarm at `wake`, wind-down reminder before bed; asleep from `bed` unless "I'm in bed now" comes first.
+    /// Bed later tonight: alarm at `wake`, wind-down reminder before bed; asleep from `bed` unless "Asleep already" comes first.
     static func plan(bed: Date, wake: Date) {
         let start = max(bed, .now)
         resume(ActiveNap(start: start, minutes: max(1, Int((wake.timeIntervalSince(start) / 60).rounded()))))
     }
 
+    /// A scheduled night started before its bed: asleep from now, same alarm.
+    static func startEarly() {
+        guard let nap: ActiveNap = AppData.defaults.decoded(NapKey.active), nap.start > .now else { return }
+        unrecord(at: nap.start)
+        start(wake: nap.alarm)
+    }
+
     /// Makes `nap` the sleep in progress (or planned, when its start is ahead); also undoes a cancel.
     static func resume(_ nap: ActiveNap) {
         AppData.defaults.encode(nap as ActiveNap?, NapKey.active)
-        ActivityLog.record(kind(nap.minutes), at: nap.start)
+        ActivityLog.record(.sleep, at: nap.start)
         NapAlarm.schedule(nap)
         NotificationBudget.refresh(requestingAuthorization: WindDown.request(bed: nap.start, now: .now) != nil)
     }
 
-    /// What did's tag for any stretch of sleep; it reads as a nap by its length.
-    static func kind(_ minutes: Int) -> Activity { .sleep }
-
     private static func unrecord(at time: Date) {
         ActivityLog.remove(.sleep, at: time)
+    }
+
+    /// A logged sleep on the Activities timeline: asleep at its start, awake at its end.
+    static func record(_ nap: Nap) {
+        ActivityLog.record(.sleep, at: nap.start)
+        ActivityLog.record(nil, at: nap.end)
+    }
+
+    static func unrecord(_ nap: Nap) {
+        ActivityLog.remove(.sleep, at: nap.start)
+        ActivityLog.remove(nil, at: nap.end)
     }
 
     static func canCancel(_ nap: ActiveNap, at now: Date = .now) -> Bool {
@@ -60,13 +75,13 @@ enum NapSession {
         guard end > nap.start else { cancel(); return }
         var naps: [Nap] = defaults.decoded(NapKey.naps) ?? []
         let natural = !nap.ringsAlarm || end < nap.alarm.addingTimeInterval(-120)
-        naps.insert(Nap(start: nap.start, end: max(end, nap.start), natural: natural, resleep: nap.resleep), at: 0)
+        let slept = Nap(start: nap.start, end: end, natural: natural, resleep: nap.resleep)
+        naps.insert(slept, at: 0)
         defaults.encode(naps, NapKey.naps)
         SleepCycle.relearn(from: naps)
         defaults.encode(nil as ActiveNap?, NapKey.active)
         unrecord(at: nap.start)
-        ActivityLog.record(kind(Int(end.timeIntervalSince(nap.start) / 60)), at: nap.start)
-        ActivityLog.record(nil, at: end)
+        record(slept)
     }
 
     /// Ends this stretch and starts another from now, so each wake keeps its own record.
@@ -84,11 +99,13 @@ enum NapSession {
         NapAlarm.schedule(nap)
     }
 
-    static func rate(_ id: UUID, energy: Int?) {
+    static func rate(_ id: UUID, energy: Int?) { update(id) { $0.energy = energy } }
+
+    private static func update(_ id: UUID, _ change: (inout Nap) -> Void) {
         let defaults = AppData.defaults
         var naps: [Nap] = defaults.decoded(NapKey.naps) ?? []
         guard let i = naps.firstIndex(where: { $0.id == id }) else { return }
-        naps[i].energy = energy
+        change(&naps[i])
         defaults.encode(naps, NapKey.naps)
     }
 
@@ -209,7 +226,8 @@ enum NapAlarm {
             guard queue.isCurrent(token) else { return }
             let content = UNMutableNotificationContent()
             content.title = i == 0 ? "Time to get up" : "Still asleep? Get up now"
-            content.body = i == 0 ? "Your \(NapAdvice.hours(Double(nap.minutes) / 60)) of sleep is over." : "Sleeping on past a cycle's end leaves you groggier."
+            content.body = i == 0 ? "Your \(nap.minutes < 60 ? "\(nap.minutes)-min nap" : "\(NapAdvice.hours(Double(nap.minutes) / 60)) of sleep") is over."
+                : "Sleeping on past a cycle's end leaves you groggier."
             content.sound = UNNotificationSound(named: UNNotificationSoundName(sound))
             content.categoryIdentifier = category
             content.interruptionLevel = .timeSensitive
@@ -223,6 +241,14 @@ enum NapAlarm {
 
     static var notificationsDenied: Bool {
         get async { await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .denied }
+    }
+
+    /// A closed app can't wake you: no system alarm allowed, and notifications are off.
+    static var cannotRing: Bool {
+        get async {
+            if #available(iOS 26, *), AlarmManager.shared.authorizationState != .denied { return false }
+            return await notificationsDenied
+        }
     }
 }
 
@@ -300,7 +326,7 @@ final class NapRinger {
                 }
             }
         }
-        after(nap.alarm.timeIntervalSinceNow) { $0.ring() }
+        after(nap.alarm.timeIntervalSinceNow) { $0.ring(due: nap.alarm) }
     }
 
     func stop() {
@@ -317,7 +343,11 @@ final class NapRinger {
         }
     }
 
-    private func ring() {
+    /// Woken long after the alarm (the app was suspended): too late to start ringing now.
+    private static let lateRing: TimeInterval = 5 * 60
+
+    private func ring(due: Date) {
+        guard Date.now.timeIntervalSince(due) < Self.lateRing else { return stop() }
         guard let player else { return }
         Self.audio.async { Self.activateSession(mixing: false) }
         player.currentTime = 0

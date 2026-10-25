@@ -8,14 +8,13 @@ Everything about time, in one free iPhone app.
   strips share one horizontal scroll from a week back to a week ahead, a
   center cursor shows every city's time at that instant, work-hour overlaps listed as jump targets.
   Add a city or a zone by name: PST/CET (region zone plus fixed offset), UTC+8, Asia/Shanghai.
-- **Sleep** — decide one end of the night, get the other: "Wake up by" lists
-  bedtimes on ~90-minute cycles (sleep now, or wait so cycles end right at it;
-  bell for a wind-down reminder); "Sleep at" lists wake times, with a nap by
-  day and its effect on tonight. Tap to sleep with an alarm plus a backup;
-  while asleep, cycles so far and the next cycle ends to move the alarm to.
-  On waking: energy 1–5, or sleep more to the next cycle. Today tiles for
-  coffee cutoff, energy and sleep debt; score/energy chart; nights scored
-  0–100 (own log plus Health); a nap log rated by how the night went.
+- **Sleep** — one tap to nap or sleep now, the alarm on a cycle end; drag the
+  ring or tap a wake chip to change it, or set a later bed to schedule the
+  night (wind-down reminder, coffee and food cutoffs). Asleep: a dim screen
+  with cycles so far and better wake times; on waking, how rested 1–5 or
+  sleep one more cycle. History of nights (scored 0–100, own log plus Health)
+  and naps; insights for cycle length (learned from natural wakes), sleep
+  debt and energy.
 - **Activities** — a continuous day log on a drag-through timeline: Mark (or tap
   the timeline anywhere) to drop a pin; the range it closes takes a tag, or
   none. History under it, folded to 3; today's totals, 7-day averages and

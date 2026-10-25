@@ -45,14 +45,26 @@ has to read past.
 ## Decision
 
 D. Idle page = bed / wake readouts → ring (bed → alarm) → wake chips → one button. Bed = now:
-`Sleep now · up at X` starts `NapSession` at once. Bed later: `Bed at B · up at X` plans it —
+`Sleep now · up at X` starts `NapSession` at once. Bed later: `Start schedule · bed B` plans it —
 the night screen counts down to B and becomes Asleep by itself (`Asleep already` if earlier).
 Cancel returns to the page with B and the wake still set. Bed and wake persist until they pass. The pick comes from `SleepNow` (nap by day, whole cycles
 before the usual wake by night) and only fills in a wake the user hasn't set.
 
+## Rules
+
+- **Night vs nap:** 3 h+ is a night, shorter a nap (`Night.minLength`), on every surface. Going back to
+  sleep soon after a night isn't a nap, however short.
+- **Logged times are in bed:** the fall-asleep time comes off once per logged sleep.
+- **Nights in History:** each logged night of 3 h+ is its own; Health fills days with no logged night,
+  with the longest sleep that day (stretches under 2 h apart joined). Watch "asleep" samples win;
+  iPhone "in bed" counts only where no asleep data overlaps.
+- **Feedback:** one question, how rested (1–5). Asked full-screen only right after a sleep the app tracked;
+  logged sleeps get the History prompt.
+
 ## Data
 
 - Unchanged keys: `sleep.naps`, `sleep.nap.active`, `sleep.caffeine`, profile, cycle.
+- `Nap` no longer has `night` (the "night after" rating) or `bed`; old saves still decode.
 - Replaced: `sleep.ring.night` / `sleep.ring.naps` → `sleep.plan.bed` / `sleep.plan.wake` (the sticky picks).
   Removed: `sleep.nap.night` (`NightPlan`; never written since the ring).
 - Wind-down reminder stays a single local notification (`sleep.winddown`), scheduled with a

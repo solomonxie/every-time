@@ -5,6 +5,9 @@ import SwiftUI
 /// What counts as a night, on every page: shorter sleep is a nap, logged or from Health.
 enum Night {
     static let minLength: TimeInterval = 3 * 3600
+
+    /// Going back to sleep after a night is part of it, however short.
+    static func isNap(_ length: TimeInterval, resleep: Bool = false) -> Bool { !resleep && length < minLength }
 }
 
 /// One night of sleep: from Health (first to last asleep, sources merged) or logged here.
@@ -23,23 +26,13 @@ struct PastNight: Identifiable, Equatable {
 
     func isResleep(at date: Date) -> Bool { (0..<Self.resleepWindow).contains(date.timeIntervalSince(end)) }
 
-    /// A logged stretch already joined into this night, like going back to sleep after a toilet trip.
-    func covers(_ nap: Nap) -> Bool { source != nil && start <= nap.start && nap.end <= end }
-
-    /// Logged nights, stretches with under half an hour awake between joined; Health fills the other days.
-    /// Logged time is in bed, so the time to fall asleep comes off once per night.
+    /// Each logged sleep of night length is its own night; Health fills the other days.
+    /// Logged time is in bed, so the time to fall asleep comes off.
     static func merged(logged: [Nap], health: [PastNight], calendar: Calendar = .current) -> [PastNight] {
-        var nights: [PastNight] = []
-        for nap in logged.sorted(by: { $0.start < $1.start }) {
-            if let last = nights.last, nap.start.timeIntervalSince(last.end) < 30 * 60 {
-                nights[nights.count - 1] = PastNight(start: last.start, end: nap.end, asleep: last.asleep + nap.duration,
-                                                     energy: nap.energy ?? last.energy, source: last.source)
-            } else {
-                nights.append(PastNight(start: nap.start, end: nap.end, asleep: max(0, nap.duration - SleepSuggestion.fallAsleepTime),
-                                        energy: nap.energy, source: nap.id))
-            }
+        let own = logged.filter(\.isNight).map {
+            PastNight(start: $0.start, end: $0.end, asleep: max(0, $0.duration - SleepSuggestion.fallAsleepTime),
+                      energy: $0.energy, source: $0.id)
         }
-        let own = nights.filter { $0.end.timeIntervalSince($0.start) >= Night.minLength }
         let days = Set(own.map { calendar.startOfDay(for: $0.end) })
         return (own + health.filter { !days.contains(calendar.startOfDay(for: $0.end)) }).sorted { $0.end > $1.end }
     }
@@ -67,9 +60,17 @@ enum PastNights {
 
     static func load(days: Int = 14, now: Date = .now) async -> [PastNight] {
         let samples = await samples(days: days, now: now)
-        let asleep = samples.filter { HKCategoryValueSleepAnalysis.allAsleepValues.map(\.rawValue).contains($0.value) }
-        let inBed = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
-        return nights(from: merge((asleep.isEmpty ? inBed : asleep).map { ($0.startDate, $0.endDate) }))
+        let asleepValues = Set(HKCategoryValueSleepAnalysis.allAsleepValues.map(\.rawValue))
+        let asleep = samples.filter { asleepValues.contains($0.value) }.map { ($0.startDate, $0.endDate) }
+        let inBed = samples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }.map { ($0.startDate, $0.endDate) }
+        return nights(from: intervals(asleep: asleep, inBed: inBed))
+    }
+
+    /// Asleep time where a sensor saw it; in-bed time only for stretches with no asleep data, e.g. iPhone-only nights.
+    static func intervals(asleep: [(Date, Date)], inBed: [(Date, Date)]) -> [(Date, Date)] {
+        let slept = merge(asleep)
+        let bedOnly = merge(inBed).filter { bed in !slept.contains { $0.0 < bed.1 && bed.0 < $0.1 } }
+        return merge(slept + bedOnly)
     }
 
     /// Typical cycle length: median time between one REM spell's start and the next, from Watch sleep stages.
@@ -129,24 +130,33 @@ enum PastNights {
     }
 }
 
-/// Score per night, latest on the right.
+/// Score per night, one bar each (two nights can end the same day), latest on the right.
 struct ScoreChart: View {
     let nights: [PastNight]
     let need: TimeInterval
 
     var body: some View {
-        Chart(nights.prefix(14).reversed()) { night in
+        let shown = Array(nights.prefix(14).reversed())
+        let ends = Dictionary(shown.map { (Self.key($0), $0.end) }, uniquingKeysWith: { a, _ in a })
+        Chart(shown) { night in
             let score = SleepScore.score(asleep: night.asleep, need: need, energy: night.energy)
-            BarMark(x: .value("Night", night.end, unit: .day), y: .value("Score", score))
+            BarMark(x: .value("Night", Self.key(night)), y: .value("Score", score))
                 .foregroundStyle(SleepScore.level(score).tint)
                 .cornerRadius(3)
         }
         .chartYScale(domain: 0...100)
         .chartYAxis { AxisMarks(values: [0, 50, 100]) }
-        .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)) } }
-        .frame(height: 90)
-        .accessibilityLabel("Sleep score, last \(min(14, nights.count)) nights")
+        .chartXAxis {
+            AxisMarks { value in
+                AxisValueLabel {
+                    if let end = value.as(String.self).flatMap({ ends[$0] }) { Text(end, format: .dateTime.weekday(.narrow)) }
+                }
+            }
+        }
+        .accessibilityLabel("Sleep score, last \(shown.count) nights")
     }
+
+    private static func key(_ night: PastNight) -> String { "\(night.start.timeIntervalSinceReferenceDate)" }
 }
 
 struct PastNightRow: View {
@@ -158,15 +168,18 @@ struct PastNightRow: View {
         let score = SleepScore.score(asleep: night.asleep, need: need, energy: night.energy)
         SleepHistoryRow(
             date: night.end,
-            detail: "\(SleepNow.clock(night.start)) – \(SleepNow.clock(night.end)) · \(fit.cycles) \(fit.cycles == 1 ? "cycle" : "cycles")",
+            detail: "\(SleepNow.clock(night.start)) – \(SleepNow.clock(night.end))",
             energy: night.energy,
-            duration: NapAdvice.hours((night.asleep / 60).rounded() / 60)
+            duration: NapAdvice.hours((night.asleep / 60).rounded() / 60),
+            note: "\(fit.cycles) \(fit.cycles == 1 ? "cycle" : "cycles")"
         ) {
             VStack(spacing: 1) {
-                Image(systemName: "moon.fill").font(.callout)
+                Image(systemName: "bed.double.fill").font(.title3).frame(width: 30, height: 22)
                 Text("\(score)").font(.clock(14, weight: .semibold))
             }
             .foregroundStyle(SleepScore.level(score).tint)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Score \(score)")
         }
     }
 }

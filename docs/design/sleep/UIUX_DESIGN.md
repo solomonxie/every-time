@@ -19,7 +19,7 @@ Why: [DESIGN.md](DESIGN.md) · Stories: [STORIES.md](STORIES.md). One tab page, 
 ```
 Launch ── sleep active ──▶ Sleep tab, Asleep (whatever tab was last)
 Sleep ─ idle ──Sleep now──▶ asleep ──alarm──▶ ringing ──I'm up──▶ just up ──rate / 2 h──▶ idle
-          │  └──Bed at B──▶ waiting ──at B──▶ asleep (Cancel from either keeps B and the wake set)
+          │  └──Start schedule──▶ waiting ──at B──▶ asleep (Cancel from either keeps B and the wake set)
           │                   │ Cancel (first 15 min)                 │
           │                   └──────────────────────────────── idle ◀┘   I'm up also from the
           ├─ Remind me… ──▶ [notification at bed − 30 min]                [lock-screen banner]
@@ -30,28 +30,34 @@ Sleep ─ idle ──Sleep now──▶ asleep ──alarm──▶ ringing ─�
 
 Only the hero changes state. Below it, idle only: the "Usually 11:00 PM – 7:00 AM · Change" line,
 History (nights and naps together, newest first, 5 then Show all), then Insights (sleep debt,
-energy, trend chart). A sleep
-shorter than one cycle (fall-asleep + cycle) is a nap. Tap a logged night or nap → Edit sleep
-(fell asleep, woke up, woke on my own, remove); Health nights are read-only.
+energy, trend charts). A sleep under 3 h is a nap (going back to sleep after a night excepted),
+everywhere: button, ring, night screen, History. Each logged night is its own row. Tap a logged
+night or nap → Edit sleep (went to bed, woke up, how rested, remove); Health nights are read-only.
+⊕ → Log sleep (went to bed, woke up, how rested).
 
 ```
 HISTORY ⓘ                                         ⊕
- 82  Sat, Oct 4   11:10 PM – 6:50 AM · 5 cycles   7h 25m   ← night: score, times, cycles
-     Fri, Oct 3   2:00 – 2:20 PM          Fresh    20 min  ← nap: level dot, feel
+ How rested after your 20-min nap?  [Drained … Fresh]       ← latest sleep with no rating, < 24 h
+ 🛏  Sat, Oct 4                          🔋     7h 25m       ← night: score under the icon,
+ 82  11:10 PM – 6:50 AM                         5 cycles       battery = how rested
+ 🛋  Fri, Oct 3                          🔋     20 min       ← nap: icon tinted by effect on tonight
+     2:00 PM – 2:20 PM
  Show all 12
-``` The old Today tiles (coffee, energy, debt) are gone — the coffee cutoff
-is on the ring, the rest moved to Insights.
+```
+
+The old Today tiles (coffee, energy, debt) are gone — the coffee cutoff is in "Before bed"
+(a planned night only), the rest moved to Insights.
 
 ```
 INSIGHTS
 ╭──────────────────────────────────────────╮
-│ ⟳ Cycle length ⓘ                 100 min  │   ← learned from natural wakes (3+), else Health,
+│ ⟳ Cycle length ⓘ                 100 min  │   ← learned from natural wakes (5+), else Health,
 │    Learned from 6 natural wakes          │      else 90; tap → Your sleep, "Set my cycle length
 │ 🛏 Sleep debt ⓘ                   2h 10m  │      myself" + stepper 70–120
-│    Short of 8 h/night over the last 7    │   ← green < 1 h · orange < 3 h · red
-│ ⚡ Energy ⓘ                       3.8 / 5 │   ← mean of recent feel ratings
-│    How you felt waking, recently         │
-│ Sleep score                              │   ← 2+ nights
+│    Short of 8 h/night over the last 7    │   ← green < 1 h · orange < 3 h · red; "On track…" when none
+│ ⚡ Energy ⓘ                       3.8 / 5 │   ← mean of the last 2 weeks' ratings
+│    How rested you felt waking, last 2 weeks │
+│ Sleep score                              │   ← 2+ nights; one bar per night
 │  ▂▅▇▆▃▇▇                                 │
 │ Energy on waking                         │   ← 2+ ratings; both charts, no tabs
 │  ▃▅▅▇▆                                   │
@@ -96,7 +102,7 @@ only fills in a wake you haven't set. Chips are cycle ends from the bed time.
          7h 35m · 5 cycles · wakes between cycles ✓
            ( ring: 🛏 at 11:00 PM, arc to ◉ 6:35 )
          [ 5:05 AM ] [[ 6:35 AM ]] [ 8:05 AM ]                  ← from the 11:00 PM bed
-         [[ 🛏 Bed at 11:00 PM · up at 6:35 AM ]]               ← 1 tap → Planned
+         [[ 🛏 Start schedule · bed 11:00 PM ]]                 ← 1 tap → Planned
 
 tap ↓    Waiting — the night screen, black, counting down to bed
                          9:02 PM
@@ -210,7 +216,7 @@ opened late   6:35 → "Alarm was at 6:35 AM · 2h ago"; same bar
 
 ```
 first run    Usually 11:00 PM – 7:00 AM · Set your hours      under the chips; Sleep now works
-Health       ( Use 11:12 PM – 6:58 AM from Health )           replaces the line when 14 nights exist
+Health       ( Use 11:12 PM – 6:58 AM from your last nights ) under the hero, no hours set, 7+ nights
 no Health    Nights: "Add nights from Health" button           unchanged
 notif off    idle: ⚠ line + Turn on (pre-iOS 26)               moved before the tap
 volume low   asleep footnote (pre-iOS 26)                      unchanged
@@ -250,7 +256,7 @@ Up-at chip      [ 3:50 ] [ 6:35 ✓ ]                 asleep; ✓ = current alar
 More chip       [ +1 cycle · 8:05 ]                ringing / just up; tap = sleepMore
 
 Bottom bar      [[ 🌙 Sleep now · up at 6:35 AM ]]  idle, bed = now
-                [[ 🛏 Bed at 11:00 PM · up at 6:35 ]] idle, bed later → Waiting
+                [[ 🛏 Start schedule · bed 11:00 PM ]] idle, bed later → Waiting
                 ( Cancel )  [[ 🌙 Asleep already ]]   waiting
                 ( Cancel )  [[ ☀ I'm up ]]          asleep ≤ 15 min
                 [[ ☀ I'm up ]]                      asleep > 15 min, ringing
@@ -269,7 +275,7 @@ Rating          3 buttons → energy 1 / 3 / 5 (chart unchanged)
 |---|---|
 | `readout.bed` | BEDTIME · {time} · Now / Today |
 | `readout.wake` | WAKE UP · {time} · Tomorrow |
-| `button.plan` | Bed at {bed} · up at {wake} |
+| `button.plan` | Start schedule · bed {bed} |
 | `button.inBed` | Asleep already |
 | `waiting.bed` | Bed {time} · in {duration} |
 | `waiting.alarm` | Alarm {time} is set |

@@ -94,21 +94,18 @@
       "id": "4E0D7D51-5739-5BD4-AEB5-43A54C05E05B",
       "start": "@today-2 13:35",
       "end": "@today-2 13:57",
-      "night": "good",
       "energy": 4
     },
     {
       "id": "FDF23239-1B3B-55B6-965E-0CC7E3188767",
       "start": "@today-5 14:10",
       "end": "@today-5 14:38",
-      "night": "slow",
       "energy": 3
     },
     {
       "id": "A530999E-FACD-5C4A-AC9F-93281A1EC906",
       "start": "@today-9 15:20",
       "end": "@today-9 16:45",
-      "night": "poor",
       "energy": 2
     }
   ],

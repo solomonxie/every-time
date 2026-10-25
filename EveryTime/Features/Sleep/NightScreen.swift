@@ -13,6 +13,9 @@ struct NightScreen: View {
     let onDismissWoke: () -> Void
 
     private var isRinging: Bool { if case .ringing = phase { true } else { false } }
+    private var isWoke: Bool { if case .woke = phase { true } else { false } }
+    /// Past this late, "I'm up" now would log hours awake in bed; offer the alarm time instead.
+    private static let lateUp: TimeInterval = 15 * 60
 
     var body: some View {
         ScrollView {
@@ -33,7 +36,7 @@ struct NightScreen: View {
         .bottomBar { bar.padding(.bottom, 10) }
         .colorScheme(.dark)
         .tint(.orange)
-        .modifier(NightDim())
+        .modifier(NightDim(isOn: !isWoke))
         .sensoryFeedback(.warning, trigger: isRinging)
     }
 
@@ -65,7 +68,6 @@ struct NightScreen: View {
 
     private func asleep(_ nap: ActiveNap) -> some View {
         let check = WakeCheck(start: nap.start, now: now, latency: nap.fallAsleep)
-        let isNap = nap.resleep != true && Double(nap.minutes) * 60 < Nap.nightLength
         let cycles = max(1, Int((nap.alarm.timeIntervalSince(nap.start) - nap.fallAsleep) / WakeCheck.cycle))
         return Group {
             if nap.ringsAlarm { countdown(nap.alarm.timeIntervalSince(now)) } else { clock(now) }
@@ -75,7 +77,7 @@ struct NightScreen: View {
             }
             SleepRing(now: now, plan: nap)
                 .frame(maxWidth: 300)
-            if !isNap {
+            if !nap.isNap {
                 Text(answer(check, nap: nap))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(check.isFirstMinutes ? Self.dim : check.isAtCycleEnd ? Theme.Tone.good : Theme.Tone.warn)
@@ -83,7 +85,7 @@ struct NightScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     CycleDots(count: cycles, tint: .indigo, done: Double(check.cycles) + check.intoCycle / WakeCheck.cycle)
-                    Text("\(check.cycles) of \(cycles) cycles").font(.footnote).foregroundStyle(Self.dim)
+                    Text("\(check.cycles) of \(cycles) \(cycles == 1 ? "cycle" : "cycles")").font(.footnote).foregroundStyle(Self.dim)
                 }
                 chipRow("Up at", times: upAt(nap, check: check), current: nap.ringsAlarm ? nap.alarm : nil) { NapSession.moveAlarm(to: $0) }
             }
@@ -166,7 +168,7 @@ struct NightScreen: View {
                     ForEach(Nap.energyChoices, id: \.self) { level in
                         Button { NapSession.rate(nap.id, energy: level) } label: {
                             VStack(spacing: 6) {
-                                Image(systemName: Self.symbol(level)).font(.title)
+                                Image(systemName: Nap.energySymbol(level)).font(.title)
                                 Text(Nap.energyTitle(level)).font(.subheadline.weight(.semibold))
                             }
                             .foregroundStyle(EnergyChart.tint(level))
@@ -187,10 +189,6 @@ struct NightScreen: View {
                 .foregroundStyle(Self.dim)
                 .padding(.top, 8)
         }
-    }
-
-    private static func symbol(_ level: Int) -> String {
-        level <= 1 ? "battery.0percent" : level <= 3 ? "battery.50percent" : "battery.100percent"
     }
 
     // MARK: Shared
@@ -268,8 +266,13 @@ struct NightScreen: View {
     private var bar: some View {
         switch phase {
         case .waiting(let nap):
-            Button { onCancel(nap) } label: { Text("Cancel schedule").frame(maxWidth: .infinity) }
-                .buttonStyle(.soft)
+            HStack(spacing: Theme.spacing) {
+                Button("Cancel") { onCancel(nap) }
+                    .buttonStyle(.soft)
+                    .frame(maxWidth: 120)
+                Button { NapSession.startEarly() } label: { Label("Asleep already", systemImage: "moon.zzz.fill") }
+                    .buttonStyle(.primary)
+            }
         case .asleep(let nap):
             HStack(spacing: Theme.spacing) {
                 if NapSession.canCancel(nap, at: now) {
@@ -277,6 +280,12 @@ struct NightScreen: View {
                         .buttonStyle(.soft)
                         .frame(maxWidth: 120)
                 }
+                upButton
+            }
+        case .ringing(let nap) where now.timeIntervalSince(nap.alarm) > Self.lateUp:
+            HStack(spacing: Theme.spacing) {
+                Button("Up at \(SleepNow.clock(nap.alarm))") { NapSession.finish(at: nap.alarm) }
+                    .buttonStyle(.soft)
                 upButton
             }
         case .ringing:
@@ -313,14 +322,16 @@ struct CycleDots: View {
 /// Lowers the screen while the night screen is up, and puts it back after.
 private struct NightDim: ViewModifier {
     static let level: CGFloat = 0.2
+    let isOn: Bool
     @Environment(\.scenePhase) private var scenePhase
     @State private var saved: CGFloat?
 
     func body(content: Content) -> some View {
         content
-            .onAppear(perform: dim)
+            .onAppear { if isOn { dim() } }
             .onDisappear(perform: restore)
-            .onChange(of: scenePhase) { _, phase in phase == .active ? dim() : restore() }
+            .onChange(of: scenePhase) { _, phase in phase == .active && isOn ? dim() : restore() }
+            .onChange(of: isOn) { _, on in on ? dim() : restore() }
     }
 
     private var screen: UIScreen? {

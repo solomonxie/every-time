@@ -18,9 +18,10 @@ enum Theme {
 }
 
 extension Font {
-    /// Large readouts: thin, rounded, tabular.
-    static func clock(_ size: CGFloat, weight: Font.Weight = .light) -> Font {
-        .system(size: size, weight: weight, design: .rounded).monospacedDigit()
+    /// Large readouts: thin, rounded, tabular; grows with Dynamic Type up to 1.4×.
+    static func clock(_ size: CGFloat, weight: Font.Weight = .light, scales: Bool = true) -> Font {
+        let scaled = scales ? min(UIFontMetrics.default.scaledValue(for: size), size * 1.4) : size
+        return .system(size: scaled, weight: weight, design: .rounded).monospacedDigit()
     }
     static let screenTitle = Font.system(.largeTitle, design: .rounded, weight: .bold)
     static let cardTitle = Font.system(.headline, design: .rounded)

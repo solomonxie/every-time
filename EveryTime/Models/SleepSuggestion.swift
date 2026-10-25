@@ -20,12 +20,6 @@ struct SleepSuggestion: Identifiable, Equatable {
         }
     }
 
-    static func wakeTimes(goingToBedAt bed: Date) -> [SleepSuggestion] {
-        cycleCounts.map { n in
-            SleepSuggestion(time: bed.addingTimeInterval(fallAsleepTime + Double(n) * cycleLength), cycles: n)
-        }
-    }
-
     /// Cycles in a night of `minutes` in bed, and whether waking lands within 15 minutes of a cycle's end.
     static func fit(minutesInBed minutes: Int) -> (cycles: Int, isBetweenCycles: Bool) {
         let cycles = max(0, (Double(minutes) * 60 - fallAsleepTime) / cycleLength)

@@ -71,6 +71,16 @@ struct SleepNow {
     let zone: Zone
     /// Going back to sleep after a night: how far it fell short of the sleep you need.
     let resleepShortfall: TimeInterval?
+    /// Every nap length, judged from `start`.
+    private var naps: [Option] = []
+    /// Whole-cycle wake times from `start`, longest first; the ones past the planned wake are for sleeping in.
+    private var nights: [Option] = []
+    /// Every nap length, with the pick for now marked if any is worth taking.
+    private(set) var napOptions: [Option] = []
+    /// Ways to sleep for the night from now; none during the day.
+    private(set) var sleepOptions: [Option] = []
+    /// Wake chips for now, earliest first: by day every nap length; from evening on, whole-cycle wakes plus a short nap.
+    private(set) var options: [Option] = []
 
     init(advice: NapAdvice, start: Date, resleepShortfall: TimeInterval? = nil) {
         self.advice = advice
@@ -86,6 +96,11 @@ struct SleepNow {
         case ...window.end: .napWindow
         default: .evening
         }
+        naps = makeNaps()
+        nights = makeNights()
+        napOptions = makeNapOptions()
+        sleepOptions = makeSleepOptions()
+        options = makeOptions()
     }
 
     var window: DateInterval { advice.window(on: day.wake) }
@@ -97,8 +112,7 @@ struct SleepNow {
     /// Daytime: sleeping now can only be a nap.
     var isDaytime: Bool { zone == .beforeWindow || zone == .napWindow }
 
-    /// Wake chips for now, earliest first: by day every nap length; from evening on, whole-cycle wakes plus a short nap.
-    var options: [Option] {
+    private func makeOptions() -> [Option] {
         if resleepShortfall != nil { return resleepOptions }
         let all: [Option]
         switch zone {
@@ -122,10 +136,12 @@ struct SleepNow {
     var pick: Option? { options.first(where: \.isRecommended) ?? options.first }
 
     /// The verdict that matters now: napping by day, sleeping for the night from evening.
-    var verdict: Verdict { resleepShortfall != nil ? resleepVerdict : isDaytime ? napVerdict : sleepVerdict }
+    var verdict: Verdict { verdict(isNap: isDaytime) }
 
-    /// Every nap length, with the pick for now marked if any is worth taking.
-    var napOptions: [Option] {
+    /// The verdict for what was picked: a nap or a night.
+    func verdict(isNap: Bool) -> Verdict { resleepShortfall != nil ? resleepVerdict : isNap ? napVerdict : sleepVerdict }
+
+    private func makeNapOptions() -> [Option] {
         let pick = napPick
         return naps.map { option in
             var option = option
@@ -134,8 +150,7 @@ struct SleepNow {
         }
     }
 
-    /// Ways to sleep for the night from now; none during the day.
-    var sleepOptions: [Option] {
+    private func makeSleepOptions() -> [Option] {
         var options: [Option] = switch zone {
         case .beforeWindow, .napWindow: []
         case .evening: [nightNow]
@@ -176,11 +191,9 @@ struct SleepNow {
         }
     }
 
-    private var naps: [Option] {
-        // Past tonight's bed, a nap is judged against the next one.
-        let bed = day.bed > start ? day.bed : advice.day(of: start).bed
-        return NapAdvice.lengths.map { minutes in
-            let tonight = advice.tonight(start: start, minutes: minutes, bed: bed)
+    private func makeNaps() -> [Option] {
+        NapAdvice.lengths.map { minutes in
+            let tonight = advice.tonight(start: start, minutes: minutes)
             return Option(kind: .nap(minutes: minutes), title: "Nap \(minutes) min",
                           detail: "\(NapAdvice.tonightText(tonight)) · \(NapAdvice.wakeText(minutes: minutes))",
                           time: start.addingTimeInterval(Double(minutes) * 60),
@@ -199,12 +212,11 @@ struct SleepNow {
         let cycles = max(1, Int(day.nextWake.timeIntervalSince(asleep) / Self.cycle))
         let wake = asleep.addingTimeInterval(Double(cycles) * Self.cycle)
         return Option(kind: .night(cycles: cycles, wake: wake), title: "Sleep now",
-                      detail: "\(cycles) full cycles",
+                      detail: "\(cycles) full \(cycles == 1 ? "cycle" : "cycles")",
                       time: wake, level: cycles >= 5 ? .low : .some)
     }
 
-    /// Whole-cycle wake times from now, longest first; the ones past the planned wake are for sleeping in.
-    private var nights: [Option] {
+    private func makeNights() -> [Option] {
         let asleep = start.addingTimeInterval(Self.fallAsleep)
         return (1...6).reversed().compactMap { cycles in
             let wake = asleep.addingTimeInterval(Double(cycles) * Self.cycle)

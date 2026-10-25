@@ -33,15 +33,16 @@ struct SleepTrendTests {
         #expect(SleepTrend.debt(nights, naps: [before], need: 8 * 3600, now: now, calendar: gregorian()) == 2 * 3600)
     }
 
-    @Test func goingBackToSleepCountsOnceAsPartOfTheNight() {
+    @Test func goingBackToSleepIsItsOwnNap() {
         let logged = [
             Nap(start: date(2026, 3, 11, 23), end: date(2026, 3, 12, 6)),
             Nap(start: date(2026, 3, 12, 6, 10), end: date(2026, 3, 12, 7, 55)),
         ]
         let nights = PastNight.merged(logged: logged, health: [], calendar: gregorian())
         #expect(nights.count == 1)
-        #expect(nights[0].asleep == 8.5 * 3600)
-        #expect(SleepTrend.debt(nights, naps: logged, need: 9 * 3600, now: now, calendar: gregorian()) == 30 * 60)
+        #expect(nights[0].asleep == 7 * 3600 - SleepSuggestion.fallAsleepTime)
+        #expect(SleepTrend.debt(nights, naps: logged, need: 9 * 3600, now: now, calendar: gregorian())
+                == 9 * 3600 - nights[0].asleep - (105 * 60 - SleepSuggestion.fallAsleepTime))
     }
 
     @Test func needIsUsualHoursAsleepButAtLeastTheRecommended() {
