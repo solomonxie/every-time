@@ -3,7 +3,7 @@ import SwiftUI
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
     case world, sleep, whatDid, feeling, jetLag, lunar
-    case stopwatch, interview, rehearsal, leetcode, work, countdown
+    case stopwatch, interview, rehearsal, leetcode, work, countdown, labor
     case since, onThisDay, unixTime, converter, cron
 
     static let defaultPins: [AppTool] = [.world, .sleep, .whatDid, .lunar]
@@ -25,7 +25,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world, .whatDid, .feeling, .lunar: .main
         case .sleep, .jetLag: .sleep
-        case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown: .timers
+        case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown, .labor: .timers
         case .since, .onThisDay: .dates
         case .unixTime, .converter, .cron: .developer
         }
@@ -45,6 +45,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .leetcode: "LeetCode"
         case .work: "Work timer"
         case .countdown: "Countdown"
+        case .labor: "Labor"
         case .since: "Important events"
         case .onThisDay: "On this day"
         case .unixTime: "Unix timestamp"
@@ -82,6 +83,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .leetcode: "chevron.left.forwardslash.chevron.right"
         case .work: "briefcase"
         case .countdown: "hourglass.bottomhalf.filled"
+        case .labor: "waveform.path.ecg"
         case .since: "star.circle"
         case .onThisDay: "text.book.closed"
         case .unixTime: "number"
@@ -103,6 +105,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         case .stopwatch, .interview, .rehearsal, .leetcode: TimerToolView(tool: self)
         case .work: WorkTimerView()
         case .countdown: CountdownListView()
+        case .labor: LaborView()
         case .since: ImportantEventsView()
         case .onThisDay: OnThisDayView()
         case .unixTime: UnixTimestampView()

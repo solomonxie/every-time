@@ -129,6 +129,7 @@ struct BackupSnapshot {
         ("timers.activityLog", "activity mark", "activity marks", "hand.tap"),
         ("timers.activityRules", "daily pin", "daily pins", "repeat"),
         ("timers.feelings", "feeling", "feelings", "face.smiling"),
+        ("timers.labor.profiles", "labor", "labors", "waveform.path.ecg"),
         ("sleep.naps", "nap", "naps", "moon.zzz"),
         ("sleep.jetlag.trips", "trip", "trips", "airplane"),
     ]

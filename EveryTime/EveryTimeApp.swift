@@ -13,6 +13,7 @@ struct EveryTimeApp: App {
         NotificationBudget.register()
         NapAlarm.register()
         SleepCycle.current.apply()
+        LaborStore.migrate()
     }
 
     var body: some Scene {
@@ -36,6 +37,7 @@ struct EveryTimeApp: App {
                 if AppData.isDemo { DemoSeed.seedIfNeeded() }
                 Task { await AutoBackup.shared.refresh() }
                 ActivityLog.migrateRepeats()
+                LaborStore.migrate()
                 NotificationBudget.refresh()
                 NapAlarm.reconcile()
                 NapAlarm.restore()

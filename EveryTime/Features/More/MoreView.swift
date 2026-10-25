@@ -9,6 +9,8 @@ struct MoreView: View {
     @Stored(TimerStore.leetcodeHistoryKey) private var history: [TimerSession] = []
     @Stored(WorkLog.key) private var workSpans: [WorkSpan] = []
     @Stored(ActivityLog.key) private var activityMarks: [ActivityMark] = []
+    @Stored(LaborStore.profilesKey) private var laborProfiles: [LaborProfile] = []
+    @Stored(LaborStore.currentKey) private var laborCurrentID = ""
 
     @State private var path = NavigationPath()
 
@@ -97,6 +99,12 @@ struct MoreView: View {
         case .whatDid:
             if let current = ActivityLog(marks: activityMarks).current {
                 Text(Activity.of(current.tag).title).font(.subheadline)
+            }
+        case .labor:
+            if let open = LaborAnalysis(profile: LaborStore.current(in: laborProfiles, id: laborCurrentID), now: .now).open {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(LaborAnalysis.clock(context.date.timeIntervalSince(open.start))).foregroundStyle(Theme.Tone.bad)
+                }
             }
         default:
             EmptyView()

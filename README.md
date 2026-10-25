@@ -32,6 +32,10 @@ Everything about time, in one free iPhone app.
   board, a reminder is a card, completed is Done. Kanban columns with drag &
   drop, a roadmap of due dates and calendar milestones, and insights
   (burn-up, velocity, flow). Nothing leaves the phone (`docs/design/boards/`).
+- **Labor** — contraction timer: one big Start/Stop, strength, waters/bleeding/movement
+  log. Reads the last hour: go rule (5-1-1 default, presets or custom), pattern by timing
+  (Braxton Hicks-like / early / active / very close, with reasons), red flags with a Call
+  button, summary to share. Not a medical device (`docs/design/labor/`).
 - **More** — flat list of the rest: stopwatch, interview timer, rehearsal
   timer, LeetCode timer with session history, work timer (clock in/out,
   breaks, daily history, CSV export), important events (from the

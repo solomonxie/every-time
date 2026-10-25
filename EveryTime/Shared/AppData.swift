@@ -33,6 +33,7 @@ enum AppData {
         Activity.customStyles = defaults.decoded(ActivityLog.stylesKey) ?? [:]
         Feeling.custom = defaults.decoded(CustomFeeling.key) ?? []
         ActivityLog.migrateRepeats()
+        LaborStore.migrate()
         guard drivesSystem else { return }
         NotificationBudget.refresh()
         NapAlarm.restore()
