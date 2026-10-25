@@ -35,7 +35,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .world: "World"
         case .sleep: "Sleep time"
-        case .whatDid: "What did"
+        case .whatDid: "Activities"
         case .feeling: "Feeling"
         case .jetLag: "Jet lag planner"
         case .lunar: "Lunar"

@@ -16,7 +16,7 @@ Everything about time, in one free iPhone app.
   On waking: energy 1–5, or sleep more to the next cycle. Today tiles for
   coffee cutoff, energy and sleep debt; score/energy chart; nights scored
   0–100 (own log plus Health); a nap log rated by how the night went.
-- **What did** — a continuous day log on a drag-through timeline: Mark (or tap
+- **Activities** — a continuous day log on a drag-through timeline: Mark (or tap
   the timeline anywhere) to drop a pin; the range it closes takes a tag, or
   none. History under it, folded to 3; today's totals, 7-day averages and
   typical bed/wake. The Sleep page marks naps and wakes into it.
@@ -86,5 +86,5 @@ More → Demo mode: instant switch to a separate store (`<bundle id>.demo-data`)
 | | | |
 |:-:|:-:|:-:|
 | **World**<br><img src="docs/release/screenshots/01-world.jpg" width="250"> | **Sleep ring**<br><img src="docs/release/screenshots/02-sleep.jpg" width="250"> | **Nap alarm**<br><img src="docs/release/screenshots/03-nap.jpg" width="250"> |
-| **What did**<br><img src="docs/release/screenshots/04-what-did.jpg" width="250"> | **Jet lag planner**<br><img src="docs/release/screenshots/05-jet-lag.jpg" width="250"> | **Lunar**<br><img src="docs/release/screenshots/06-lunar.jpg" width="250"> |
+| **Activities**<br><img src="docs/release/screenshots/04-what-did.jpg" width="250"> | **Jet lag planner**<br><img src="docs/release/screenshots/05-jet-lag.jpg" width="250"> | **Lunar**<br><img src="docs/release/screenshots/06-lunar.jpg" width="250"> |
 | **Countdowns**<br><img src="docs/release/screenshots/07-countdown.jpg" width="250"> | **More**<br><img src="docs/release/screenshots/08-more.jpg" width="250"> |  |

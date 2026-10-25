@@ -10,7 +10,7 @@ struct Feeling: Identifiable, Hashable {
     let tint: Color
     let kind: Kind
 
-    /// Tags carry a prefix so a feeling never collides with a What did activity.
+    /// Tags carry a prefix so a feeling never collides with an Activities entry.
     var tag: String { Self.prefix + id }
     static let prefix = "feel."
 

@@ -37,7 +37,7 @@ struct ContentView: View {
         return active != nil && pins.contains(.sleep) ? AppTool.sleep.rawValue : nil
     }
 
-    /// Adds What did to an existing tab bar once, if there's room.
+    /// Adds Activities to an existing tab bar once, if there's room.
     private func pinWhatDidOnce() {
         guard !pinnedWhatDid else { return }
         pinnedWhatDid = true

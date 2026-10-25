@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A tap on the What did page: the moment something started. It runs until the next mark.
+/// A tap on the Activities page: the moment something started. It runs until the next mark.
 struct ActivityMark: Identifiable, Codable, Hashable {
     var id = UUID()
     var time: Date
@@ -251,7 +251,7 @@ struct ActivityLog {
     }
 }
 
-/// Taps on the What did page.
+/// Taps on the Activities page.
 extension ActivityLog {
     /// Pins `activity` at `time` (already rounded) and tags the range it starts or ends.
     /// A pin of the same sort (moment or stretch) within 2 min is reused, so a wrong tap is fixed by tapping the right tag.

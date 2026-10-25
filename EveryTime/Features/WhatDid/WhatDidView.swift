@@ -103,7 +103,7 @@ struct WhatDidView: View {
         .onChange(of: rules) { syncAlarms() }
         .animation(.snappy, value: marks.count)
         .sensoryFeedback(.impact(weight: .medium), trigger: marks.count)
-        .navigationTitle("What did I do?")
+        .navigationTitle("Activities")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editing) { mark in
             MarkEditor(mark: mark, activities: activities) { edited in
