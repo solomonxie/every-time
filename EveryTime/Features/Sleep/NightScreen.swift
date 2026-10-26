@@ -270,7 +270,7 @@ struct NightScreen: View {
                 Button("Cancel") { onCancel(nap) }
                     .buttonStyle(.soft)
                     .frame(maxWidth: 120)
-                Button { NapSession.startEarly() } label: { Label("Asleep already", systemImage: "moon.zzz.fill") }
+                Button { NapSession.startEarly() } label: { Label("Bed early", systemImage: "moon.zzz.fill") }
                     .buttonStyle(.primary)
             }
         case .asleep(let nap):

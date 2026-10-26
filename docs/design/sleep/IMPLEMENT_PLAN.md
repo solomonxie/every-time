@@ -28,7 +28,7 @@ only rearrange existing rows.
 ## Phase 3b: Review fixes
 - [x] T3.4 One night rule (3 h) everywhere; per-night score bars; Health asleep vs in-bed per night — depends: none
 - [x] T3.5 `SleepPlan.resolve` (pure, tested) out of the view; History, Insights, `UndoToast`, `MorningLog` in own files — depends: none
-- [x] T3.6 Log sleep: went to bed + woke up, capped at now, records into Activities; `Asleep already`; late alarm "Up at {alarm}" — depends: none
+- [x] T3.6 Log sleep: went to bed + woke up, capped at now, records into Activities; `Bed early`; late alarm "Up at {alarm}" — depends: none
 - [x] T3.7 Night screen: per-second ticks only in the last hour; Health refresh on return, throttled — depends: none
 
 ## Phase 4: Zero-tap entries (later)

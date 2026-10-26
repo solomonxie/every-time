@@ -19,7 +19,7 @@ enum NapSession {
         start(minutes: max(1, Int((wake.timeIntervalSinceNow / 60).rounded())), resleep: resleep)
     }
 
-    /// Bed later tonight: alarm at `wake`, wind-down reminder before bed; asleep from `bed` unless "Asleep already" comes first.
+    /// Bed later tonight: alarm at `wake`, wind-down reminder before bed; asleep from `bed` unless "Bed early" comes first.
     static func plan(bed: Date, wake: Date) {
         let start = max(bed, .now)
         resume(ActiveNap(start: start, minutes: max(1, Int((wake.timeIntervalSince(start) / 60).rounded()))))

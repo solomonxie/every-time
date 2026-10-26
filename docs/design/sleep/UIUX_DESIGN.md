@@ -110,7 +110,7 @@ tap ↓    Waiting — the night screen, black, counting down to bed
                    Alarm 6:35 AM is set                        ← last 30 min: "Wind down · lights low, screens away"
            ( ring: 🛏 11:00 PM → ◉ 6:35, centre "1h 58m until bed" )
          Asleep from 11:00 PM unless you tap below first; up at 6:35 AM.
-         ( Cancel )           [[ 🌙 Asleep already ]]           ← at 11:00 PM it becomes Asleep by itself;
+         ( Cancel )           [[ 🌙 Bed early ]]           ← at 11:00 PM it becomes Asleep by itself;
                                                                   Cancel → idle with 11:00 / 6:35 still set
 ```
 
@@ -257,7 +257,7 @@ More chip       [ +1 cycle · 8:05 ]                ringing / just up; tap = sle
 
 Bottom bar      [[ 🌙 Sleep now · up at 6:35 AM ]]  idle, bed = now
                 [[ 🛏 Start schedule · bed 11:00 PM ]] idle, bed later → Waiting
-                ( Cancel )  [[ 🌙 Asleep already ]]   waiting
+                ( Cancel )  [[ 🌙 Bed early ]]   waiting
                 ( Cancel )  [[ ☀ I'm up ]]          asleep ≤ 15 min
                 [[ ☀ I'm up ]]                      asleep > 15 min, ringing
 
@@ -276,7 +276,7 @@ Rating          3 buttons → energy 1 / 3 / 5 (chart unchanged)
 | `readout.bed` | BEDTIME · {time} · Now / Today |
 | `readout.wake` | WAKE UP · {time} · Tomorrow |
 | `button.plan` | Start schedule · bed {bed} |
-| `button.inBed` | Asleep already |
+| `button.inBed` | Bed early |
 | `waiting.bed` | Bed {time} · in {duration} |
 | `waiting.alarm` | Alarm {time} is set |
 | `waiting.windDown` | Wind down · lights low, screens away |

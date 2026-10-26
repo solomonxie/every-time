@@ -46,7 +46,7 @@ has to read past.
 
 D. Idle page = bed / wake readouts → ring (bed → alarm) → wake chips → one button. Bed = now:
 `Sleep now · up at X` starts `NapSession` at once. Bed later: `Start schedule · bed B` plans it —
-the night screen counts down to B and becomes Asleep by itself (`Asleep already` if earlier).
+the night screen counts down to B and becomes Asleep by itself (`Bed early` if earlier).
 Cancel returns to the page with B and the wake still set. Bed and wake persist until they pass. The pick comes from `SleepNow` (nap by day, whole cycles
 before the usual wake by night) and only fills in a wake the user hasn't set.
 
