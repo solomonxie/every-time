@@ -101,7 +101,7 @@ struct SleepHero: View {
             NavigationStack {
                 Picker("Nap length", selection: $napMinutes) {
                     ForEach(Array(stride(from: SleepKind.napMinutes.lowerBound, through: SleepKind.napMinutes.upperBound, by: 5)), id: \.self) {
-                        Text("\($0) min").tag($0)
+                        Text("\($0) min · \(SleepNow.clock(choice.bed.addingTimeInterval(Double($0) * 60)))").tag($0)
                     }
                 }
                 .pickerStyle(.wheel)
@@ -153,20 +153,34 @@ struct SleepHero: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// Lengths that wake before deep sleep or at a cycle's end.
+    private static var napChoices: [Int] {
+        [10, 20, 30, 45, 60, NapAdvice.longMinutes].filter { NapAdvice.grogginess(minutes: $0) != .high }
+    }
+
     private var napChips: some View {
-        HStack(spacing: 8) {
-            ForEach([10, 20, 30, 45, 60, NapAdvice.longMinutes], id: \.self) { minutes in
+        HStack(alignment: .top, spacing: 8) {
+            ForEach(Self.napChoices, id: \.self) { minutes in
                 let picked = napMinutes == minutes
+                let up = SleepNow.clock(choice.bed.addingTimeInterval(Double(minutes) * 60))
                 Button { napMinutes = minutes } label: {
-                    Text("\(minutes)")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .monospacedDigit()
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(picked ? Color.white : .primary)
-                        .background(picked ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: Capsule())
+                    VStack(spacing: 4) {
+                        Text(up)
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 8)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .foregroundStyle(picked ? Color.white : .primary)
+                            .background(picked ? AnyShapeStyle(Color.indigo) : AnyShapeStyle(Theme.cardFill), in: Capsule())
+                        Text("\(minutes) min")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(minutes) minute nap")
+                .accessibilityLabel("\(minutes) minute nap, up at \(up)")
             }
         }
     }
