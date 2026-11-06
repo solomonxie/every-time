@@ -218,7 +218,7 @@ struct SleepNow {
 
     private func makeNights() -> [Option] {
         let asleep = start.addingTimeInterval(Self.fallAsleep)
-        return (1...6).reversed().compactMap { cycles in
+        return (1...8).reversed().compactMap { cycles in
             let wake = asleep.addingTimeInterval(Double(cycles) * Self.cycle)
             guard cycles >= 3 || zone == .lateNight else { return nil }
             let late = wake > day.nextWake.addingTimeInterval(15 * 60)

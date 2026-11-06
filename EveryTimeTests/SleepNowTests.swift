@@ -73,16 +73,17 @@ struct SleepNowTests {
     @Test func bedtimePicksLongestWakeBeforePlannedWake() {
         let now = sleepNow(date(2026, 3, 10, 22))
         #expect(now.zone == .bedtime)
-        #expect(now.sleepOptions.map(\.id) == ["night6", "night5", "night4", "night3"])
-        #expect(now.sleepOptions.map(\.time) == [date(2026, 3, 11, 7, 15), date(2026, 3, 11, 5, 45),
-                                                 date(2026, 3, 11, 4, 15), date(2026, 3, 11, 2, 45)])
+        #expect(now.sleepOptions.map(\.id) == ["night8", "night7", "night6", "night5", "night4", "night3"])
+        #expect(now.sleepOptions.map(\.time) == [date(2026, 3, 11, 10, 15), date(2026, 3, 11, 8, 45), date(2026, 3, 11, 7, 15),
+                                                 date(2026, 3, 11, 5, 45), date(2026, 3, 11, 4, 15), date(2026, 3, 11, 2, 45)])
         #expect(recommended(now.sleepOptions) == ["night5"])
         // 7:15 is within the 15-min slack of the 7:00 wake: not "sleep in", but not the pick either.
-        #expect(!now.sleepOptions[0].isLate)
-        #expect(now.sleepOptions[0].caption == "6 cycles")
-        #expect(now.sleepOptions[1].caption == "5 · best")
-        #expect(now.sleepOptions[2].caption == "4 cycles")
-        #expect(now.sleepOptions[1].sleepMinutes(from: now.start) == 465)
+        #expect(now.sleepOptions[0].caption == "8 · sleep in")
+        #expect(!now.sleepOptions[2].isLate)
+        #expect(now.sleepOptions[2].caption == "6 cycles")
+        #expect(now.sleepOptions[3].caption == "5 · best")
+        #expect(now.sleepOptions[4].caption == "4 cycles")
+        #expect(now.sleepOptions[3].sleepMinutes(from: now.start) == 465)
         #expect(now.sleepVerdict.headline == "Bedtime")
         #expect(recommended(now.napOptions).isEmpty)
         #expect(now.napVerdict.headline == "Bedtime, not nap time")
