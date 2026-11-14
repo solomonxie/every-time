@@ -68,7 +68,7 @@ struct SleepCycle: Codable, Equatable {
     static let key = "sleep.cycle"
     static let defaultMinutes = 90
     static let fallAsleepRange = 5...45
-    static let cycleRange = 70...120
+    static let cycleRange = 60...120
     /// Natural wakes needed before the learned length counts.
     static let minWakes = 5
 
@@ -88,25 +88,38 @@ struct SleepCycle: Codable, Equatable {
         if manualMinutes != nil { return "set by you" }
         if learnedMinutes != nil { return "learned from \(learnedCount) natural wakes" }
         if usesHealth, healthMinutes != nil { return "from \(healthCount) Watch sleep cycles" }
+        if learnedCount >= Self.minWakes { return "average · \(learnedCount) natural wakes don't line up on one length" }
         return learnedCount > 0 ? "average · \(learnedCount) of \(Self.minWakes) natural wakes so far" : "average until you wake on your own a few times"
     }
 
     /// The cycle length that best explains when you woke on your own: each wake should land on a cycle's end.
+    /// Misses are in cycles, not minutes, so shorter lengths don't win just by having closer ends.
+    /// Cycles drift from one to the next, so a short sleep says more than a long one and weighs more.
     static func learned(from naps: [Nap], fallAsleep: Int, minCount: Int = minWakes) -> (minutes: Int, count: Int)? {
         let quick = Int(WakeCheck.fallBackAsleep / 60)
         let wakes = naps.filter { $0.natural == true }
             .map { Double($0.minutes - ($0.isResleep(among: naps) ? quick : fallAsleep)) }
             .filter { $0 >= 60 }
-        guard wakes.count >= minCount else { return nil }
-        let best = cycleRange.min { a, b in cost(a, wakes) < cost(b, wakes) } ?? defaultMinutes
+        guard wakes.count >= minCount,
+              let best = cycleRange.min(by: { miss($0, wakes) < miss($1, wakes) }),
+              miss(best, wakes) <= maxMiss(wakes) else { return nil }
         return (best, wakes.count)
     }
 
-    private static func cost(_ length: Int, _ asleep: [Double]) -> Double {
-        asleep.reduce(0) { sum, minutes in
-            let cycles = max(1, (minutes / Double(length)).rounded())
-            return sum + abs(minutes - cycles * Double(length))
+    /// Weighted mean distance from each wake to its nearest cycle end, as a share of a cycle (0–0.5; random wakes ≈ 0.25).
+    static func miss(_ length: Int, _ asleep: [Double]) -> Double {
+        let weighted = asleep.reduce(0) { sum, minutes in
+            let cycles = minutes / Double(length)
+            return sum + abs(cycles - max(1, cycles.rounded())) / minutes
         }
+        return weighted / asleep.reduce(0) { $0 + 1 / $1 }
+    }
+
+    /// Two standard deviations better than random wakes (uniform miss: sd 1/√48), for the evidence the weights leave.
+    private static func maxMiss(_ asleep: [Double]) -> Double {
+        let weights = asleep.map { 1 / $0 }
+        let effective = pow(weights.reduce(0, +), 2) / weights.reduce(0) { $0 + $1 * $1 }
+        return 0.25 - 2 / sqrt(48 * effective)
     }
 
     /// Re-reads your natural wakes and stores the length they point to.

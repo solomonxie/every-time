@@ -164,6 +164,38 @@ struct SleepCycleTests {
         #expect(SleepCycle.learned(from: Array(repeating: soon, count: 5) + [night], fallAsleep: 15, minCount: 1)?.minutes == 100)
     }
 
+    @Test func noisyWakesFindTheirLengthNotTheShortest() {
+        // ~90 min cycles, wakes up to 12 min off.
+        let naps = [473, 365, 460, 111, 477, 378, 276, 454].map { wake($0) }
+        #expect(SleepCycle.learned(from: naps, fallAsleep: 15)?.minutes == 89)
+    }
+
+    @Test func shortSleepsWeighMoreThanLongNights() {
+        // Real mix: ~70 min resleeps, long nights that drift off any grid.
+        let asleep = [62, 63, 64, 65, 67, 71, 73, 75, 76, 81, 86, 100, 101, 105, 109, 111, 134, 232, 245, 255, 259, 265, 278,
+                      279, 281, 282, 284, 293, 296, 296, 298, 307, 317, 338, 348, 351, 364, 375, 384, 398, 409]
+        #expect(SleepCycle.learned(from: asleep.map { wake($0 + 15) }, fallAsleep: 15)?.minutes == 71)
+    }
+
+    @Test func scatteredWakesLearnNothing() {
+        let naps = [345, 400, 372, 455, 330, 418, 390, 470].map { wake($0) }
+        #expect(SleepCycle.learned(from: naps, fallAsleep: 15) == nil)
+    }
+
+    @Test func shortCyclesAreNotPinnedToTheFloor() {
+        // ~66 min cycles.
+        let naps = [411, 476, 345, 410, 478, 343].map { wake($0) }
+        #expect(SleepCycle.learned(from: naps, fallAsleep: 15)?.minutes == 66)
+    }
+
+    @Test func learnedBeatsWatch() {
+        var cycle = SleepCycle()
+        cycle.healthMinutes = 88
+        #expect(cycle.minutes == 88)
+        cycle.learnedMinutes = 70
+        #expect(cycle.minutes == 70)
+    }
+
     @Test func needsFiveNaturalWakes() {
         #expect(SleepCycle.learned(from: [wake(215), wake(318), wake(113), wake(412)], fallAsleep: 15) == nil)
     }

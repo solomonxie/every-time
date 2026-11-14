@@ -67,9 +67,10 @@ struct SleepInsights: View {
     }
 
     private static var cycleInfo: String { """
-        How long one sleep cycle runs for you. Each time you wake before the alarm the app notes how long \
-        you slept; after \(SleepCycle.minWakes) such wakes it picks the length (70–120 min) that lands them on cycle ends, \
-        and the ring, chips and "wakes between cycles" use it. Tap to set it yourself instead.
+        How long one sleep cycle runs for you. Learned from times you woke before the alarm — after \
+        \(SleepCycle.minWakes) such wakes it picks the length (60–120 min) that lands them on cycle ends, if they line up; \
+        otherwise taken from Apple Watch sleep stages in Health, or the 90-min average. \
+        The ring, chips and "wakes between cycles" use it. Tap to set it yourself instead.
         """ }
 
     private static let energyInfo = """

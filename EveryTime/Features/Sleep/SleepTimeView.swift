@@ -261,6 +261,7 @@ struct SleepTimeView: View {
         if !force, let at = healthLoadedAt, Date.now.timeIntervalSince(at) < Self.healthRefresh { return }
         health = await PastNights.load()
         var cycle = SleepCycle.current
+        SleepCycle.relearn(from: storedNaps)
         let estimate = await PastNights.cycleEstimate()
         cycle.healthMinutes = estimate?.minutes
         cycle.healthCount = estimate?.count ?? 0

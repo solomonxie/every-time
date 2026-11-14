@@ -125,9 +125,9 @@ struct JetLagProfileSheet: View {
             SectionLabel(title: "Sleep cycles") {
                 InfoButton(label: "About sleep cycles", text: """
                     Suggested times are lights-out plus your fall-asleep time, then whole cycles. \
-                    Most people take 10–20 min to drift off. A cycle averages 90 min but runs 70–120 \
+                    Most people take 10–20 min to drift off. A cycle averages 90 min but runs 60–120 \
                     from person to person. Every time you wake before the alarm, the app notes how long \
-                    you slept; after three such wakes it picks the length that puts them on cycle ends. \
+                    you slept; after \(SleepCycle.minWakes) such wakes it picks the length that puts them on cycle ends. \
                     An Apple Watch's REM stages are used until then. Or set it yourself.
                     """)
             }
