@@ -11,6 +11,7 @@ struct NightScreen: View {
     let now: Date
     let onCancel: (ActiveNap) -> Void
     let onDismissWoke: () -> Void
+    @State private var confirmsStartOver = false
 
     private var isRinging: Bool { if case .ringing = phase { true } else { false } }
     private var isWoke: Bool { if case .woke = phase { true } else { false } }
@@ -89,7 +90,21 @@ struct NightScreen: View {
                 }
                 chipRow("Up at", times: upAt(nap, check: check), current: nap.ringsAlarm ? nap.alarm : nil) { NapSession.moveAlarm(to: $0) }
             }
+            startOver(nap)
         }
+    }
+
+    /// Quiet on purpose: for a sleep that didn't happen, not a second way to get up.
+    private func startOver(_ nap: ActiveNap) -> some View {
+        Button("Can't sleep? Start over") { confirmsStartOver = true }
+            .font(.footnote)
+            .foregroundStyle(Self.dim)
+            .padding(.top, 8)
+            .confirmationDialog("Drop this sleep?", isPresented: $confirmsStartOver, titleVisibility: .visible) {
+                Button("Start over", role: .destructive) { onCancel(nap) }
+            } message: {
+                Text("It won't be saved and the alarm is removed, so you can pick a new time.")
+            }
     }
 
     private func answer(_ check: WakeCheck, nap: ActiveNap) -> String {
@@ -273,15 +288,8 @@ struct NightScreen: View {
                 Button { NapSession.startEarly() } label: { Label("Bed early", systemImage: "moon.zzz.fill") }
                     .buttonStyle(.primary)
             }
-        case .asleep(let nap):
-            HStack(spacing: Theme.spacing) {
-                if NapSession.canCancel(nap, at: now) {
-                    Button("Cancel") { onCancel(nap) }
-                        .buttonStyle(.soft)
-                        .frame(maxWidth: 120)
-                }
-                upButton
-            }
+        case .asleep:
+            upButton
         case .ringing(let nap) where now.timeIntervalSince(nap.alarm) > Self.lateUp:
             HStack(spacing: Theme.spacing) {
                 Button("Up at \(SleepNow.clock(nap.alarm))") { NapSession.finish(at: nap.alarm) }
