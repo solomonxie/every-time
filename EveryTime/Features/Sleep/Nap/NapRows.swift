@@ -117,17 +117,66 @@ struct SleepHistoryRow<Lead: View>: View {
 }
 
 struct NapRow: View {
-    let nap: Nap
+    let session: SleepSession
     let level: NapAdvice.Level
 
     var body: some View {
         SleepHistoryRow(
-            date: nap.start,
-            detail: "\(SleepNow.clock(nap.start)) – \(SleepNow.clock(nap.end))",
-            energy: nap.energy,
-            duration: "\(nap.minutes) min"
+            date: session.start,
+            detail: "\(SleepNow.clock(session.start)) – \(SleepNow.clock(session.end))",
+            energy: session.energy,
+            duration: "\(Int(session.inBed / 60)) min"
         ) {
             Image(systemName: "sofa.fill").font(.title3).frame(width: 30, height: 22).foregroundStyle(level.tint)
+        }
+    }
+}
+
+/// A sleep made of parts with short wakes between: totals, then each part to edit.
+struct SleepSessionSheet: View {
+    let session: SleepSession
+    let onSave: (_ old: Nap, _ new: Nap) -> Void
+    let onDelete: (Nap) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var editing: Nap?
+    @State private var changed = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Asleep", value: ActivityLog.duration(session.asleep))
+                    LabeledContent("In bed", value: "\(SleepNow.clock(session.start)) – \(SleepNow.clock(session.end))")
+                    LabeledContent("Got up", value: "\(session.ups) \(session.ups == 1 ? "time" : "times")")
+                    LabeledContent("Awake in between", value: ActivityLog.duration(session.awake))
+                }
+                Section("Parts") {
+                    ForEach(session.parts) { nap in
+                        Button { editing = nap } label: {
+                            LabeledContent("\(SleepNow.clock(nap.start)) – \(SleepNow.clock(nap.end))",
+                                           value: ActivityLog.duration(nap.duration))
+                        }
+                        .foregroundStyle(.primary)
+                        .accessibilityHint("Edit")
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle(session.isNight ? "Night" : "Nap")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .sheet(item: $editing, onDismiss: { if changed { dismiss() } }) { nap in
+            SleepEditor(nap: nap) { edited in
+                changed = true
+                onSave(nap, edited)
+            } onDelete: {
+                changed = true
+                onDelete(nap)
+            }
         }
     }
 }

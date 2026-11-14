@@ -7,7 +7,7 @@ enum MorningLog {
         let calendar = advice.calendar
         let day = advice.day(of: now)
         guard now >= day.wake, now < day.wake.addingTimeInterval(5 * 3600) else { return nil }
-        guard !naps.contains(where: { $0.isNight && now.timeIntervalSince($0.end) < 14 * 3600 }),
+        guard !SleepSession.group(naps).contains(where: { $0.isNight && now.timeIntervalSince($0.end) < 14 * 3600 }),
               !health.contains(where: { calendar.isDate($0.end, inSameDayAs: now) })
         else { return nil }
         let bed = advice.day(of: calendar.date(byAdding: .day, value: -1, to: now) ?? now).bed

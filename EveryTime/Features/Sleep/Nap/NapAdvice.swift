@@ -36,9 +36,14 @@ struct Nap: Identifiable, Codable, Hashable {
     /// Slept from the app rather than logged afterwards.
     var isTracked: Bool { natural != nil }
 
-    /// Back to sleep soon after a night, or from the wake screen: falls asleep in minutes.
+    /// Back to sleep right after waking, soon after a night, or from the wake screen: falls asleep in minutes.
     func isResleep(among naps: [Nap]) -> Bool {
-        resleep == true || naps.contains { $0.isNight && $0.id != id && (0..<PastNight.resleepWindow).contains(start.timeIntervalSince($0.end)) }
+        resleep == true
+            || naps.contains { $0.id != id && (0...SleepSession.maxGap).contains(start.timeIntervalSince($0.end)) }
+            || SleepSession.group(naps).contains { session in
+                session.isNight && !session.parts.contains { $0.id == id }
+                    && (0..<PastNight.resleepWindow).contains(start.timeIntervalSince(session.end))
+            }
     }
 
     static let energyRange = 1...5

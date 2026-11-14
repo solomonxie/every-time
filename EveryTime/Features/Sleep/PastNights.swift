@@ -17,7 +17,7 @@ struct PastNight: Identifiable, Equatable {
     let asleep: TimeInterval
     var energy: Int? = nil
     /// The logged sleep it comes from; nil for a night read from Health.
-    var source: UUID? = nil
+    var session: SleepSession? = nil
 
     var id: Date { start }
 
@@ -26,12 +26,11 @@ struct PastNight: Identifiable, Equatable {
 
     func isResleep(at date: Date) -> Bool { (0..<Self.resleepWindow).contains(date.timeIntervalSince(end)) }
 
-    /// Each logged sleep of night length is its own night; Health fills the other days.
+    /// Each logged sleep of night length, short wakes included, is its own night; Health fills the other days.
     /// Logged time is in bed, so the time to fall asleep comes off.
     static func merged(logged: [Nap], health: [PastNight], calendar: Calendar = .current) -> [PastNight] {
-        let own = logged.filter(\.isNight).map {
-            PastNight(start: $0.start, end: $0.end, asleep: max(0, $0.duration - SleepSuggestion.fallAsleepTime),
-                      energy: $0.energy, source: $0.id)
+        let own = SleepSession.group(logged).filter(\.isNight).map {
+            PastNight(start: $0.start, end: $0.end, asleep: $0.asleep, energy: $0.energy, session: $0)
         }
         let days = Set(own.map { calendar.startOfDay(for: $0.end) })
         return (own + health.filter { !days.contains(calendar.startOfDay(for: $0.end)) }).sorted { $0.end > $1.end }

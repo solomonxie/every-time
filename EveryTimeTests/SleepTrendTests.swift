@@ -67,16 +67,44 @@ struct SleepTrendTests {
         #expect(NapReminder.requests(advice: advice, naps: [], now: date(2026, 3, 12, 14)).map(\.fire) == [date(2026, 3, 13, 13)])
     }
 
-    @Test func goingBackToSleepIsItsOwnNap() {
+    @Test func goingBackToSleepAfterAShortWakeIsTheSameNight() {
         let logged = [
             Nap(start: date(2026, 3, 11, 23), end: date(2026, 3, 12, 6)),
             Nap(start: date(2026, 3, 12, 6, 10), end: date(2026, 3, 12, 7, 55)),
         ]
         let nights = PastNight.merged(logged: logged, health: [], calendar: gregorian())
         #expect(nights.count == 1)
+        #expect(nights[0].end == date(2026, 3, 12, 7, 55))
+        #expect(nights[0].asleep == 7 * 3600 + 105 * 60 - SleepSuggestion.fallAsleepTime - WakeCheck.fallBackAsleep)
+        #expect(SleepTrend.debt(nights, naps: logged, need: 9 * 3600, now: now, calendar: gregorian())
+                == 9 * 3600 - nights[0].asleep)
+    }
+
+    @Test func goingBackToSleepLaterIsItsOwnNap() {
+        let logged = [
+            Nap(start: date(2026, 3, 11, 23), end: date(2026, 3, 12, 6)),
+            Nap(start: date(2026, 3, 12, 6, 30), end: date(2026, 3, 12, 7, 55)),
+        ]
+        let nights = PastNight.merged(logged: logged, health: [], calendar: gregorian())
+        #expect(nights.count == 1)
         #expect(nights[0].asleep == 7 * 3600 - SleepSuggestion.fallAsleepTime)
         #expect(SleepTrend.debt(nights, naps: logged, need: 9 * 3600, now: now, calendar: gregorian())
-                == 9 * 3600 - nights[0].asleep - (105 * 60 - SleepSuggestion.fallAsleepTime))
+                == 9 * 3600 - nights[0].asleep - (85 * 60 - SleepSuggestion.fallAsleepTime))
+    }
+
+    @Test func shortWakesJoinOneSleep() {
+        // Nov 11: a night, then five more sleeps with 0–3 min between.
+        let times = [(1, 24, 6, 35), (6, 36, 7, 14), (7, 14, 8, 30), (8, 30, 9, 51), (9, 54, 10, 15), (10, 15, 11, 42)]
+        let naps = times.map { Nap(start: date(2026, 11, 11, $0.0, $0.1), end: date(2026, 11, 11, $0.2, $0.3)) }
+        let sessions = SleepSession.group(naps + [Nap(start: date(2026, 11, 11, 15), end: date(2026, 11, 11, 15, 20))])
+        #expect(sessions.count == 2)
+        let night = sessions[1]
+        #expect(night.isNight && night.parts.count == 6)
+        #expect(night.ups == 5)
+        #expect(night.awake == 4 * 60)
+        #expect(night.asleep == 614 * 60 - SleepSuggestion.fallAsleepTime - 5 * WakeCheck.fallBackAsleep)
+        #expect(!sessions[0].isNight)
+        #expect(naps[4].isResleep(among: naps))
     }
 
     @Test func needIsUsualHoursAsleepButAtLeastTheRecommended() {

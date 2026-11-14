@@ -206,8 +206,8 @@ enum SleepTrend {
         guard let since = recent.map(\.start).min() else { return 0 }
         let byDay = Dictionary(grouping: recent) { calendar.startOfDay(for: $0.end) }.values
             .map { $0.reduce(0) { $0 + $1.asleep } }
-        let napped = naps.filter { !$0.isNight && $0.start >= since }
-            .reduce(0) { $0 + max(0, $1.duration - SleepSuggestion.fallAsleepTime) }
+        let napped = SleepSession.group(naps).filter { !$0.isNight && $0.start >= since }
+            .reduce(0) { $0 + $1.asleep }
         return max(0, byDay.reduce(0) { $0 + need + napNeed - $1 } - napped)
     }
 
@@ -215,7 +215,8 @@ enum SleepTrend {
     static func missedNaps(_ nights: [PastNight], naps: [Nap], advice: NapAdvice, now: Date) -> [DateInterval] {
         guard advice.profile.dailyNap != nil else { return [] }
         let calendar = advice.calendar
-        let napped = Set(naps.filter { !$0.isNight && !$0.isResleep(among: naps) }.map { calendar.startOfDay(for: $0.start) })
+        let napped = Set(SleepSession.group(naps).filter { !$0.isNight && !$0.parts[0].isResleep(among: naps) }
+            .map { calendar.startOfDay(for: $0.start) })
         return Set(nights.map { calendar.startOfDay(for: $0.end) }).subtracting(napped)
             .map { advice.window(on: $0) }
             .filter { $0.end <= now }

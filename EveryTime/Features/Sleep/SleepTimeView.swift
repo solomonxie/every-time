@@ -22,6 +22,7 @@ struct SleepTimeView: View {
     @State private var toast: UndoToast?
     @State private var sheet: SheetKind?
     @State private var editingNap: Nap?
+    @State private var openSession: SleepSession?
     @State private var logDraft: LogDraft?
 
     private enum SheetKind: String, Identifiable {
@@ -59,13 +60,10 @@ struct SleepTimeView: View {
                 LogNapSheet(draft: draft.nap) { log($0) }
             }
             .sheet(item: $editingNap) { nap in
-                SleepEditor(nap: nap) { edited in
-                    save(storedNaps.map { $0.id == edited.id ? edited : $0 })
-                    NapSession.unrecord(nap)
-                    NapSession.record(edited)
-                } onDelete: {
-                    delete(nap)
-                }
+                SleepEditor(nap: nap) { edit(nap, to: $0) } onDelete: { delete(nap) }
+            }
+            .sheet(item: $openSession) { session in
+                SleepSessionSheet(session: session, onSave: edit, onDelete: delete)
             }
             .undoToast($toast)
             .sensoryFeedback(.impact(weight: .medium), trigger: active == nil)
@@ -121,7 +119,7 @@ struct SleepTimeView: View {
                 }
                 SleepHistory(nights: nights, naps: naps, now: now, need: SleepTrend.need(profile), advice: advice,
                              health: healthState, onLog: { logDraft = LogDraft() }, onEdit: { editingNap = $0 },
-                             onDelete: delete, onAddHealth: addHealth)
+                             onOpen: { openSession = $0 }, onDelete: delete, onAddHealth: addHealth)
                 SleepInsights(nights: nights, naps: naps, profile: profile, cycle: cycle) { sheet = .profile }
             }
             .padding(.horizontal, Theme.padding)
@@ -234,6 +232,12 @@ struct SleepTimeView: View {
         dismissedMorning = MorningLog.key(.now)
     }
 
+    private func edit(_ nap: Nap, to edited: Nap) {
+        save(storedNaps.map { $0.id == edited.id ? edited : $0 })
+        NapSession.unrecord(nap)
+        NapSession.record(edited)
+    }
+
     private func delete(_ nap: Nap) {
         save(storedNaps.filter { $0.id != nap.id })
         NapSession.unrecord(nap)
@@ -257,11 +261,11 @@ struct SleepTimeView: View {
     /// Health nights and cycle, at most every 15 min unless forced; the alarm check every time.
     private func refresh(force: Bool = false) async {
         alarmBlocked = await NapAlarm.cannotRing
+        SleepCycle.relearn(from: storedNaps)
         guard healthAsked else { return }
         if !force, let at = healthLoadedAt, Date.now.timeIntervalSince(at) < Self.healthRefresh { return }
         health = await PastNights.load()
         var cycle = SleepCycle.current
-        SleepCycle.relearn(from: storedNaps)
         let estimate = await PastNights.cycleEstimate()
         cycle.healthMinutes = estimate?.minutes
         cycle.healthCount = estimate?.count ?? 0

@@ -14,7 +14,7 @@ enum NapReminder {
             guard let day = calendar.date(byAdding: .day, value: offset, to: now) else { return nil }
             let window = advice.window(on: day)
             guard window.start > now,
-                  !naps.contains(where: { !$0.isNight && calendar.isDate($0.start, inSameDayAs: window.start) })
+                  !SleepSession.group(naps).contains(where: { !$0.isNight && calendar.isDate($0.start, inSameDayAs: window.start) })
             else { return nil }
             return NotificationBudget.Request(id: NotificationBudget.Feature.napReminder.prefix + "\(Int(window.start.timeIntervalSince1970))",
                                               feature: .napReminder, fire: window.start, title: "Nap window open",
