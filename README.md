@@ -8,6 +8,8 @@ Everything about time, in one free iPhone app.
   strips share one horizontal scroll from a week back to a week ahead, a
   center cursor shows every city's time at that instant, work-hour overlaps listed as jump targets.
   Add a city or a zone by name: PST/CET (region zone plus fixed offset), UTC+8, Asia/Shanghai.
+- **World map** — dotted world map with the live day/night line and a pin per
+  city; sideways full screen like a bedside clock.
 - **Sleep** — one tap to nap or sleep now, the alarm on a cycle end; drag the
   ring or tap a wake chip to change it, or set a later bed to schedule the
   night (wind-down reminder, coffee and food cutoffs). Asleep: a dim screen

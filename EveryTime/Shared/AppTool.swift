@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Every tool in the app; any 1–4 can be pinned to the tab bar, all are listed in More.
 enum AppTool: String, CaseIterable, Identifiable, Hashable {
-    case world, sleep, whatDid, feeling, jetLag, lunar
+    case world, worldMap, sleep, whatDid, feeling, jetLag, lunar
     case stopwatch, interview, rehearsal, leetcode, work, countdown, labor
     case since, onThisDay, unixTime, converter, cron
 
@@ -23,7 +23,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
 
     var group: Group {
         switch self {
-        case .world, .whatDid, .feeling, .lunar: .main
+        case .world, .worldMap, .whatDid, .feeling, .lunar: .main
         case .sleep, .jetLag: .sleep
         case .stopwatch, .interview, .rehearsal, .leetcode, .work, .countdown, .labor: .timers
         case .since, .onThisDay: .dates
@@ -34,6 +34,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .world: "World"
+        case .worldMap: "World map"
         case .sleep: "Sleep time"
         case .whatDid: "Activities"
         case .feeling: "Feeling"
@@ -57,6 +58,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     /// Short label that fits under a tab bar icon.
     var tabTitle: String {
         switch self {
+        case .worldMap: "Map"
         case .sleep: "Sleep"
         case .jetLag: "Jet lag"
         case .work: "Work"
@@ -72,6 +74,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .world: "globe"
+        case .worldMap: "map"
         case .sleep: "moon.stars"
         case .whatDid: "hand.tap"
         case .feeling: "face.smiling"
@@ -97,6 +100,7 @@ enum AppTool: String, CaseIterable, Identifiable, Hashable {
     var destination: some View {
         switch self {
         case .world: WorldView()
+        case .worldMap: WorldMapView()
         case .sleep: SleepTimeView()
         case .whatDid: WhatDidView()
         case .feeling: FeelingView()
