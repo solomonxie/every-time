@@ -91,9 +91,9 @@ struct SleepNowTests {
 
     @Test func lateNightAllowsShortCyclesAndSleepingIn() {
         let now = sleepNow(date(2026, 3, 11, 2))
-        #expect(now.sleepOptions.map(\.id) == ["night6", "night5", "night4", "night3", "night2", "night1"])
+        #expect(now.sleepOptions.map(\.id) == ["night8", "night7", "night6", "night5", "night4", "night3", "night2", "night1"])
         #expect(recommended(now.sleepOptions) == ["night3"])
-        #expect(now.sleepOptions.map(\.level) == [.low, .low, .some, .some, .high, .high])
+        #expect(now.sleepOptions.map(\.level) == [.low, .low, .low, .low, .some, .some, .high, .high])
         #expect(now.sleepOptions[0].detail.hasSuffix("after your \(SleepNow.clock(date(2026, 3, 11, 7))) wake"))
         #expect(now.sleepVerdict.headline == "Past bedtime")
         #expect(now.tip != nil)
@@ -124,7 +124,7 @@ struct SleepNowTests {
     @Test func bedtimeChipsAreEarliestFirst() {
         let now = sleepNow(date(2026, 3, 10, 22))
         // A nap this close to bed is .high, so none is offered.
-        #expect(now.options.map(\.id) == ["night3", "night4", "night5", "night6"])
+        #expect(now.options.map(\.id) == ["night3", "night4", "night5", "night6", "night7", "night8"])
         #expect(now.pick?.id == "night5")
     }
 

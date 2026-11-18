@@ -118,7 +118,7 @@ struct CaffeineTests {
 struct PastNightMergeTests {
     init() { useDefaultCycle() }
 
-    @Test func loggedNightsStaySeparateAndBeatHealth() {
+    @Test func shortWakeJoinsOneLoggedNightThatBeatsHealth() {
         let logged = [
             Nap(start: date(2026, 3, 10, 23), end: date(2026, 3, 11, 3), energy: 2),
             Nap(start: date(2026, 3, 11, 3, 10), end: date(2026, 3, 11, 6, 30), energy: 4),
@@ -129,8 +129,8 @@ struct PastNightMergeTests {
             PastNight(start: date(2026, 3, 9, 23), end: date(2026, 3, 10, 7), asleep: 7.5 * 3600),
         ]
         let nights = PastNight.merged(logged: logged, health: health, calendar: gregorian())
-        #expect(nights.map(\.start) == [date(2026, 3, 11, 3, 10), date(2026, 3, 10, 23), date(2026, 3, 9, 23)])
-        #expect(nights[1].asleep == 4 * 3600 - SleepSuggestion.fallAsleepTime)
+        #expect(nights.map(\.start) == [date(2026, 3, 10, 23), date(2026, 3, 9, 23)])
+        #expect(nights[0].asleep == (7 * 60 + 20) * 60 - SleepSuggestion.fallAsleepTime - WakeCheck.fallBackAsleep)
         #expect(nights[0].energy == 4)
     }
 }
