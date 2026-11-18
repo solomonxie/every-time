@@ -75,6 +75,9 @@ struct LaborSettings: Codable, Equatable {
     var setupDone = false
     /// Skipped from the main screen; a "Finish setup" row stays until it's done.
     var setupSkipped = false
+    /// Movement count: this many episodes within `kickHours`, else go in (Fraser Health: 6 in 2 h).
+    var kickTarget = 6
+    var kickHours = 2
 
     init() {}
 
@@ -99,6 +102,8 @@ struct LaborSettings: Codable, Equatable {
         emergency = try c.decodeIfPresent(String.self, forKey: .emergency) ?? d.emergency
         setupDone = try c.decodeIfPresent(Bool.self, forKey: .setupDone) ?? d.setupDone
         setupSkipped = try c.decodeIfPresent(Bool.self, forKey: .setupSkipped) ?? d.setupSkipped
+        kickTarget = try c.decodeIfPresent(Int.self, forKey: .kickTarget) ?? d.kickTarget
+        kickHours = try c.decodeIfPresent(Int.self, forKey: .kickHours) ?? d.kickHours
     }
 
     func encode(to encoder: Encoder) throws {
@@ -115,10 +120,12 @@ struct LaborSettings: Codable, Equatable {
         try c.encode(emergency, forKey: .emergency)
         try c.encode(setupDone, forKey: .setupDone)
         try c.encode(setupSkipped, forKey: .setupSkipped)
+        try c.encode(kickTarget, forKey: .kickTarget)
+        try c.encode(kickHours, forKey: .kickHours)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case firstBaby, fastLastLabor, dueDate, hospital, phone, travelMinutes, transport, conditions, careTeamRule, emergency, setupDone, setupSkipped, rule
+        case firstBaby, fastLastLabor, dueDate, hospital, phone, travelMinutes, transport, conditions, careTeamRule, emergency, setupDone, setupSkipped, kickTarget, kickHours, rule
     }
 
     /// Completed weeks and days at `now`, from a 40-week due date; nil outside a pregnancy (a mistyped year).

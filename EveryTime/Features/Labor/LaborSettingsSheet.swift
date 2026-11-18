@@ -83,6 +83,15 @@ struct LaborSettingsSheet: View {
                 }
 
                 Section {
+                    Stepper("Target: \(settings.kickTarget) movements", value: $settings.kickTarget, in: 3...10)
+                    Stepper("Blocks of \(settings.kickHours) hour\(settings.kickHours == 1 ? "" : "s")", value: $settings.kickHours, in: 1...3)
+                } header: {
+                    Text("Baby's movements")
+                } footer: {
+                    Text("Counted in fixed blocks from midnight (0:00–2:00, 2:00–4:00…). Fraser Health and many Canadian hospitals say fewer than 6 in 2 hours means go to labor and delivery. Follow what your care team told you.")
+                }
+
+                Section {
                     Toggle("My care team gave me a rule", isOn: hasCareTeamRule)
                     if settings.careTeamRule != nil {
                         RuleSteppers(rule: Binding(get: { settings.careTeamRule ?? settings.plan.rule }, set: { settings.careTeamRule = $0 }))

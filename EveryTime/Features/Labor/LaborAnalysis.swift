@@ -427,7 +427,11 @@ struct LaborAnalysis {
             lines.append("Born \(Self.time(birth.time))" + (birth.laborStart.map { " after \(Self.span(birth.time.timeIntervalSince($0))) of labor" } ?? ""))
         }
         let since = (episode.first?.start ?? now).addingTimeInterval(-Self.flagSpan)
-        for event in events where event.time >= since && event.time <= now {
+        let block = MovementBlock(containing: now, hours: settings.kickHours, events: events, calendar: calendar)
+        for b in [block.previous(events: events, calendar: calendar), block] where b.count > 0 {
+            lines.append("Baby moved \(b.label): \(b.count) times")
+        }
+        for event in events where event.time >= since && event.time <= now && event.kind != .moved {
             lines.append("\(Self.time(event.time)) \(event.title)")
         }
         lines.append("Timed with Every Time — by timing only, not a medical exam.")

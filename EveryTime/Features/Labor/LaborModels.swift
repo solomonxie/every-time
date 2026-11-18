@@ -25,7 +25,7 @@ struct Contraction: Identifiable, Codable, Hashable {
 /// Something besides a contraction worth the timeline: waters, bleeding, rest…
 struct LaborEvent: Identifiable, Codable, Hashable {
     enum Kind: String, Codable, CaseIterable {
-        case waters, bleeding, show, lessMovement, rested, note, stage, pushing
+        case waters, bleeding, show, lessMovement, rested, note, stage, pushing, moved
 
         var title: String {
             switch self {
@@ -37,6 +37,7 @@ struct LaborEvent: Identifiable, Codable, Hashable {
             case .note: "Note"
             case .stage: "Stage"
             case .pushing: "Baby coming"
+            case .moved: "Baby moved"
             }
         }
 
@@ -50,6 +51,7 @@ struct LaborEvent: Identifiable, Codable, Hashable {
             case .note: "note.text"
             case .stage: "flag.fill"
             case .pushing: "staroflife.fill"
+            case .moved: "hand.tap"
             }
         }
 

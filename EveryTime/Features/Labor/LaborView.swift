@@ -57,10 +57,7 @@ struct LaborView: View {
                                      back: { self.previewing = nil }, confirm: { confirm(previewing) })
                         StageCard(stage: previewing, rule: settings.rule, isPreview: true)
                     }
-                    if let next = suggestion(analysis) {
-                        StageSuggestion(stage: next, reason: next == .active ? "Your hospital rule (\(settings.rule.name)) is met." : "Contractions are regular now.",
-                                        accept: { setStage(next) }, dismiss: { update { $0.notYet = StageDismissal(stage: next, at: .now) } })
-                    }
+                    if let next = suggestion(analysis) { stageSuggestion(next) }
                     if let birth = analysis.birth {
                         BirthCard(birth: birth, startOver: startNewLabor)
                     } else {
@@ -75,12 +72,12 @@ struct LaborView: View {
                         }
                         actions(analysis)
                     }
-                    if previewing == nil { StageCard(stage: analysis.stage, rule: settings.rule) }
+                    movementsAndStage(analysis)
                 }
                 .laborRow()
 
                 LaborHistory(analysis: analysis, contractions: contractions, events: events,
-                             edit: { editing = $0 }, editEvent: { editingEvent = $0 }, delete: delete)
+                             edit: { editing = $0 }, editEvent: { editingEvent = $0 }, delete: { delete($0) })
             }
             .toolbar { toolbar(analysis) }
             .sheet(isPresented: $showsDetails) { LaborDetails(analysis: analysis) }
@@ -321,6 +318,34 @@ struct LaborView: View {
         currentID = added.next.id.uuidString
     }
 
+    // MARK: Movements
+
+    private func stageSuggestion(_ next: LaborStage) -> some View {
+        let reason = next == .active ? "Your hospital rule (\(settings.rule.name)) is met." : "Contractions are regular now."
+        return StageSuggestion(stage: next, reason: reason, accept: { setStage(next) },
+                               dismiss: { update { $0.notYet = StageDismissal(stage: next, at: .now) } })
+    }
+
+    @ViewBuilder
+    private func movementsAndStage(_ analysis: LaborAnalysis) -> some View {
+        if showsMovements(analysis) {
+            MovementCard(events: events, settings: settings, now: analysis.now, tap: addMovement)
+        }
+        if previewing == nil { StageCard(stage: analysis.stage, rule: settings.rule) }
+    }
+
+    /// From 26 weeks (SOGC 2023), until the hospital.
+    private func showsMovements(_ analysis: LaborAnalysis) -> Bool {
+        guard analysis.birth == nil, analysis.stage < .hospital else { return false }
+        return (settings.gestation(at: analysis.now)?.weeks ?? 26) >= 26
+    }
+
+    private func addMovement() {
+        let movement = LaborEvent(kind: .moved, time: .now)
+        events.append(movement)
+        withAnimation(.snappy) { toast = Toast(text: "Movement saved") { delete([movement.id], quietly: true) } }
+    }
+
     // MARK: Changes
 
     private func toggle(_ analysis: LaborAnalysis) {
@@ -346,13 +371,14 @@ struct LaborView: View {
         contractions = contractions.map { $0.id == contraction.id ? contraction : $0 }
     }
 
-    private func delete(_ ids: [UUID]) {
+    private func delete(_ ids: [UUID], quietly: Bool = false) {
         let before = profile
         let gone = Set(ids)
         update {
             $0.contractions.removeAll { gone.contains($0.id) }
             $0.events.removeAll { gone.contains($0.id) }
         }
+        guard !quietly else { return }
         let text = ids.count == 1 ? "Deleted" : "Deleted \(ids.count)"
         withAnimation(.snappy) {
             toast = Toast(text: text) { update { $0.contractions = before.contractions; $0.events = before.events } }
