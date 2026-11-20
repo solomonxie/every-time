@@ -111,7 +111,7 @@ Recording (the build Apple reviews, on the iPhone, current iOS):
 1. iPhone Settings → Control Center → add **Screen Recording**. Turn on Do Not Disturb.
 2. In the app, More → **Demo mode** on (keeps your real data out; doesn't read Health). Swipe the app away.
 3. Start recording, then launch the app from the Home Screen.
-4. ~2–3 minutes: World (scroll the hour strips, Add City) → Sleep (tonight's plan, start a 10-min nap, show the alarm screen, Cancel nap) → Activities (Mark, tag a range) → Lunar (convert a date, Add event) → More → Jet lag planner (open a trip) → Countdown → Labor (open the plan card, the Why note with sources) → On this day → Settings (iCloud Drive backup switch, backups list).
+4. ~2–3 minutes: World (scroll the hour strips, Add City) → Sleep (tonight's plan, start a 10-min nap, show the alarm screen, Cancel nap) → Activities (Mark, tag a range) → Lunar (convert a date, Add event) → More → Jet lag planner (open a trip) → Countdown → Baby (open the plan card, the Why note with sources) → On this day → Settings (iCloud Drive backup switch, backups list).
 5. Turn Demo mode off, Sleep → **Add nights from Health** → the Health permission sheet (shows read-only sleep), allow → past nights appear.
 6. Show the Home Screen widget.
 7. Stop. Photos → trim → share the video.
@@ -292,8 +292,8 @@ The audio background mode exists only for the user-started nap/sleep alarm, an a
 To test: Sleep tab → pick a nap length (or tap a wake time) → lock the phone → the alarm rings at the set time → Stop.
 
 LABOR
-More → Labor. A contraction timer that compares the last hour with the care team's "when to call" rule, or a published default (5-1-1, INSPQ). Not a medical device or diagnosis: it says the care team comes first, lists warning signs, and cites sources (NHS, ACOG, WHO, CDC). It never dials; it only shows the number the user typed. Data stays on the device.
-To test: More → Labor → "Later" on setup → start and stop a contraction twice.
+More → Baby. A contraction timer that compares the last hour with the care team's "when to call" rule, or a published default (5-1-1, INSPQ). Not a medical device or diagnosis: it says the care team comes first, lists warning signs, and cites sources (NHS, ACOG, WHO, CDC). It never dials; it only shows the number the user typed. Data stays on the device.
+To test: More → Baby → "Later" on setup → start and stop a contraction twice.
 
 OTHER PERMISSIONS
 - Calendar: full access to pick an existing event as an "important event"; write-only access to add lunar events the user creates.
