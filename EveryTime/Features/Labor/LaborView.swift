@@ -10,6 +10,7 @@ struct LaborView: View {
     @State private var toast: Toast?
     @State private var starts = 0
     @State private var stops = 0
+    @State private var tallies = 0
     @State private var showsSettings = false
     @State private var showsDetails = false
     @State private var showsGuide = false
@@ -59,6 +60,7 @@ struct LaborView: View {
                     }
                     if let next = suggestion(analysis) { stageSuggestion(next) }
                     if let birth = analysis.birth {
+                        babyCare(analysis)
                         BirthCard(birth: birth, startOver: startNewLabor)
                     } else {
                         if contractions.isEmpty { LaborGuide() }
@@ -67,12 +69,13 @@ struct LaborView: View {
                         }
                         bigButton(analysis)
                         afterButton(analysis)
+                        if analysis.buttonMode == .contraction { movedRow(analysis) }
                         if !analysis.episode.isEmpty && analysis.stage < .hospital {
                             GoalRow(check: analysis.ruleCheck, firstSign: !settings.plan.firstSign.isEmpty)
                         }
                         actions(analysis)
                     }
-                    movementsAndStage(analysis)
+                    if previewing == nil { StageCard(stage: analysis.stage, rule: settings.rule) }
                 }
                 .laborRow()
 
@@ -90,6 +93,7 @@ struct LaborView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.impact(weight: .heavy), trigger: starts)
         .sensoryFeedback(.impact(weight: .medium), trigger: stops)
+        .sensoryFeedback(.impact(weight: .light), trigger: tallies)
         .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
         .overlay(alignment: .bottom) { toastView }
         .sheet(item: $editing) { contraction in
@@ -136,7 +140,35 @@ struct LaborView: View {
 
     // MARK: Button
 
+    /// The one big button: what it counts follows the stage.
+    @ViewBuilder
     private func bigButton(_ analysis: LaborAnalysis) -> some View {
+        if analysis.buttonMode == .movement {
+            let block = MovementBlock(containing: analysis.now, hours: settings.kickHours, events: events)
+            tallyButton(symbol: "hand.tap.fill", title: "Baby moved",
+                        detail: "\(block.count) of \(settings.kickTarget) · \(block.label)") { addTally(.moved) }
+        } else {
+            contractionButton(analysis)
+        }
+    }
+
+    private func tallyButton(symbol: String, title: String, detail: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: symbol).font(.system(size: 34))
+                Text(title).font(.title3.weight(.bold))
+                Text(detail).font(.subheadline.weight(.medium)).opacity(0.85).contentTransition(.numericText())
+            }
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 180)
+            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 32))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func contractionButton(_ analysis: LaborAnalysis) -> some View {
         let open = analysis.open
         return Button { toggle(analysis) } label: {
             VStack(spacing: 6) {
@@ -163,7 +195,15 @@ struct LaborView: View {
 
     @ViewBuilder
     private func afterButton(_ analysis: LaborAnalysis) -> some View {
-        if let open = analysis.open {
+        if analysis.buttonMode == .movement {
+            let previous = MovementBlock(containing: analysis.now, hours: settings.kickHours, events: events).previous(events: events)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(previous.label): \(previous.count). Baby moving less than usual? Call, whatever the count.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Contraction started", systemImage: "timer") { toggle(analysis) }.buttonStyle(.soft)
+            }
+        } else if let open = analysis.open {
             let mistake = Button("Tapped by mistake", role: .destructive) { delete([open.id]) }.buttonStyle(.soft).lineLimit(1)
             if analysis.now.timeIntervalSince(open.start) > LaborAnalysis.maxLength {
                 VStack(alignment: .leading, spacing: 8) {
@@ -184,6 +224,18 @@ struct LaborView: View {
                     .foregroundStyle(.secondary)
                 if analysis.now.timeIntervalSince(end) < 15 * 60 { strengthPicker(last) }
             }
+        }
+    }
+
+    /// Movements still matter in labor.
+    private func movedRow(_ analysis: LaborAnalysis) -> some View {
+        let block = MovementBlock(containing: analysis.now, hours: settings.kickHours, events: events)
+        return HStack(spacing: 10) {
+            Button("Baby moved", systemImage: "hand.tap") { addTally(.moved) }.buttonStyle(.soft)
+            Text("\(block.count) · \(block.label)")
+                .font(.subheadline).foregroundStyle(.secondary)
+                .contentTransition(.numericText())
+            Spacer(minLength: 0)
         }
     }
 
@@ -326,24 +378,32 @@ struct LaborView: View {
                                dismiss: { update { $0.notYet = StageDismissal(stage: next, at: .now) } })
     }
 
-    @ViewBuilder
-    private func movementsAndStage(_ analysis: LaborAnalysis) -> some View {
-        if showsMovements(analysis) {
-            MovementCard(events: events, settings: settings, now: analysis.now, tap: addMovement)
+    /// After the birth: feeds on the big button, diapers beside it, all counted over 24 hours.
+    private func babyCare(_ analysis: LaborAnalysis) -> some View {
+        let lastFeed = analysis.events.last { $0.kind == .fed && $0.time <= analysis.now }
+        let since = lastFeed.map { "Last feed \(LaborAnalysis.span(analysis.now.timeIntervalSince($0.time))) ago" } ?? "Tap at each feed"
+        return VStack(alignment: .leading, spacing: Theme.spacing) {
+            tallyButton(symbol: "waterbottle.fill", title: "Fed", detail: since) { addTally(.fed) }
+            HStack(spacing: 10) {
+                Button("Wet", systemImage: "drop") { addTally(.wet) }.buttonStyle(.soft)
+                Button("Dirty", systemImage: "toilet") { addTally(.dirty) }.buttonStyle(.soft)
+                Spacer(minLength: 0)
+            }
+            Text("Last 24 h: \(analysis.tally(.fed)) feeds · \(analysis.tally(.wet)) wet · \(analysis.tally(.dirty)) dirty")
+                .font(.subheadline).foregroundStyle(.secondary)
         }
-        if previewing == nil { StageCard(stage: analysis.stage, rule: settings.rule) }
     }
 
-    /// From 26 weeks (SOGC 2023), until the hospital.
-    private func showsMovements(_ analysis: LaborAnalysis) -> Bool {
-        guard analysis.birth == nil, analysis.stage < .hospital else { return false }
-        return (settings.gestation(at: analysis.now)?.weeks ?? 26) >= 26
-    }
-
-    private func addMovement() {
-        let movement = LaborEvent(kind: .moved, time: .now)
-        events.append(movement)
-        withAnimation(.snappy) { toast = Toast(text: "Movement saved") { delete([movement.id], quietly: true) } }
+    private func addTally(_ kind: LaborEvent.Kind) {
+        let event = LaborEvent(kind: kind, time: .now)
+        events.append(event)
+        tallies += 1
+        let text = switch kind {
+        case .moved: "Movement saved"
+        case .fed: "Feed saved"
+        default: "Diaper saved"
+        }
+        withAnimation(.snappy) { toast = Toast(text: text) { delete([event.id], quietly: true) } }
     }
 
     // MARK: Changes

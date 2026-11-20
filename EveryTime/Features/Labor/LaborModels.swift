@@ -25,7 +25,7 @@ struct Contraction: Identifiable, Codable, Hashable {
 /// Something besides a contraction worth the timeline: waters, bleeding, rest…
 struct LaborEvent: Identifiable, Codable, Hashable {
     enum Kind: String, Codable, CaseIterable {
-        case waters, bleeding, show, lessMovement, rested, note, stage, pushing, moved
+        case waters, bleeding, show, lessMovement, rested, note, stage, pushing, moved, fed, wet, dirty
 
         var title: String {
             switch self {
@@ -38,6 +38,9 @@ struct LaborEvent: Identifiable, Codable, Hashable {
             case .stage: "Stage"
             case .pushing: "Baby coming"
             case .moved: "Baby moved"
+            case .fed: "Fed"
+            case .wet: "Wet diaper"
+            case .dirty: "Dirty diaper"
             }
         }
 
@@ -52,11 +55,17 @@ struct LaborEvent: Identifiable, Codable, Hashable {
             case .stage: "flag.fill"
             case .pushing: "staroflife.fill"
             case .moved: "hand.tap"
+            case .fed: "waterbottle"
+            case .wet: "drop"
+            case .dirty: "toilet"
             }
         }
 
         /// Raises a red flag while recent.
         var isWarning: Bool { [.waters, .bleeding, .lessMovement, .pushing].contains(self) }
+
+        /// One tap each, many a day: counted, not listed in the summary.
+        var isTally: Bool { [.moved, .fed, .wet, .dirty].contains(self) }
     }
 
     enum Fluid: String, Codable, CaseIterable {

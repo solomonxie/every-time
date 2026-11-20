@@ -159,6 +159,20 @@ struct LaborAnalysis {
 
     var open: Contraction? { episode.last.flatMap { $0.end == nil ? $0 : nil } }
     var last: Contraction? { episode.last { !Self.isMisTap($0) } }
+
+    enum ButtonMode { case movement, contraction, feeding }
+
+    /// Movements before labor (from 26 weeks, SOGC 2023), contractions once they start, feeds after the birth.
+    var buttonMode: ButtonMode {
+        if birth != nil { return .feeding }
+        if stage >= .early || !episode.isEmpty { return .contraction }
+        return (settings.gestation(at: now, calendar: calendar)?.weeks ?? 26) >= 26 ? .movement : .contraction
+    }
+
+    /// Taps of `kind` in the 24 hours up to now.
+    func tally(_ kind: LaborEvent.Kind) -> Int {
+        events.filter { $0.kind == kind && $0.time <= now && now.timeIntervalSince($0.time) < 24 * 3600 }.count
+    }
     var tracked: TimeInterval { episode.first.map { now.timeIntervalSince($0.start) } ?? 0 }
 
     // MARK: Stats
@@ -431,7 +445,10 @@ struct LaborAnalysis {
         for b in [block.previous(events: events, calendar: calendar), block] where b.count > 0 {
             lines.append("Baby moved \(b.label): \(b.count) times")
         }
-        for event in events where event.time >= since && event.time <= now && event.kind != .moved {
+        if birth != nil {
+            lines.append("Last 24 h: \(tally(.fed)) feeds, \(tally(.wet)) wet, \(tally(.dirty)) dirty")
+        }
+        for event in events where event.time >= since && event.time <= now && !event.kind.isTally {
             lines.append("\(Self.time(event.time)) \(event.title)")
         }
         lines.append("Timed with Every Time — by timing only, not a medical exam.")

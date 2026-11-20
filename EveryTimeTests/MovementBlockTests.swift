@@ -27,4 +27,28 @@ struct MovementBlockTests {
         #expect(block.start == date(2026, 11, 17, 21))
         #expect(block.end == date(2026, 11, 18))
     }
+
+    private func mode(events: [LaborEvent] = [], contractions: [Contraction] = [], weeksAgo due: Int? = nil) -> LaborAnalysis.ButtonMode {
+        let now = date(2026, 11, 17, 12)
+        var settings = LaborSettings()
+        settings.dueDate = due.map { calendar.date(byAdding: .day, value: 280 - $0 * 7, to: now) } ?? nil
+        return LaborAnalysis(contractions: contractions, events: events, settings: settings, now: now, calendar: calendar).buttonMode
+    }
+
+    @Test func bigButtonCountsMovementsBeforeLabor() {
+        #expect(mode(weeksAgo: 34) == .movement)
+        #expect(mode() == .movement)
+        #expect(mode(weeksAgo: 20) == .contraction)
+    }
+
+    @Test func bigButtonTimesContractionsOnceTheyStart() {
+        let now = date(2026, 11, 17, 12)
+        #expect(mode(contractions: [Contraction(start: now.addingTimeInterval(-300), end: now.addingTimeInterval(-240))], weeksAgo: 38) == .contraction)
+        #expect(mode(events: [LaborEvent(kind: .stage, time: now.addingTimeInterval(-60), stage: .early)], weeksAgo: 38) == .contraction)
+    }
+
+    @Test func bigButtonCountsFeedsAfterTheBirth() {
+        let now = date(2026, 11, 17, 12)
+        #expect(mode(events: [LaborEvent(kind: .stage, time: now.addingTimeInterval(-3600), stage: .born)], weeksAgo: 39) == .feeding)
+    }
 }
